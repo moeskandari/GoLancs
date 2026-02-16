@@ -105,17 +105,45 @@ The frontend will run on `http://localhost:3000`
 
 ### Running with Podman Containers
 
-(Container configuration to be added in future iterations)
+The application is fully containerized with Podman. Three main services run in containers:
 
+#### Quick Start (Recommended)
 ```bash
-# Build containers
-podman build -t travel-routes-backend ./backend
-podman build -t travel-routes-frontend ./frontend
-
-# Run containers
-podman run -d -p 5000:5000 travel-routes-backend
-podman run -d -p 3000:3000 travel-routes-frontend
+# Interactive setup guide
+./scripts/quickstart.sh
 ```
+
+#### Using Podman Compose (Easiest)
+```bash
+# Requires: pip install podman-compose
+podman-compose up -d
+
+# View logs
+podman-compose logs -f
+
+# Stop all services
+podman-compose down
+```
+
+#### Using Provided Scripts
+```bash
+# Build all container images
+./scripts/build_containers.sh
+
+# Start all containers (PostgreSQL, Backend, Frontend)
+./scripts/run_all_containers.sh
+
+# Stop all containers
+./scripts/cleanup_containers.sh
+```
+
+#### Access Services
+Once running:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:5000/api/health
+- **Database**: localhost:5050
+
+For detailed container instructions, see [CONTAINERIZATION.md](CONTAINERIZATION.md)
 
 ## Current Implementation Status
 

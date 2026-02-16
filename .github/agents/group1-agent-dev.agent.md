@@ -28,6 +28,7 @@ Technical requirements:
 - Transportation data will be sourced from local transportation authorities, real-time data will be pulled from scc.transport.lancs.ac.uk, more static data will be from the postgresql database.
 - The application will be designed with accessibility in mind, ensuring it is usable by people with disabilities.
 - Backend will be stored in ./backend and frontend in ./frontend in the github repo.
+- We need to pull and rebuild the containers whenever we boot up computers because we are on lab machines.
 
 Rules: 
 - Before git push commands, wait for a review from the team to ensure code quality and consistency. Wait for approval before pushing to the main branch.
