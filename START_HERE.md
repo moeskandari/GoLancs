@@ -8,7 +8,7 @@ A **production-ready, fully containerized** Lancaster Travel Routes application 
 🎯 3 Containers Running Together:
    ├─ PostgreSQL Database (group1db) - Port 5050
    ├─ Node.js Backend (group1-backend) - Port 5000
-   └─ React Frontend (group1-frontend) - Port 3000
+   └─ React Frontend (group1-frontend) - Port 5080
 ```
 
 ---
@@ -32,7 +32,7 @@ podman-compose up -d
 ./scripts/build_containers.sh && ./scripts/run_all_containers.sh
 ```
 
-Then open: **http://localhost:3000** ✨
+Then open: **http://localhost:5080** ✨
 
 ---
 
@@ -40,7 +40,7 @@ Then open: **http://localhost:3000** ✨
 
 ```
 Running Containers:
-├─ group1-frontend (React UI)       → http://localhost:3000
+├─ group1-frontend (React UI)       → http://localhost:5080
 ├─ group1-backend (API Server)      → http://localhost:5000
 └─ group1db (PostgreSQL Database)   → localhost:5050
 
@@ -54,7 +54,7 @@ All Connected Via:
 
 | Container | Type | Port | Purpose | Built From |
 |-----------|------|------|---------|-----------|
-| group1-frontend | Frontend | 3000 | React web UI | frontend/Dockerfile |
+| group1-frontend | Frontend | 5080 | React web UI | frontend/Dockerfile |
 | group1-backend | Backend | 5000 | REST API | backend/Dockerfile |
 | group1db | Database | 5050 | PostgreSQL | postgres:16-alpine |
 

@@ -16,11 +16,11 @@ The application uses a three-tier containerized architecture:
 │  │  ┌──────────────┐  ┌──────────────────┐    │  │
 │  │  │  Frontend    │  │     Backend      │    │  │
 │  │  │  (React)     │  │     (Node.js)    │    │  │
-│  │  │  Port 3000   ├──┤  Port 5000       │    │  │
+│  │  │  Port 5080   ├──┤  Port 5000       │    │  │
 │  │  │              │  │                  ├───┐│  │
 │  │  └──────────────┘  └──────────────────┘   ││  │
 │  │         ↑                                   ││  │
-│  │    localhost:3000                          ││  │
+│  │    localhost:5080                          ││  │
 │  │                                            ││  │
 │  │                              ┌─────────────┘│  │
 │  │                              ↓              │  │
@@ -64,7 +64,7 @@ The application uses a three-tier containerized architecture:
 - **Image**: group1-frontend:latest
 - **Built from**: ./frontend/Dockerfile
 - **Internal Port**: 3000
-- **External Port**: 3000
+- **External Port**: 5080
 - **Network**: group1-net
 - **Environment**:
   - REACT_APP_API_URL=http://localhost:5000
@@ -137,7 +137,7 @@ podman-compose down -v
 # Output:
 # ✓ All containers started!
 # Services available at:
-#   Frontend:  http://localhost:3000
+#   Frontend:  http://localhost:5080
 #   Backend:   http://localhost:5000/api/health
 #   Database:  localhost:5050
 
@@ -197,7 +197,7 @@ podman run -dt \
   --name group1-frontend \
   --network group1-net \
   -e REACT_APP_API_URL=http://localhost:5000 \
-  -p 3000:3000 \
+  -p 5080:3000 \
   group1-frontend:latest
 ```
 
@@ -206,7 +206,7 @@ podman run -dt \
 Once all containers are running:
 
 ### Frontend
-- **URL**: http://localhost:3000
+- **URL**: http://localhost:5080
 - **What you'll see**: Interactive map with search bars and compass
 
 ### Backend API

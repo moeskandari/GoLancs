@@ -15,9 +15,10 @@ The application consists of three main services running in containers:
    - Connects to PostgreSQL database
    - Serves API endpoints
 
-3. **Frontend React App** (`group1-frontend`) - Port 3000
+3. **Frontend React App** (`group1-frontend`) - Port 5080
    - React single-page application
    - Static files served by Node.js
+   - (Internal: 3000, External: 5080)
 
 All containers communicate via a Docker bridge network (`group1-net`).
 
@@ -41,6 +42,13 @@ brew install podman
 ```
 
 **Other systems:** See [Podman Installation Guide](https://podman.io/getting-started/installation)
+
+## Port Configuration
+
+The application requires the following ports:
+- **5080** for Frontend (maps to internal 3000)
+- **5000** for Backend
+- **5050** for Database (maps to internal PostgreSQL 5432)
 
 ## Method 1: Using Podman Compose (Recommended)
 

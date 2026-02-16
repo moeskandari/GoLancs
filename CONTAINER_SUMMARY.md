@@ -19,7 +19,7 @@ chmod +x scripts/*.sh
 ```
 
 Then access:
-- **Frontend**: http://localhost:3000
+- **Frontend**: http://localhost:5080
 - **Backend Health**: http://localhost:5000/api/health
 - **Database**: localhost:5050
 
@@ -61,7 +61,7 @@ USER'S BROWSER (Port 3000)
 ### Frontend Container (group1-frontend)
 - **Base Image**: Node.js 18 Alpine
 - **Purpose**: Serves the React web application
-- **Exposed Port**: 3000
+- **Exposed Port**: 5080 (maps from internal 3000)
 - **Build Process**: 
   1. Installs Node dependencies
   2. Builds optimized React bundle

@@ -24,7 +24,7 @@ podman-compose up -d
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Frontend | http://localhost:3000 | Web UI |
+| Frontend | http://localhost:5080 | Web UI |
 | Backend API | http://localhost:5000/api/health | Health check |
 | Database | localhost:5050 | PostgreSQL |
 
@@ -48,7 +48,7 @@ podman-compose up -d
 
 | Container | Internal Port | External Port | Network |
 |-----------|---------------|---------------|---------|
-| group1-frontend | 3000 | 3000 | group1-net |
+| group1-frontend | 3000 | 5080 | group1-net |
 | group1-backend | 5000 | 5000 | group1-net |
 | group1db | 5432 | 5050 | group1-net |
 
@@ -112,7 +112,7 @@ podman exec group1-backend psql -h group1db -U postgres -d travel_routes
 
 | Problem | Solution |
 |---------|----------|
-| Port in use | `lsof -i :3000` then `kill -9 <PID>` |
+| Port in use | `lsof -i :5080` then `kill -9 <PID>` |
 | DB connection fails | Wait 5 seconds, then `podman restart group1-backend` |
 | Frontend can't reach API | Check `podman logs group1-frontend` |
 | Container won't start | Check `podman logs <container-name>` |
@@ -124,7 +124,7 @@ podman exec group1-backend psql -h group1db -U postgres -d travel_routes
 
 ```
 User Browser
-    ↓ (localhost:3000)
+    ↓ (localhost:5080)
 Frontend Container (group1-frontend)
     ↓ (group1-net network, group1-backend:5000)
 Backend Container (group1-backend)

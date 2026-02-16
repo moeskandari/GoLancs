@@ -26,7 +26,7 @@ The Lancaster Travel Routes application has been fully containerized with Podman
   - Stage 2: Serve built app with Node.js `serve`
 - Features:
   - Optimized production build
-  - Runs on port 3000
+  - Runs on port 5080 (internal: 3000)
   - Health check configured
 
 #### Database Container
