@@ -54,7 +54,7 @@ case $choice in
         echo "✓ All containers are running!"
         echo ""
         echo "Access your application:"
-        echo "  Frontend:  http://localhost:3000"
+        echo "  Frontend:  http://localhost:5001"
         echo "  Backend:   http://localhost:5000/api/health"
         echo "  Database:  localhost:5050"
         echo ""
@@ -80,7 +80,7 @@ case $choice in
         echo "✓ All containers are running!"
         echo ""
         echo "Access your application:"
-        echo "  Frontend:  http://localhost:3000"
+        echo "  Frontend:  http://localhost:5001"
         echo "  Backend:   http://localhost:5000/api/health"
         echo "  Database:  localhost:5050"
         echo ""
@@ -140,14 +140,14 @@ case $choice in
           --name group1-frontend \
           --network group1-net \
           -e REACT_APP_API_URL=http://localhost:5000 \
-          -p 3000:3000 \
+          -p 5001:3000 \
           group1-frontend:latest
         
         echo ""
         echo "✓ All containers are running!"
         echo ""
         echo "Access your application:"
-        echo "  Frontend:  http://localhost:3000"
+        echo "  Frontend:  http://localhost:5001"
         echo "  Backend:   http://localhost:5000/api/health"
         echo "  Database:  localhost:5050"
         echo ""
