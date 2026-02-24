@@ -1,0 +1,3196 @@
+--
+-- PostgreSQL database cluster dump
+--
+
+\restrict 5Hkc9EXWkv4odivGXBP3pccfmCIZf9xS8sgGblHwxxo6WhjHnIYB5Qd1Y2bE6xf
+
+SET default_transaction_read_only = off;
+
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+
+--
+-- Drop databases (except postgres and template1)
+--
+
+DROP DATABASE group1db;
+
+
+
+
+--
+-- Drop roles
+--
+
+DROP ROLE postgres;
+
+
+--
+-- Roles
+--
+
+CREATE ROLE postgres;
+ALTER ROLE postgres WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION BYPASSRLS PASSWORD 'SCRAM-SHA-256$4096:YrUSwSVLSdKVv6NZS9v9lw==$bimFbF2yMC/9pgtQdZQ4z6epqE6k9jSuJnVkPDsL4yM=:ziftLRVluKWoJHI73QfGwGM/ksx2DWiRQFLnB8edfYo=';
+
+--
+-- User Configurations
+--
+
+
+
+
+
+
+
+
+\unrestrict 5Hkc9EXWkv4odivGXBP3pccfmCIZf9xS8sgGblHwxxo6WhjHnIYB5Qd1Y2bE6xf
+
+--
+-- Databases
+--
+
+--
+-- Database "template1" dump
+--
+
+--
+-- PostgreSQL database dump
+--
+
+\restrict 0IxRIiPPy7cE1HY9rmiPX6I7iXeqPJQsofS0N9OhSXOhlT2czpvrx1L1I4WQE2P
+
+-- Dumped from database version 16.12
+-- Dumped by pg_dump version 16.12
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+UPDATE pg_catalog.pg_database SET datistemplate = false WHERE datname = 'template1';
+DROP DATABASE template1;
+--
+-- Name: template1; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'en_US.utf8';
+
+
+ALTER DATABASE template1 OWNER TO postgres;
+
+\unrestrict 0IxRIiPPy7cE1HY9rmiPX6I7iXeqPJQsofS0N9OhSXOhlT2czpvrx1L1I4WQE2P
+\connect template1
+\restrict 0IxRIiPPy7cE1HY9rmiPX6I7iXeqPJQsofS0N9OhSXOhlT2czpvrx1L1I4WQE2P
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: DATABASE template1; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON DATABASE template1 IS 'default template for new databases';
+
+
+--
+-- Name: template1; Type: DATABASE PROPERTIES; Schema: -; Owner: postgres
+--
+
+ALTER DATABASE template1 IS_TEMPLATE = true;
+
+
+\unrestrict 0IxRIiPPy7cE1HY9rmiPX6I7iXeqPJQsofS0N9OhSXOhlT2czpvrx1L1I4WQE2P
+\connect template1
+\restrict 0IxRIiPPy7cE1HY9rmiPX6I7iXeqPJQsofS0N9OhSXOhlT2czpvrx1L1I4WQE2P
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: DATABASE template1; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE CONNECT,TEMPORARY ON DATABASE template1 FROM PUBLIC;
+GRANT CONNECT ON DATABASE template1 TO PUBLIC;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict 0IxRIiPPy7cE1HY9rmiPX6I7iXeqPJQsofS0N9OhSXOhlT2czpvrx1L1I4WQE2P
+
+--
+-- Database "group1db" dump
+--
+
+--
+-- PostgreSQL database dump
+--
+
+\restrict LWzVMbV4RrxDhrkY4stjiWcFzLQvaASm5X1R4JG14p2ZEEhePV3TbArXJD96zte
+
+-- Dumped from database version 16.12
+-- Dumped by pg_dump version 16.12
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: group1db; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE group1db WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'en_US.utf8';
+
+
+ALTER DATABASE group1db OWNER TO postgres;
+
+\unrestrict LWzVMbV4RrxDhrkY4stjiWcFzLQvaASm5X1R4JG14p2ZEEhePV3TbArXJD96zte
+\connect group1db
+\restrict LWzVMbV4RrxDhrkY4stjiWcFzLQvaASm5X1R4JG14p2ZEEhePV3TbArXJD96zte
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: bus_routes; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.bus_routes (
+    route_id integer NOT NULL,
+    route_number text NOT NULL,
+    operator_code text NOT NULL,
+    start_atco_code text NOT NULL,
+    end_atco_code text NOT NULL
+);
+
+
+ALTER TABLE public.bus_routes OWNER TO postgres;
+
+--
+-- Name: bus_routes_route_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.bus_routes_route_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.bus_routes_route_id_seq OWNER TO postgres;
+
+--
+-- Name: bus_routes_route_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.bus_routes_route_id_seq OWNED BY public.bus_routes.route_id;
+
+
+--
+-- Name: journey_tracking; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.journey_tracking (
+    tracking_id bigint NOT NULL,
+    operator_code text,
+    atco_code text,
+    recorded_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    vehicle_id text,
+    delay_minutes integer DEFAULT 0
+);
+
+
+ALTER TABLE public.journey_tracking OWNER TO postgres;
+
+--
+-- Name: journey_tracking_tracking_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.journey_tracking_tracking_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.journey_tracking_tracking_id_seq OWNER TO postgres;
+
+--
+-- Name: journey_tracking_tracking_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.journey_tracking_tracking_id_seq OWNED BY public.journey_tracking.tracking_id;
+
+
+--
+-- Name: national_rail; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.national_rail (
+    tiploc_code text NOT NULL,
+    atco_code text,
+    crs_code text,
+    stanox integer
+);
+
+
+ALTER TABLE public.national_rail OWNER TO postgres;
+
+--
+-- Name: operators; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.operators (
+    operator_code text NOT NULL,
+    name text,
+    mode text
+);
+
+
+ALTER TABLE public.operators OWNER TO postgres;
+
+--
+-- Name: planned_routes; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.planned_routes (
+    route_plan_id bigint NOT NULL,
+    start_atco_code text NOT NULL,
+    end_atco_code text NOT NULL,
+    departure_time timestamp without time zone,
+    total_duration integer,
+    num_legs integer,
+    route_details jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.planned_routes OWNER TO postgres;
+
+--
+-- Name: planned_routes_route_plan_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.planned_routes_route_plan_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.planned_routes_route_plan_id_seq OWNER TO postgres;
+
+--
+-- Name: planned_routes_route_plan_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.planned_routes_route_plan_id_seq OWNED BY public.planned_routes.route_plan_id;
+
+
+--
+-- Name: rail_schedule; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.rail_schedule (
+    train_uid text NOT NULL,
+    operator_code text,
+    schedule_start_date date,
+    schedule_end_date date,
+    days_run bytea
+);
+
+
+ALTER TABLE public.rail_schedule OWNER TO postgres;
+
+--
+-- Name: route_stops; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.route_stops (
+    stop_id integer NOT NULL,
+    route_id integer NOT NULL,
+    atco_code text NOT NULL,
+    stop_sequence integer NOT NULL,
+    travel_time_to_next integer
+);
+
+
+ALTER TABLE public.route_stops OWNER TO postgres;
+
+--
+-- Name: route_stops_stop_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.route_stops_stop_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.route_stops_stop_id_seq OWNER TO postgres;
+
+--
+-- Name: route_stops_stop_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.route_stops_stop_id_seq OWNED BY public.route_stops.stop_id;
+
+
+--
+-- Name: schedule_points; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.schedule_points (
+    id integer NOT NULL,
+    tiploc_code text,
+    train_uid text,
+    arrival_time time without time zone,
+    departure_time time without time zone,
+    sequence_order integer
+);
+
+
+ALTER TABLE public.schedule_points OWNER TO postgres;
+
+--
+-- Name: stops; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.stops (
+    atco_code text NOT NULL,
+    common_name text,
+    coordinates point,
+    stop_type text
+);
+
+
+ALTER TABLE public.stops OWNER TO postgres;
+
+--
+-- Name: bus_routes route_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bus_routes ALTER COLUMN route_id SET DEFAULT nextval('public.bus_routes_route_id_seq'::regclass);
+
+
+--
+-- Name: journey_tracking tracking_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.journey_tracking ALTER COLUMN tracking_id SET DEFAULT nextval('public.journey_tracking_tracking_id_seq'::regclass);
+
+
+--
+-- Name: planned_routes route_plan_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.planned_routes ALTER COLUMN route_plan_id SET DEFAULT nextval('public.planned_routes_route_plan_id_seq'::regclass);
+
+
+--
+-- Name: route_stops stop_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.route_stops ALTER COLUMN stop_id SET DEFAULT nextval('public.route_stops_stop_id_seq'::regclass);
+
+
+--
+-- Data for Name: bus_routes; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.bus_routes (route_id, route_number, operator_code, start_atco_code, end_atco_code) FROM stdin;
+\.
+
+
+--
+-- Data for Name: journey_tracking; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.journey_tracking (tracking_id, operator_code, atco_code, recorded_time, vehicle_id, delay_minutes) FROM stdin;
+\.
+
+
+--
+-- Data for Name: national_rail; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.national_rail (tiploc_code, atco_code, crs_code, stanox) FROM stdin;
+\.
+
+
+--
+-- Data for Name: operators; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.operators (operator_code, name, mode) FROM stdin;
+ARCT	Archway Travel	bus
+BLAC	Blackpool Transport	bus
+KLCO	Kirby Londsdale Coach Hire	bus
+SCCU	Stagecoach Cumbria & North Lancashire	bus
+SCMY	Stagecoach Merseyside & South Lancashire	bus
+NUTT	Transpora North West	bus
+\.
+
+
+--
+-- Data for Name: planned_routes; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.planned_routes (route_plan_id, start_atco_code, end_atco_code, departure_time, total_duration, num_legs, route_details, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: rail_schedule; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.rail_schedule (train_uid, operator_code, schedule_start_date, schedule_end_date, days_run) FROM stdin;
+\.
+
+
+--
+-- Data for Name: route_stops; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.route_stops (stop_id, route_id, atco_code, stop_sequence, travel_time_to_next) FROM stdin;
+\.
+
+
+--
+-- Data for Name: schedule_points; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.schedule_points (id, tiploc_code, train_uid, arrival_time, departure_time, sequence_order) FROM stdin;
+\.
+
+
+--
+-- Data for Name: stops; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.stops (atco_code, common_name, coordinates, stop_type) FROM stdin;
+250000358	Capernwray Church	(-2.703424133,54.144132146)	BCT
+25000359	Capernwray Church	(-2.70269466,54.143543222)	BCT
+250010001	East View Terrace	(-2.548992946,53.702165149)	BCT
+250010003	Primary School	(-2.544522902,53.698527353)	BCT
+250010004	Station Terrace	(-2.546723981,53.700072286)	BCT
+250010005	Primary School	(-2.544490059,53.698329761)	BCT
+250010006	Stanworth Terrace	(-2.552849238,53.707459446)	BCT
+25001001	William Mitchell	(-2.855399504,54.060541055)	BCT
+25001002	Hawkshead Drive	(-2.854975623,54.062961806)	BCT
+250010020	Warner Street	(-2.361516101,53.75191712)	BCT
+250010025	Christ Church Street	(-2.358117909,53.748215251)	BCT
+250010027	Crown Hotel	(-2.372657648,53.765059489)	BCT
+25001003	Lambridge Close	(-2.858543842,54.062621807)	BCT
+250010030	Lonsdale Street	(-2.38530068,53.74920048)	BCT
+250010031	St Christophers HS	(-2.376481799,53.760122073)	BCT
+250010032	Moorhouse Avenue	(-2.377413483,53.745621366)	BCT
+250010038	St Annes RCPS	(-2.351565012,53.749780614)	BCT
+250010039	St Christophers HS	(-2.377972361,53.760575771)	BCT
+250010040	Victoria Hospital	(-2.367811082,53.759016511)	BCT
+250010041	Bamford Crescent	(-2.354975874,53.744251871)	BCT
+250010042	Anderton Cottages	(-2.586487079,53.613111009)	BCT
+250010044	Cardwell Arms	(-2.603608423,53.6212592)	BCT
+250010045	Anderton Street	(-2.604720872,53.613415719)	BCT
+250010052	Railway Station	(-2.602716259,53.613821324)	BCT
+250010067	St Josephs church	(-2.989234075,53.74493629)	BCT
+25001007	William Mitchell	(-2.853819316,54.060965727)	BCT
+250010078	Speakmans Drive	(-2.722767984,53.574056424)	BCT
+25001008	Dragons Head	(-2.612024198,54.178820336)	BCT
+250010080	Beacon View	(-2.720807986,53.584009529)	BCT
+250010082	Finch Lane	(-2.72292001,53.586504569)	BCT
+250010083	Appley Lane North	(-2.721336109,53.577768331)	BCT
+25001009	George and Dragon	(-2.609055732,54.102962093)	BCT
+250010104	Hastings Road	(-2.734658357,53.764842987)	BCT
+25001011	Police House	(-2.60830626,54.103999466)	BCT
+250010110	St Andrews School	(-2.737001974,53.768729487)	BCT
+250010111	St Michaels Church	(-2.730991777,53.765108091)	BCT
+250010117	Powis Road	(-2.737644755,53.762991044)	BCT
+25001012	New Inn	(-2.760551877,54.167314419)	BCT
+250010120	Lindens	(-2.770706163,53.561047292)	BCT
+250010125	Long Copse	(-2.650433261,53.660742374)	BCT
+250010126	Church Lane	(-2.917463931,53.53788566)	BCT
+250010128	Christ Church	(-2.904994106,53.558811986)	BCT
+250010129	Holt Coppice	(-2.917843411,53.53868729)	BCT
+250010136	Holborn Drive	(-2.902732524,53.560366139)	BCT
+250010137	Church Lane	(-2.9170597,53.53803258)	BCT
+25001014	Triangle	(-2.767230038,54.177239344)	BCT
+250010141	Turnpike Road	(-2.915584229,53.549369621)	BCT
+250010148	Noel Gate	(-2.913935625,53.547809218)	BCT
+250010153	Fearns School	(-2.238385638,53.694998324)	BCT
+250010157	Hoghton Avenue	(-2.192587617,53.694919018)	BCT
+250010160	Park Road	(-2.20549294,53.695337966)	BCT
+250010163	Thorn CP School	(-2.199310922,53.707527322)	BCT
+250010168	St Leonards CEPS	(-2.560389459,53.785738247)	BCT
+25001017	Coates Avenue	(-2.176185141,53.918951076)	BCT
+250010175	Leisure Centre	(-2.650392651,53.730783739)	BCT
+250010176	Methodist Church	(-2.660553353,53.725299246)	BCT
+250010177	Bluebell Way	(-2.647702105,53.728317566)	BCT
+250010178	St Aidens Church	(-2.662977138,53.733892134)	BCT
+25001018	Coates Estate	(-2.17776687,53.92212143)	BCT
+250010185	Methodist School	(-2.915169896,53.68251602)	BCT
+250010187	Glebe Lane	(-2.922261605,53.681396428)	BCT
+25001019	Ben Lane	(-2.17758881,53.923218202)	BCT
+250010196	Police Station	(-2.929819775,53.677414543)	BCT
+250010199	Methodist School	(-2.915933561,53.682123677)	BCT
+25001020	Foster Road	(-2.193671285,53.923768528)	BCT
+25001021	Gillians Lane	(-2.189153518,53.908002164)	BCT
+250010224	Edmondson Street	(-2.192010549,53.920247988)	BCT
+25001023	Rylstone Drive	(-2.193827749,53.918105971)	BCT
+250010230	St Josephs RCPS	(-2.188329661,53.921098676)	BCT
+250010237	Sandyhall Lane	(-2.237775078,53.84434449)	BCT
+25001024	Coates Avenue	(-2.178365469,53.923235025)	BCT
+250010248	Barton Grange Hotel	(-2.737485893,53.829189982)	BCT
+250010249	Jepps Lane	(-2.73805599,53.832233452)	BCT
+25001025	Standing Stone Lane	(-2.184627114,53.882609633)	BCT
+250010254	Station Lane	(-2.734770658,53.82162965)	BCT
+250010255	White Horse	(-2.739405845,53.838130335)	BCT
+250010256	Ayxa Farm Road End	(-2.476050575,53.894444076)	BCT
+250010258	Mason House	(-2.472112066,53.889282603)	BCT
+250010259	Post Office	(-2.464377828,53.886086126)	BCT
+25001026	Station Road	(-2.187230229,53.917001967)	BCT
+250010260	Village Hall	(-2.463897457,53.885297048)	BCT
+250010265	The Bay Horse	(-2.345234001,53.734087851)	BCT
+25001028	White Bear	(-2.214613005,53.853358122)	BCT
+250010280	Dog Inn	(-2.430457802,53.71784893)	BCT
+250010282	Dog Inn	(-2.430489497,53.717988091)	BCT
+250010283	Clancutt Lane Roundabout	(-2.656182042,53.627516977)	BCT
+250010285	Coniston House	(-2.640131491,53.645005396)	BCT
+250010287	Beaconsfield Terrace	(-2.625560274,53.661090668)	BCT
+250010288	Morris Dancers	(-2.933858881,53.609510626)	BCT
+250010294	Barrow Nook Lane	(-2.838455623,53.51946846)	BCT
+250010295	The Mission	(-2.827785509,53.539227947)	BCT
+25001030	Rising Sun	(-2.214397074,53.867604298)	BCT
+250010305	Toby Jug	(-2.406875983,53.819388676)	BCT
+250010307	Elker Lane	(-2.427196631,53.814608276)	BCT
+250010309	Elker Lane	(-2.426301215,53.814674379)	BCT
+25001031	Cross Gaits Inn	(-2.204669376,53.868583002)	BCT
+250010313	Roebuck	(-2.74551754,53.851961163)	BCT
+25001033	Rising Sun Inn	(-2.214338041,53.86795493)	BCT
+25001035	Harpers Inn	(-2.261473488,53.835208352)	BCT
+25001036	White Swan	(-2.250300299,53.839519443)	BCT
+25001039	Ridehalgh Lane	(-2.157377871,53.81283058)	BCT
+25001040	Four Alls Inn	(-2.291668703,53.824595828)	BCT
+25001041	Crossroads	(-2.208514586,53.858968339)	BCT
+25001043	Craven Heifer	(-2.150867286,53.898529379)	BCT
+25001044	Barnoldswick Road	(-2.153083837,53.89707953)	BCT
+25001047	Emmott Arms	(-2.11918757,53.8627845)	BCT
+250010484	Craven Laithe Farm Lane	(-2.229687698,53.893937347)	BCT
+25001050	Wellsprings Inn	(-2.346615834,53.846613816)	BCT
+25001051	Constitutional Club	(-2.354224267,53.8062536)	BCT
+25001052	Jubilee Street	(-2.356622879,53.806183571)	BCT
+25001053	Earby Road	(-2.171133704,53.904928444)	BCT
+25001054	Fanny Grey Hotel	(-2.181953618,53.897497567)	BCT
+25001058	Lane Ends	(-2.728655786,53.771252281)	BCT
+25001059	Pedders Lane	(-2.738764214,53.768862449)	BCT
+25001060	Village Centre	(-2.72285845,53.808237806)	BCT
+25001061	Village Centre	(-2.722710628,53.80847239)	BCT
+25001062	Fulwood Asda	(-2.685929978,53.791709844)	BCT
+25001063	Black Bull Garstang Rd	(-2.71371863,53.79137684)	BCT
+25001064	Booths	(-2.706005956,53.792199954)	BCT
+250010642	Blackpool Sixth Form College	(-3.017460845,53.839563064)	BCT
+25001065	Conway Drive Shops	(-2.722989,53.789352876)	BCT
+25001066	Janice Drive	(-2.71706335,53.789010965)	BCT
+25001067	Longsands Lane	(-2.681839926,53.785684146)	BCT
+25001068	Anderton Arms	(-2.673877086,53.786969543)	BCT
+25001070	Lightfoot Lane	(-2.714909151,53.797113187)	BCT
+250010709	Bailey Hey	(-2.643075481,53.889737512)	BCT
+25001071	Booths	(-2.707231423,53.791954579)	BCT
+250010715	High Moor Farm	(-2.689595335,53.901226533)	BCT
+250010717	Post Office	(-2.650391063,53.895423435)	BCT
+25001072	Barnacre Close	(-2.695404826,53.795538139)	BCT
+250010721	Wickens Lane End	(-2.648838325,53.89145915)	BCT
+250010723	Closes Hall Lodge	(-2.302998626,53.946110569)	BCT
+250010725	Bolton By Bowland CEPS	(-2.323411939,53.939900675)	BCT
+25001073	Watling Street Road	(-2.709578715,53.777236041)	BCT
+25001074	Plough Inn	(-2.629548776,53.804656498)	BCT
+25001075	Post Office	(-2.632384528,53.804407883)	BCT
+250010755	Old Stone Trough	(-2.156492159,53.892895793)	BCT
+25001076	Sunny Bank	(-2.62352795,53.805155345)	BCT
+250010766	Marl Cop	(-2.788502732,53.678469018)	BCT
+25001077	Mill Tavern	(-2.643072183,53.742746171)	BCT
+250010770	Briercliffe CPS	(-2.201425762,53.813897087)	BCT
+250010774	Lytham Road	(-2.221906385,53.809627577)	BCT
+250010777	Town Hall	(-2.234018536,53.824839104)	BCT
+250010779	Marsden Height Comm Coll	(-2.228772472,53.826709736)	BCT
+25001078	Anchor Drive	(-2.760583507,53.734588543)	BCT
+250010782	St James church	(-2.608418722,53.71385929)	BCT
+250010784	Conway Court	(-2.623071423,53.735445578)	BCT
+250010786	Pippen Street	(-2.619681251,53.716246347)	BCT
+250010788	Brindle St Josephs RCPS	(-2.617371788,53.730297879)	BCT
+250010791	Hartington Road	(-2.561027111,53.690172994)	BCT
+250010793	School Lane	(-2.565174816,53.687798566)	BCT
+250010794	St Johns School	(-2.574603673,53.689668184)	BCT
+250010796	Rochdale Road	(-2.178967616,53.690194439)	BCT
+250010797	Cobden Street	(-2.183653077,53.691634425)	BCT
+25001080	Ingol Shops	(-2.741995018,53.780859735)	BCT
+250010808	Cromwell Road	(-2.674226253,53.781296048)	BCT
+25001081	Creswell Ave	(-2.746307492,53.776725348)	BCT
+250010812	Sussex Street	(-2.184299213,53.915226924)	BCT
+250010814	St John the Baptist Church	(-2.718684538,53.803040779)	BCT
+250010815	Willow Tree Avenue	(-2.722619768,53.810252592)	BCT
+250010816	Northway	(-2.728641189,53.809811684)	BCT
+250010818	Motorway Bridge	(-2.710083201,53.814291262)	BCT
+25001082	Lightfoot Lane	(-2.750048127,53.790768544)	BCT
+250010820	Daniels Cross	(-2.715761764,53.812405942)	BCT
+250010823	Brownedge St Marys	(-2.662604811,53.732388624)	BCT
+250010825	Millbrook Cottage	(-2.483976356,53.8995175)	BCT
+250010829	Accrington Road	(-2.258047732,53.789637829)	BCT
+250010832	Disraeli Street	(-2.239492633,53.807113037)	BCT
+250010834	Barracks Rail Station	(-2.25893136,53.790166214)	BCT
+250010835	Hobart Street	(-2.232904665,53.791118441)	BCT
+250010841	Browhead Road	(-2.228127243,53.800250433)	BCT
+250010843	Brownside Bridge	(-2.204700296,53.787763515)	BCT
+250010849	Byron Street	(-2.294085451,53.79660138)	BCT
+25001085	Queens Hotel	(-2.688632851,53.698135867)	BCT
+250010853	Burnley General Hospital	(-2.227426159,53.81096542)	BCT
+250010856	Clifton Street	(-2.250966354,53.7908303)	BCT
+250010858	Cog Lane Stores	(-2.264702306,53.780994828)	BCT
+25001086	Hedgerows Road	(-2.73762676,53.688383837)	BCT
+250010862	Buttermere Road	(-2.206812644,53.785207297)	BCT
+250010863	Dugdale Road	(-2.273415375,53.795329095)	BCT
+250010864	Hebrew Road	(-2.239270066,53.79737052)	BCT
+250010866	Thurston Street	(-2.232577243,53.792296503)	BCT
+250010874	Byron Street	(-2.293947877,53.796466897)	BCT
+250010879	Sabden Road	(-2.316175328,53.810854006)	BCT
+25001088	Civic Centre	(-2.705068764,53.690121518)	BCT
+250010880	Heckenhurst Avenue	(-2.196773997,53.790293436)	BCT
+250010881	Salterford Lane	(-2.196261377,53.778043645)	BCT
+25001089	Daisy Bank Close	(-2.717252788,53.693311917)	BCT
+2500109	Moss Lane	(-2.433610793,53.744460403)	BCT
+25001090	Tesco	(-2.696994012,53.689000312)	BCT
+250010902	Mitella Street	(-2.22761523,53.787021097)	BCT
+250010905	Ormerod Road	(-2.233030069,53.794569583)	BCT
+25001091	Longmeanygate	(-2.712949807,53.699467645)	BCT
+250010913	Barden Lane	(-2.241082346,53.808934406)	BCT
+250010915	Rose and Crown	(-2.254541177,53.777071114)	BCT
+250010919	Roughlee Grove	(-2.218703952,53.786660204)	BCT
+25001092	St Johns Church	(-2.713668952,53.698106127)	BCT
+250010921	Scott Park Road	(-2.258177521,53.783588626)	BCT
+250010927	St Matthews Street	(-2.253259762,53.783500256)	BCT
+250010928	Blessed Trinity Coll	(-2.230418051,53.794394876)	BCT
+25001093	Gables Hotel	(-2.695452823,53.694716851)	BCT
+250010932	Buttermere Road	(-2.207465835,53.785323011)	BCT
+250010939	Widowhill Road	(-2.223050094,53.804807906)	BCT
+25001094	Dorothy Ave	(-2.691745508,53.695834898)	BCT
+250010942	Ruskin Street	(-2.239941833,53.808658068)	BCT
+25001095	Kent Drive	(-2.671278477,53.696427761)	BCT
+250010950	Delph Drive	(-2.833382029,53.594423908)	BCT
+250010952	Higgins Lane	(-2.847571009,53.597515148)	BCT
+250010954	Pardoe Court	(-2.83794615,53.594481909)	BCT
+250010958	Rowan Close	(-2.838443484,53.607385962)	BCT
+250010959	Rowan Close	(-2.838038494,53.607541605)	BCT
+25001096	Westfield Drive	(-2.708199378,53.694390472)	BCT
+250010964	Burscough Bridge	(-2.841698698,53.603875554)	BCT
+250010967	War Memorial	(-2.844741888,53.599611514)	BCT
+250010968	Wheat Lane	(-2.830230282,53.594733458)	BCT
+25001097	Victoria Park Avenue	(-2.716949739,53.684392772)	BCT
+250010977	Green Lane	(-2.775715335,53.910677565)	BCT
+25001098	Tesco	(-2.698439327,53.690322161)	BCT
+250010980	Snapewood Lane	(-2.778409903,53.920502015)	BCT
+250010981	Station Lane	(-2.774702256,53.938178446)	BCT
+250010987	Cemetery	(-2.416454978,53.832599547)	BCT
+25001099	Old Orchard Place	(-2.738230862,53.69261816)	BCT
+2500110	Windsor Road	(-2.437732095,53.748552981)	BCT
+25001100	Churchill Way	(-2.691656451,53.696869068)	BCT
+250011007	High School	(-2.761019824,54.125213176)	BCT
+250011009	Highfield Road	(-2.762281667,54.125600648)	BCT
+250011010	Canal Turn	(-2.772682998,54.124572624)	BCT
+250011011	Market Street	(-2.766481867,54.128494974)	BCT
+250011012	Carlisle Terrace	(-2.77108875,54.135125433)	BCT
+250011014	Crag Bank Crescent	(-2.77777849,54.121313204)	BCT
+250011015	Redcourt	(-2.773385335,54.12366934)	BCT
+25001102	Queensway	(-2.712188373,53.688461486)	BCT
+250011025	Bay Horse Lane	(-2.79317252,53.814049059)	BCT
+250011029	Copy Lane	(-2.716229183,54.074464828)	BCT
+250011030	Community PS	(-2.717241319,54.070234548)	BCT
+250011032	Nursing Home	(-2.689918721,54.080388771)	BCT
+250011034	Hall Drive	(-2.722378648,54.074796545)	BCT
+250011038	Brockholes Way	(-2.75825737,53.873021314)	BCT
+250011039	Cock Robin Lane	(-2.763511533,53.88007959)	BCT
+25001104	Runshaw College	(-2.690205475,53.681318669)	BCT
+250011043	Catterall Gates Lane	(-2.764343125,53.882303338)	BCT
+250011046	Catterall Gates Lane	(-2.764088931,53.881711744)	BCT
+250011048	Lyth Road	(-2.784545731,54.055937105)	BCT
+25001105	Seven Stars	(-2.71640128,53.688652074)	BCT
+250011055	Walker Fold	(-2.499474618,53.871923977)	BCT
+250011058	Dog and Partridge	(-2.664416612,53.634815047)	BCT
+250011060	Charter Lane	(-2.672266407,53.630106232)	BCT
+250011071	Christ Church	(-2.351074163,53.894380504)	BCT
+250011072	Village Hall	(-2.35048435,53.892998098)	BCT
+25001108	Young Avenue	(-2.682963955,53.693197803)	BCT
+250011085	Brabins School	(-2.574307824,53.883471187)	BCT
+25001109	Leyland Golf Club	(-2.675635516,53.688560922)	BCT
+250011090	Dog and Partridge	(-2.579379242,53.86627078)	BCT
+250011098	St Marys RCPS	(-2.576600754,53.884269107)	BCT
+25001110	Gill Lane	(-2.760792611,53.712592836)	BCT
+250011102	Yarrow Gate	(-2.621021099,53.643640988)	BCT
+250011103	Millfield Road	(-2.631765934,53.658136869)	BCT
+250011105	Bretherton Arms	(-2.61883863,53.658842574)	BCT
+250011106	Brookes Arms	(-2.617422299,53.649942457)	BCT
+250011108	Carrington Road	(-2.638520521,53.65051487)	BCT
+250011109	Hardy Drive	(-2.644438187,53.648676495)	BCT
+25001111	White Bull	(-2.608992826,53.812249759)	BCT
+250011110	Weldbank Lane	(-2.637212827,53.644059218)	BCT
+250011115	Crosse Hall Lane	(-2.617356774,53.650634897)	BCT
+250011117	Guildford Avenue	(-2.615948448,53.672330957)	BCT
+25001112	St Wilfrids Church	(-2.607153829,53.831062131)	BCT
+250011125	Trafalgar Street	(-2.630381492,53.660678876)	BCT
+25001113	High School	(-2.608229339,53.826643543)	BCT
+250011130	Preston Road	(-2.632081674,53.664067496)	BCT
+250011132	Southlands High School	(-2.649115166,53.638979746)	BCT
+250011133	St Michaels CEHS	(-2.63736802,53.66036324)	BCT
+250011137	Heathrow Place	(-2.647493642,53.650619464)	BCT
+25001114	Health Centre	(-2.598467661,53.830332821)	BCT
+250011143	Yarrow Gate	(-2.621751482,53.643933811)	BCT
+250011147	Barnes Street	(-2.387519106,53.754626583)	BCT
+25001115	Southern Close	(-2.607839592,53.823859219)	BCT
+250011152	Bannister Hey Farm	(-2.702965332,53.876279108)	BCT
+250011153	Bowman House Farm	(-2.720026792,53.870695225)	BCT
+250011154	Brickworks	(-2.673843393,54.090096768)	BCT
+250011155	Butt Hill Farm	(-2.706013836,53.891100452)	BCT
+250011156	Carr Cottage	(-2.718268511,53.874588604)	BCT
+250011157	Fenwick Arms	(-2.663897518,54.094362804)	BCT
+250011158	Foggs Farm	(-2.701282361,53.888413812)	BCT
+250011159	Hobbs Lane	(-2.697118795,53.88507655)	BCT
+25001116	Post Office	(-2.602429615,53.831139885)	BCT
+250011160	House Farm	(-2.729078636,53.867359918)	BCT
+250011163	Rough Hey House	(-2.729476297,53.881468756)	BCT
+250011167	Meadow Lane	(-2.642142844,53.710636205)	BCT
+25001117	Post Office	(-2.602110047,53.831105537)	BCT
+250011173	Sheep Hill Lane	(-2.639527285,53.704007878)	BCT
+250011180	Albion Inn	(-2.38250107,53.773189624)	BCT
+250011182	Albion Inn	(-2.382762766,53.773602239)	BCT
+250011188	Shady Lane	(-2.660720845,53.698284137)	BCT
+250011189	Shady Lane	(-2.660292902,53.69900556)	BCT
+25001119	St Cecilias RCHS	(-2.605340325,53.824366205)	BCT
+250011190	Swansey Garage	(-2.638848375,53.696191707)	BCT
+250011192	Town Brow	(-2.655253836,53.70028261)	BCT
+25001120	Stone Bridge	(-2.607491137,53.829172931)	BCT
+25001121	Booths	(-2.782847011,53.726948882)	BCT
+250011225	Stanagate	(-2.816990192,53.767339044)	BCT
+25001123	Shirley Lane	(-2.78630039,53.727636342)	BCT
+250011231	Higher Standen Drive	(-2.375572287,53.863751952)	BCT
+250011234	Kings Arms	(-2.400158023,53.869923571)	BCT
+250011237	Littlemooor Road	(-2.395833622,53.862918357)	BCT
+25001124	St Andrews Church	(-2.782073117,53.726900007)	BCT
+250011240	Sainsburys	(-2.3929841,53.868751897)	BCT
+250011241	Cowper Avenue	(-2.393051048,53.875888076)	BCT
+250011243	Pendle Club	(-2.391958934,53.86970797)	BCT
+250011245	Littlemoor Road	(-2.395777386,53.86340389)	BCT
+250011247	Rock Street	(-2.394756534,53.871253704)	BCT
+250011249	Cowper Avenue	(-2.393828344,53.876056296)	BCT
+250011252	St James Street	(-2.394041822,53.866411569)	BCT
+250011254	Bacup Road	(-2.226629703,53.770332241)	BCT
+250011257	Oaklands	(-2.195568791,53.756392645)	BCT
+250011259	Dyneley Avenue	(-2.20427449,53.784474638)	BCT
+25001126	Primary School	(-2.744702834,53.722940622)	BCT
+250011260	The Long Causeway	(-2.19351067,53.770574558)	BCT
+250011261	Foxstones Lane	(-2.193884118,53.775872421)	BCT
+250011266	Mount Crescent	(-2.197070926,53.766232071)	BCT
+250011267	Mount Lane	(-2.196462604,53.765909502)	BCT
+250011269	Grange Road	(-2.197534414,53.758330833)	BCT
+25001127	Red Lion	(-2.780740594,53.586168081)	BCT
+250011273	Mereclough Brow	(-2.195922765,53.767258589)	BCT
+250011276	Sunnyfield Avenue	(-2.197616124,53.762806736)	BCT
+250011278	Village Hall	(-2.193315495,53.754531249)	BCT
+250011283	Primary School	(-2.815242586,53.961090113)	BCT
+250011284	France Hill Farm	(-2.838771435,53.954061267)	BCT
+25001129	Shops	(-2.719408861,53.737134881)	BCT
+250011290	Manor Inn	(-2.817781347,53.963090638)	BCT
+2500113	Ribblesdale Drive	(-2.363937238,53.763576303)	BCT
+25001130	Central Drive	(-2.743018382,53.741718611)	BCT
+25001131	Clive Road	(-2.730339795,53.754640776)	BCT
+250011313	Fisher More RCHS	(-2.191766262,53.847069379)	BCT
+25001133	Factory Lane	(-2.708326152,53.741605161)	BCT
+250011330	Phillips Lane	(-2.189757598,53.849912751)	BCT
+250011333	Noyna Street	(-2.164885613,53.864384087)	BCT
+250011336	Oak Street	(-2.162715813,53.861663729)	BCT
+25001134	Hill Road South	(-2.722148501,53.740417089)	BCT
+250011344	Lancaster Street	(-2.658791269,53.625147682)	BCT
+250011345	South Road	(-2.660787768,53.622287352)	BCT
+250011347	Chapel Lane	(-2.653796103,53.614029468)	BCT
+25001135	Tuson House	(-2.709483922,53.734731286)	BCT
+25001136	Tesco	(-2.728696115,53.749931956)	BCT
+250011364	Higher Lees Farm	(-2.509868028,53.897396995)	BCT
+250011365	Lees House Farm Road End	(-2.513341315,53.893966779)	BCT
+250011366	Lower Lees Road End	(-2.52230829,53.889434121)	BCT
+250011367	Park Gate Farm Cottage	(-2.502522522,53.906667544)	BCT
+250011368	Radholme Laund Road End	(-2.504670744,53.908096593)	BCT
+25001137	Manor Lane south	(-2.729164462,53.745452959)	BCT
+250011370	Hall Hill	(-2.500382749,53.903386914)	BCT
+250011375	Goodshawfold Close	(-2.288208442,53.73436451)	BCT
+250011376	Hollin Way	(-2.289699288,53.719710315)	BCT
+250011377	Primary School	(-2.286151164,53.728311472)	BCT
+250011379	Primary School	(-2.286087851,53.727916147)	BCT
+25001138	Abbot Meadow	(-2.717381575,53.742719754)	BCT
+25001139	New Lane School Stop	(-2.707889073,53.739055082)	BCT
+250011394	School Close	(-2.775289918,53.663009927)	BCT
+2500114	Longsight Road	(-2.440707413,53.809651914)	BCT
+25001140	Tesco	(-2.72747557,53.750384252)	BCT
+25001141	Cop Lane	(-2.721586315,53.736807196)	BCT
+25001142	Priory Lane	(-2.72943287,53.75219251)	BCT
+250011440	Holmrook Road	(-2.691335726,53.768740959)	BCT
+250011442	Romford Road	(-2.68228597,53.772954352)	BCT
+250011452	Fleece Hotel	(-2.749729027,53.972643988)	BCT
+250011453	Greenbank Farm	(-2.722307717,53.983534573)	BCT
+250011456	CE Primary School	(-2.737418116,53.975659244)	BCT
+250011461	Smithfield Farm	(-2.323403998,53.895563791)	BCT
+250011463	Broad Lane	(-2.959963924,53.555614798)	BCT
+250011469	Scarisbrick Arms	(-2.958685783,53.552496987)	BCT
+25001147	Winckley Street	(-2.702047711,53.757883847)	BCT
+250011471	Harden Farm Cottages	(-2.544635236,53.95073117)	BCT
+250011474	War Memorial	(-2.520917505,53.945174062)	BCT
+250011476	Gallows Lane	(-2.514695581,53.833292209)	BCT
+250011478	Huntington Hall Lane	(-2.517969935,53.83512964)	BCT
+250011487	Station Hotel	(-2.147204539,53.912869476)	BCT
+250011488	Victoria Road	(-2.145311559,53.915729902)	BCT
+25001149	Ripon Street	(-2.706188567,53.772348509)	BCT
+250011490	George Street	(-2.145841464,53.914884407)	BCT
+250011491	Beech Avenue	(-2.148054882,53.912257259)	BCT
+250011495	Station Hotel	(-2.147354269,53.912159256)	BCT
+250011499	Tincklers Lane	(-2.733361498,53.651202734)	BCT
+2500115	Railway Station	(-2.44783726,53.804664101)	BCT
+25001150	Lancaster Road	(-2.699042581,53.761420263)	BCT
+250011501	Church	(-2.718387556,53.640768137)	BCT
+250011503	Farmers Arms	(-2.731907389,53.6502319)	BCT
+250011504	Boyes Farm	(-2.72481102,53.662526249)	BCT
+250011508	Old Mill	(-2.718232344,53.64053537)	BCT
+25001151	Rail Station	(-2.706472462,53.755826504)	BCT
+250011521	Hey Head Avenue	(-2.241560536,53.694039215)	BCT
+25001153	53 Degrees	(-2.70884532,53.7634345)	BCT
+25001154	Acregate Lane	(-2.671897154,53.764703431)	BCT
+250011548	Mill Lane	(-2.693836545,53.65906052)	BCT
+250011550	Greenside	(-2.681597905,53.669575293)	BCT
+250011552	Greenside	(-2.681294635,53.669541066)	BCT
+250011555	Washington Lane	(-2.661725298,53.659970402)	BCT
+25001156	Terminus	(-2.71458681,53.749576508)	BCT
+250011562	Lodge Gates	(-2.682810784,53.705251979)	BCT
+250011563	Mill Street	(-2.684283942,53.702681908)	BCT
+250011567	Bannister Lane	(-2.710173642,53.705506305)	BCT
+25001157	Silverdale Drive	(-2.670759848,53.781854787)	BCT
+250011581	Old Laund Street	(-2.257389487,53.83578343)	BCT
+25001159	Holmrook Road	(-2.691327011,53.768210705)	BCT
+250011593	Birch Street	(-3.020979472,53.920796407)	BCT
+250011597	Health Centre	(-3.034401587,53.913077477)	BCT
+250011598	Cardinal Allen HS	(-3.037345231,53.904081815)	BCT
+250011599	Albert Street	(-3.006251724,53.923194763)	BCT
+2500116	Railway Station	(-2.448453939,53.804113526)	BCT
+25001160	Football Ground	(-2.689825699,53.773801023)	BCT
+250011603	Flakefleet School	(-3.03239277,53.910640983)	BCT
+250011607	House Of Time	(-3.038393927,53.901565027)	BCT
+250011609	Larkholme Lane	(-3.035938316,53.908120697)	BCT
+25001161	Fairfax Road	(-2.66532027,53.778568472)	BCT
+250011615	Devon Avenue	(-3.031191401,53.914399399)	BCT
+250011622	Rossall Lane	(-3.039608032,53.896521095)	BCT
+25001163	Brockholes Brow	(-2.655873665,53.765425903)	BCT
+250011634	Hall Farm	(-2.797250462,53.947135701)	BCT
+250011635	New Holly	(-2.775754618,53.947276485)	BCT
+250011636	New Holly Hotel	(-2.775959842,53.947661642)	BCT
+250011638	Raingills Farm	(-2.803900933,53.948313734)	BCT
+25001164	Fishergate Centre	(-2.705921051,53.75731281)	BCT
+250011642	School Lane	(-2.775269798,53.954816013)	BCT
+25001165	Fishergate Centre	(-2.705300904,53.757415332)	BCT
+250011658	Ashworth Grove	(-2.683235405,53.751071662)	BCT
+250011661	Selbourne Street	(-2.688276431,53.755159415)	BCT
+250011666	St Anthonys Drive	(-2.724494941,53.77897141)	BCT
+25001167	Waterstones	(-2.69877719,53.758226539)	BCT
+250011672	Kings Drive	(-2.711548765,53.784253125)	BCT
+250011673	Lansdown Hill	(-2.725399324,53.797086124)	BCT
+250011675	Belton Hill	(-2.722101504,53.796890318)	BCT
+250011677	Watling Street Road	(-2.710046505,53.77797929)	BCT
+250011679	Fulwood Row	(-2.660679327,53.783564596)	BCT
+25001168	Railway Station	(-2.707873225,53.757049623)	BCT
+250011683	St Anthonys Drive	(-2.72380252,53.779299168)	BCT
+250011684	Preston College	(-2.698093103,53.786471432)	BCT
+250011688	Wychnor	(-2.734109052,53.795082672)	BCT
+25001169	Bence Road North	(-2.685282586,53.754790081)	BCT
+250011691	Plough Hotel	(-2.790073125,53.988977154)	BCT
+250011692	Police Station	(-2.789292855,53.994491881)	BCT
+250011696	Oaklands	(-2.768020877,53.892885773)	BCT
+25001170	Bence Road	(-2.685642448,53.754536352)	BCT
+250011700	Church View Place	(-2.770986139,53.896084485)	BCT
+250011702	Wyreside Close	(-2.773253215,53.903480523)	BCT
+250011704	Church View Place	(-2.771204293,53.896361713)	BCT
+250011707	Post Office	(-2.773852348,53.902132974)	BCT
+250011708	Crooklands Drive	(-2.773177045,53.905948257)	BCT
+250011709	Aldi	(-2.777585537,53.899906774)	BCT
+25001171	Malvern Road	(-2.685114396,53.750980039)	BCT
+250011710	Norton Road	(-2.775370941,53.912630193)	BCT
+250011711	Sainsbury's	(-2.773845269,53.898456907)	BCT
+250011714	Wyre Lane	(-2.774066404,53.907946858)	BCT
+25001172	53 Degrees	(-2.708833937,53.763659273)	BCT
+250011725	Primary School	(-2.263327456,53.934385247)	BCT
+25001173	Retail Park	(-2.681673087,53.774458866)	BCT
+250011730	Victoria Inn	(-2.846613419,53.998119288)	BCT
+250011738	Camforth Hall Lane	(-2.659724115,53.824232138)	BCT
+250011739	The Croft	(-2.671180288,53.823391061)	BCT
+250011742	Goosnargh Lane	(-2.676048832,53.825732111)	BCT
+25001175	Lily Grove	(-2.677615253,53.776881721)	BCT
+250011750	Post Office	(-2.670596671,53.822041649)	BCT
+250011754	Stags Head	(-2.669154677,53.822112621)	BCT
+25001176	Ramsey Avenue	(-2.67395892,53.775032796)	BCT
+250011766	Medlar Lane	(-2.894773957,53.81372943)	BCT
+250011768	Aughton Road End	(-2.669051773,54.124842923)	BCT
+250011769	Village Centre	(-2.659263525,54.124168949)	BCT
+25001177	Larches Lane	(-2.751806976,53.765195035)	BCT
+250011770	High Snab	(-2.679975819,54.110760921)	BCT
+250011778	Village Hall	(-2.625937835,53.804855168)	BCT
+25001178	Morrisons	(-2.736756263,53.761630298)	BCT
+250011781	Primary School	(-2.364158529,53.906385229)	BCT
+250011784	Higher Steelands	(-2.37336446,53.916297491)	BCT
+25001179	Town Hall	(-2.69841613,53.760233015)	BCT
+250011790	Lane Heads	(-2.855531147,53.848908061)	BCT
+250011791	Larbreck Hall	(-2.913321958,53.852985078)	BCT
+250011795	St Marys RCPS	(-2.871269856,53.853585486)	BCT
+250011796	White House Lane	(-2.849977317,53.856133556)	BCT
+250011797	Raikes Road	(-2.863767767,53.856183391)	BCT
+250011798	Blackburn Road	(-2.40874529,53.785164936)	BCT
+250011799	Cemetery	(-2.410631804,53.779415124)	BCT
+250011801	Lyndon House	(-2.392652194,53.791105908)	BCT
+250011803	Tesco	(-2.399255558,53.786347397)	BCT
+250011804	Lord Street	(-2.409512325,53.782888342)	BCT
+250011805	Lyndon Avenue	(-2.386821825,53.790945108)	BCT
+250011811	Church Street	(-2.40519363,53.789868753)	BCT
+250011816	Waverledge Road	(-2.409899186,53.782096071)	BCT
+25001182	Skeffington Road	(-2.678389207,53.762774878)	BCT
+250011833	Gregory Lane	(-2.947243397,53.590286617)	BCT
+250011838	Gregory Lane	(-2.94688178,53.590329877)	BCT
+25001184	Railway Station	(-2.706967351,53.757297653)	BCT
+250011848	Halton Camp	(-2.78438642,54.072610541)	BCT
+250011849	Kellet Lane	(-2.788401987,54.070804698)	BCT
+250011850	Shops	(-2.754923904,54.080276928)	BCT
+250011851	New Street	(-2.761634994,54.077825892)	BCT
+250011859	Shovels Inn	(-2.957909489,53.874245058)	BCT
+25001186	Morrisons	(-2.734889326,53.761565324)	BCT
+250011863	Green Meadow Lane	(-2.958311243,53.871194842)	BCT
+250011865	Shard Bridge Inn	(-2.961536648,53.863951486)	BCT
+250011867	Shovels Inn	(-2.958560934,53.874131997)	BCT
+25001187	Victoria Mansions	(-2.73701931,53.759327693)	BCT
+250011871	Hampson Lane	(-2.784866105,53.979726747)	BCT
+250011874	Railway Inn	(-2.31489368,53.783731607)	BCT
+250011877	Mill Hill Lane	(-2.315434624,53.77492192)	BCT
+250011878	Railway Inn	(-2.314879649,53.78388444)	BCT
+25001188	Harewood Road	(-2.687295582,53.76939337)	BCT
+250011883	Queen Street	(-2.202056752,53.812466941)	BCT
+250011884	Granville Street	(-2.205546043,53.811706017)	BCT
+250011885	Granville Street	(-2.205774018,53.811741577)	BCT
+250011886	Queen Street	(-2.202087558,53.812556768)	BCT
+25001189	Halfords	(-2.732544426,53.762797624)	BCT
+250011891	Primary School	(-2.974677007,53.55736542)	BCT
+250011894	Hud Hey Road	(-2.324887473,53.714002425)	BCT
+250011898	County Primary School	(-2.32444736,53.70210333)	BCT
+25001190	Bus Station	(-2.696189253,53.760407761)	BCS
+250011901	Bender Factory	(-2.320041897,53.700425418)	BCT
+250011906	Jubilee Road	(-2.333405355,53.699022746)	BCT
+250011907	Lancaster Avenue	(-2.325753506,53.690792689)	BCT
+250011908	Lime Road	(-2.31582555,53.703726276)	BCT
+250011912	Ryefield Avenue	(-2.323662614,53.702482956)	BCT
+250011915	Station Road	(-2.325946936,53.709936912)	BCT
+250011918	Vale Street	(-2.325051953,53.711754947)	BCT
+25001192	Acregate Lane	(-2.675587803,53.768749874)	BCT
+250011921	Town Lane	(-2.609443299,53.683069302)	BCT
+250011922	Garstang House Farm	(-2.589095534,53.673400893)	BCT
+25001193	Robin Street	(-2.670307158,53.769642392)	BCT
+250011931	School Stop Only	(-2.322325772,53.690091904)	BCT
+250011932	York Avenue	(-2.329340717,53.692508599)	BCT
+250011935	Gregory Fold	(-2.329291619,53.690099907)	BCT
+25001194	Clock Garage	(-2.656607097,53.782283691)	BCT
+250011941	Station Hotel	(-2.330574931,53.685746097)	BCT
+250011943	York Avenue	(-2.328949159,53.692788308)	BCT
+250011945	Rankin Avenue	(-2.83950529,53.700462993)	BCT
+25001195	Tesco Metro	(-2.657516473,53.781236079)	BCT
+250011952	Rankin Avenue	(-2.839783628,53.70074867)	BCT
+250011956	Barmskin	(-2.728768995,53.623528498)	BCT
+25001196	Grange Place	(-2.654811311,53.780990232)	BCT
+250011960	Sandersons Lane	(-2.739046343,53.622440778)	BCT
+250011967	Hatlex Lane	(-2.809858395,54.092835038)	BCT
+250011968	Beech Grove	(-2.802616193,54.078053715)	BCT
+25001197	Hesketh Arms	(-2.663949963,53.765785897)	BCT
+250011971	Memorial Hall	(-2.806958357,54.089942483)	BCT
+250011972	Old Station	(-2.814132759,54.091709674)	BCT
+250011974	The Knoll	(-2.80879548,54.085355356)	BCT
+250011979	Oxcliffe Road	(-2.891616012,54.05448976)	BCT
+25001198	Roman Way Industrial Estate	(-2.637140766,53.792626238)	BCT
+250011980	Hale Carr Lane	(-2.885149082,54.053521907)	BCT
+250011983	Strawberry Gardens	(-2.892372845,54.047752199)	BCT
+250011984	Longlands Avenue	(-2.895491574,54.045760657)	BCT
+250011987	Londonderry Road	(-2.900951647,54.035532028)	BCT
+250011988	Royds Grove	(-2.891896123,54.052591234)	BCT
+250011997	Four Alls Inn	(-2.291502412,53.824713076)	BCT
+250011999	St Johns CEPS	(-2.288560442,53.825466194)	BCT
+25001200	Samlesbury Mill	(-2.579218571,53.755538485)	BCT
+250012003	Barley Bank	(-2.525760012,54.087743487)	BCT
+250012008	Blackburn Road	(-2.591798008,53.695566074)	BCT
+250012012	Maltkiln Lane End	(-2.763052418,53.608025399)	BCT
+250012013	Post Office	(-2.76538405,53.603237621)	BCT
+250012014	Heathergill	(-2.765029032,53.605334208)	BCT
+25001202	Spring Lane	(-2.574594784,53.759021186)	BCT
+250012021	Alder Drive	(-2.624277207,53.731906934)	BCT
+250012028	Holy Trinity Church	(-2.584436063,53.728243013)	BCT
+250012030	Dover Lane	(-2.583958586,53.726600501)	BCT
+250012031	Boars Head	(-2.588137774,53.735001995)	BCT
+250012035	Post Office	(-2.602113172,53.738078435)	BCT
+250012038	Post Office	(-2.602126918,53.737979495)	BCT
+25001204	Nabs Head Lane	(-2.574894622,53.768753906)	BCT
+250012047	Daisy Lane	(-2.679168143,53.775317976)	BCT
+250012048	Shops	(-2.682143863,53.774483152)	BCT
+25001205	Norman Vllas	(-2.630779536,53.765264007)	BCT
+250012053	Sandy Lane	(-2.850172997,53.641288739)	BCT
+250012054	Sandy Lane	(-2.849932101,53.641344381)	BCT
+250012056	Smithy Lane	(-2.861782604,53.644648297)	BCT
+250012057	Wiggins Lane	(-2.866277067,53.646206813)	BCT
+250012059	St Margarets CEPS	(-2.637117049,54.112820014)	BCT
+250012060	War Memorial	(-2.636775449,54.11149165)	BCT
+250012065	Royal Oak	(-2.637285439,54.11282811)	BCT
+25001207	Samlesbury Hotel	(-2.605797671,53.76656136)	BCT
+25001208	Tickled Trout	(-2.641513447,53.764829523)	BCT
+250012080	Edgar Street	(-2.342722542,53.773786379)	BCT
+250012082	Marshall Avenue	(-2.342587159,53.773930575)	BCT
+250012083	Spouthouse Lane	(-2.340897858,53.765819189)	BCT
+250012085	Burnley Lane	(-2.339108781,53.769707103)	BCT
+250012088	Knowles Brow	(-2.456457481,53.846156144)	BCT
+25001209	Staveley Place	(-2.754413934,53.770140158)	BCT
+250012090	Shireburn Arms	(-2.479630743,53.836349695)	BCT
+250012091	Punch Bowl Hotel	(-2.496723188,53.836109342)	BCT
+250012093	St Johns Church	(-2.484560039,53.835543397)	BCT
+250012095	Birchwood Avenue	(-2.774444922,53.731605508)	BCT
+25001210	The Avenue	(-2.741052606,53.788523513)	BCT
+250012101	Cliftons Farm	(-2.689359678,53.850858939)	BCT
+250012102	Green Man	(-2.690299516,53.853469063)	BCT
+250012103	Littlebrooks Farm	(-2.688846907,53.856659189)	BCT
+250012104	Clevedon Rd	(-2.743989256,53.778636274)	BCT
+250012105	Cottam Hall Lane	(-2.744870688,53.783848419)	BCT
+250012107	Dovedale Avenue	(-2.742785421,53.781789613)	BCT
+250012108	The Coppice	(-2.737444063,53.779233991)	BCT
+250012109	Redcar Avenue	(-2.74528382,53.781468506)	BCT
+250012118	Post Office	(-2.807220569,53.82901499)	BCT
+25001214	Knot Lane	(-2.66391941,53.745585049)	BCT
+25001215	Marlborough Drive	(-2.67562928,53.741101915)	BCT
+250012150	Grasmere Road	(-2.979630073,53.927603417)	BCT
+250012151	Willow House	(-2.958959443,53.918782141)	BCT
+250012153	Health Centre	(-3.01470008,53.876600574)	BCT
+250012154	Pilling Lane	(-2.973983736,53.930381753)	BCT
+250012161	Lancaster and Morecambe College	(-2.827093545,54.060739083)	BCT
+25001217	Lulworth Place	(-2.675298649,53.735611969)	BCT
+250012170	Boot and Shoe	(-2.795134621,54.027277179)	BCT
+250012178	Carlisle Bridge	(-2.810057598,54.055974657)	BCT
+250012179	Royal Grammar School	(-2.790836234,54.046921526)	BCT
+25001218	Yew Tree	(-2.673502529,53.749374064)	BCT
+250012188	Sulby Drive	(-2.79614868,54.039601822)	BCT
+250012189	Belle Vue Terrace	(-2.795790958,54.037662812)	BCT
+25001219	Sir Robert Peel	(-2.672272105,53.7482934)	BCT
+250012191	Greyhound Bridge	(-2.802398218,54.053284723)	BCT
+250012192	Bentham Road	(-2.786091038,54.026941197)	BCT
+250012193	Cockersand Drive	(-2.793183947,54.027451848)	BCT
+250012195	Hall Park	(-2.794450614,54.030634178)	BCT
+25001220	The Oaks	(-2.689356017,53.739585601)	BCT
+250012210	Our Ladys RCHS	(-2.801385969,54.055453038)	BCT
+250012212	Penrhyn Road	(-2.822129627,54.058490211)	BCT
+250012219	West Craven HS	(-2.180508009,53.911619597)	BCT
+250012223	West Drive	(-2.816661203,54.056972578)	BCT
+250012225	Lily Grove	(-2.795201349,54.034772622)	BCT
+250012242	Whinfell Drive	(-2.795057623,54.024841973)	BCT
+25001227	South View	(-2.75888374,53.808482587)	BCT
+250012271	Police Station	(-2.760236471,53.767424871)	BCT
+250012278	St Peters CEPS	(-2.547000961,54.184606699)	BCT
+25001228	Sunningdale	(-2.731121017,53.809194381)	BCT
+250012281	Tree Cross	(-2.553212352,54.183868308)	BCT
+250012284	Balshaws High School	(-2.686752101,53.688672994)	BCT
+250012285	Bent Lane	(-2.681368938,53.688209391)	BCT
+250012286	Russell Avenue	(-2.680623295,53.691737048)	BCT
+250012288	Broadfields Arms	(-2.716184591,53.695511461)	BCT
+25001229	Wheatsheaf	(-2.760519174,53.804032063)	BCT
+250012297	Westgate	(-2.697369317,53.691550808)	BCT
+250012299	Braconash Road	(-2.706841123,53.698290436)	BCT
+250012300	Tomlinson Road	(-2.702949825,53.698367271)	BCT
+250012305	Robin Hey	(-2.73367763,53.692915794)	BCT
+250012306	St James Gardens	(-2.735924194,53.690609983)	BCT
+250012314	St Marys RCPS	(-2.700700611,53.696088435)	BCT
+250012317	Young Avenue	(-2.682248892,53.692995148)	BCT
+250012319	Carr House	(-2.687739326,54.05304254)	BCT
+250012323	Pott Yeats	(-2.690419721,54.054402307)	BCT
+250012329	Alston Arms	(-2.609523406,53.836245207)	BCT
+250012332	Corporation Arms	(-2.582531667,53.830492184)	BCT
+250012336	Hothersall Lane	(-2.575523681,53.828009369)	BCT
+250012342	Booths	(-2.60538298,53.832590065)	BCT
+250012345	Bentley Park Road	(-2.790898693,53.721485024)	BCT
+250012347	Chapel Park Road	(-2.767809851,53.725185628)	BCT
+250012348	Golden Ball	(-2.791401292,53.725652286)	BCT
+25001235	St Peters and St Pauls Church	(-2.327098114,53.939863723)	BCT
+250012350	Hall Lane	(-2.791607411,53.719682677)	BCT
+250012351	Junction Garage	(-2.791537863,53.715979943)	BCT
+250012352	Grange Lane	(-2.809913609,53.72678692)	BCT
+250012353	Rams Head	(-2.780419418,53.726811921)	BCT
+250012355	St Oswalds RCPS	(-2.774781641,53.726012605)	BCT
+250012357	British Legion	(-2.689834442,53.727143113)	BCT
+250012358	Fir Trees Road	(-2.696933902,53.729349084)	BCT
+250012359	Flag Lane	(-2.700028552,53.731326432)	BCT
+250012361	Glendale Avenue	(-2.680683271,53.731105351)	BCT
+250012362	Green Drive	(-2.68135129,53.728360138)	BCT
+250012365	Lyndale Avenue	(-2.681433545,53.734381795)	BCT
+250012367	Woodcock Farm	(-2.682954171,53.718778515)	BCT
+250012368	Moss Street	(-2.686429805,53.727486248)	BCT
+25001237	Hospital	(-2.417843541,53.828608579)	BCT
+250012370	Goodshaw Avenue	(-2.282403967,53.732311081)	BCT
+250012377	Mealbank Farm	(-2.597850562,54.105418005)	BCT
+25001238	Post Office	(-2.354358773,53.892321615)	BCT
+250012382	Ivan Farm	(-2.528758205,54.073650096)	BCT
+25001239	Mount Pleasant	(-2.355060675,53.892553224)	BCT
+250012394	Plumpton Hall	(-2.941902085,53.786619265)	BCT
+250012395	Garstang New Road	(-2.950265659,53.848383766)	BCT
+25001240	Village Hall	(-2.349255386,53.893424111)	BCT
+250012407	Lodge Lane	(-2.929811013,53.744333545)	BCT
+25001241	Fairfield Drive	(-2.405915832,53.866165251)	BCT
+250012410	Saltcotes Road	(-2.943050785,53.743088543)	BCT
+250012414	Seafield Road	(-2.976902913,53.736947872)	BCT
+250012417	ST Bedes RCHS	(-2.955316077,53.743701463)	BCT
+25001242	Hospital	(-2.375064161,53.883423588)	BCT
+25001243	Kenilworth Drive	(-2.406945606,53.862593556)	BCT
+25001244	King Lane	(-2.390369228,53.872103938)	BCT
+25001245	Interchange	(-2.393498906,53.873369994)	BCT
+250012453	Black Bull	(-2.759941096,53.630021984)	BCT
+250012454	Blackmoor Road	(-2.782059506,53.627308775)	BCT
+250012457	Methodist Church	(-2.771257805,53.626183419)	BCT
+250012458	Dark Lane	(-2.753024323,53.629679208)	BCT
+250012459	Four Lane Ends	(-2.771781737,53.625065473)	BCT
+25001246	Langshaw Drive	(-2.389198254,53.863928743)	BCT
+250012460	Gorsey Lane	(-2.767913354,53.624362296)	BCT
+250012465	St Peter and Paul RCPS	(-2.745054548,53.625351726)	BCT
+250012467	Ridley Lane	(-2.750766573,53.627715938)	BCT
+250012468	Ridley Lane End	(-2.740685638,53.622808156)	BCT
+250012469	Robin Hood	(-2.74902096,53.640993799)	BCT
+25001247	Lowergate	(-2.390137337,53.871700236)	BCT
+250012471	Salt Pit Lane	(-2.746679312,53.633449167)	BCT
+250012472	Sandy Lane Farm	(-2.780971654,53.624080034)	BCT
+250012476	Melling Hall Hotel	(-2.615859018,54.135822192)	BCT
+250012477	Station Cottages	(-2.612461606,54.138958229)	BCT
+25001248	Market Place	(-2.391089805,53.872721756)	BCT
+250012484	Post Office	(-2.530748015,53.771339412)	BCT
+250012485	Traders Arms	(-2.524003861,53.774380107)	BCT
+250012487	Whitecroft Lane	(-2.524896996,53.770565241)	BCT
+25001249	Interchange	(-2.393711236,53.873306382)	BCT
+250012492	Primary School	(-2.886572214,53.662489162)	BCT
+2500125	Black Dog Inn	(-2.402467158,53.741324386)	BCT
+25001250	Interchange	(-2.394258241,53.873250658)	BCT
+250012503	The Green	(-2.658749633,53.77083)	BCT
+250012504	Grizedale Crescent	(-2.655828885,53.772284126)	BCT
+250012506	Osborne Grove	(-2.869791822,54.064221707)	BCT
+250012507	Albany Road	(-2.874079221,54.066842044)	BCT
+250012509	Balmoral Road	(-2.884758542,54.059582625)	BCT
+25001251	Ribblesdale CHS	(-2.391179349,53.867652283)	BCT
+250012513	Albert Road	(-2.871316951,54.0626288)	BCT
+250012516	County Garage	(-2.853953847,54.069754901)	BCT
+250012519	Fairfield Road	(-2.889713553,54.060534733)	BCT
+25001252	Well Terrace	(-2.387902371,53.875059973)	BCT
+250012521	Rosebery Ave	(-2.848896722,54.069053701)	BCT
+250012522	Sainsburys	(-2.846479298,54.06815398)	BCT
+250012524	Lonsdale Avenue	(-2.837032294,54.067977433)	BCT
+250012525	Town Hall	(-2.859869188,54.076480606)	BCT
+250012526	Michaelson Avenue	(-2.835521228,54.066540898)	BCT
+250012530	Park Hotel	(-2.876139076,54.063798139)	BCT
+250012531	Yorkshire Street East	(-2.880311138,54.066005652)	BCT
+250012533	The Shrimp	(-2.839187023,54.066470434)	BCT
+250012537	Thorpe Avenue	(-2.8319115,54.066359204)	BCT
+250012538	Torrisholme Square	(-2.830239002,54.066775215)	BCT
+25001254	Station Road	(-2.39413209,53.872774714)	BCT
+250012542	Walton Avenue	(-2.835605334,54.070728649)	BCT
+250012543	Gardens Grove	(-2.868410487,54.069049189)	BCT
+250012544	Fire Station	(-2.858509432,54.060213304)	BCT
+250012547	Westminster Avenue	(-2.874614325,54.066856129)	BCT
+250012548	Westminster Road	(-2.877772329,54.065170362)	BCT
+250012550	Carleton Street	(-2.867577201,54.067194715)	BCT
+25001256	Dean Meadow	(-2.403308173,53.86698296)	BCT
+250012560	Marlfield	(-2.79524102,53.705852515)	BCT
+250012563	Village Hall	(-2.79919862,53.702851025)	BCT
+25001257	Royal Grammar School	(-2.389134159,53.875038007)	BCT
+250012570	Primary School	(-2.816567639,53.897086293)	BCT
+250012573	Hendon Road	(-2.200607553,53.836530068)	BCT
+250012578	St Pauls Road	(-2.215366339,53.828379371)	BCT
+25001258	York Street	(-2.389530519,53.873499789)	BCT
+250012580	Brier Crescent	(-2.218759789,53.826512723)	BCT
+250012585	Marsden Hall Road	(-2.19512871,53.837995157)	BCT
+250012587	Pendle Vale College	(-2.194157167,53.844787067)	BCT
+25001259	Park Gate Road	(-2.495040234,53.800361935)	BCT
+250012592	Brunswick Street	(-2.203840218,53.829451121)	BCT
+250012599	Pendle Vale College	(-2.19315178,53.844294357)	BCT
+2500126	The Printers	(-2.391007757,53.748139368)	BCT
+25001260	Kenyon Lane	(-2.473319807,53.815729323)	BCT
+250012606	Boundary Close	(-2.747135459,53.726799429)	BCT
+250012609	Methodist Church	(-2.750467919,53.726688715)	BCT
+250012610	Saunders Lane	(-2.756286853,53.725780254)	BCT
+250012613	Higher Lane End	(-2.775600044,53.586749825)	BCT
+250012616	Tears Lane	(-2.789414812,53.587153814)	BCT
+250012618	Brow Edge	(-2.261821935,53.698625491)	BCT
+25001262	St Leonards Church	(-2.32937574,53.894469002)	BCT
+250012622	Turnpike	(-2.251030648,53.697399263)	BCT
+250012623	Spenbrook Mill	(-2.267487169,53.846546825)	BCT
+250012624	Top Barn Lane	(-2.258857676,53.696870265)	BCT
+25001263	Car Park	(-2.518288533,53.945720194)	BCT
+250012637	Hall	(-2.618021139,54.165892562)	BCT
+25001264	Bus Station	(-2.142957774,53.91748535)	BCT
+250012655	Ormskirk School	(-2.868875044,53.565780855)	BCT
+250012656	Fire Station	(-2.892364167,53.564111326)	BCT
+250012658	Grimshaw Lane	(-2.889630219,53.57484613)	BCT
+25001266	Post Office	(-2.262935294,53.934997276)	BCT
+250012664	Prescot Green	(-2.896261914,53.559938416)	BCT
+250012665	Fiveways	(-2.89100179,53.5725618)	BCT
+250012666	St Annes RC Primary	(-2.891280463,53.564272215)	BCT
+250012667	St Bedes RCHS	(-2.89396068,53.563209527)	BCT
+250012668	School House Green	(-2.877850303,53.566820905)	BCT
+250012678	Britannia Cottages	(-2.418513981,53.732780075)	BCT
+250012688	Tennyson Avenue	(-2.405683613,53.747847886)	BCT
+25001269	Travellers Court	(-2.258050318,53.935699939)	BCT
+250012690	Civic Theatre	(-2.394136501,53.745432686)	BCT
+250012695	Crookgate Farm	(-2.913426875,53.873153808)	BCT
+250012699	Leylands Farm	(-2.921968718,53.866661917)	BCT
+250012701	Liscoe Farm	(-2.938735059,53.859548061)	BCT
+250012702	Primary School	(-2.88949526,53.876407553)	BCT
+25001271	Lowerfold Road	(-2.407298404,53.787776394)	BCT
+250012710	Church Bank	(-2.72989993,54.121927724)	BCT
+250012720	Cambridge Drive Turn Round	(-2.304165335,53.790239677)	BCT
+250012721	North Street	(-2.317685322,53.80168227)	BCT
+250012722	St James Place	(-2.311636708,53.798866934)	BCT
+250012723	Levant Street	(-2.31381867,53.796263709)	BCT
+250012724	Lancaster Drive	(-2.308989073,53.789804899)	BCT
+250012728	Oat Street	(-2.313465417,53.795716366)	BCT
+25001273	Mercer Hall	(-2.403563724,53.786108266)	BCT
+250012730	St John the Baptist RCPS	(-2.314423394,53.79389828)	BCT
+250012731	Stone Moor Bottom	(-2.313710612,53.79195874)	BCT
+25001274	Harwood Bar	(-2.388980103,53.792888524)	BCT
+250012741	Lancaster Lane	(-2.762842718,53.591362077)	BCT
+250012742	Library	(-2.770729601,53.594709172)	BCT
+250012746	Stocks Tavern	(-2.7690119,53.58748448)	BCT
+25001275	Holgate Street	(-2.409261912,53.785226089)	BCT
+250012755	Pendleton Hall	(-2.362440612,53.855653825)	BCT
+250012758	All Hallows RCHS	(-2.741153912,53.739159515)	BCT
+250012759	Sumpter Court	(-2.701751575,53.733756623)	BCT
+250012760	Bridge Inn	(-2.714264093,53.747538102)	BCT
+250012761	Broad Oak Lane	(-2.728443081,53.742320446)	BCT
+250012762	Carleton Drive	(-2.740011688,53.745768416)	BCT
+250012764	Cromwell Road	(-2.72663053,53.740084388)	BCT
+250012765	Crookings Lane	(-2.733886282,53.74928009)	BCT
+250012766	Stricklands Lane	(-2.712715594,53.745641816)	BCT
+250012767	Cop Lane School Stop Only	(-2.729168291,53.746549502)	BCT
+250012768	Meadowfield	(-2.712744471,53.733911977)	BCT
+25001277	Lyndon House	(-2.391773156,53.791252593)	BCT
+250012775	Moss Acre Road	(-2.712668479,53.738379592)	BCT
+250012778	Priory Tech College	(-2.741320904,53.750366843)	BCT
+25001278	Tesco	(-2.39970925,53.786175112)	BCT
+250012780	Studholme Crescent	(-2.709698503,53.738469129)	BCT
+250012783	St Johns CEPS	(-2.909819024,53.931828851)	BCT
+250012785	Damside	(-2.900517953,53.929939563)	BCT
+25001279	St Huberts Road	(-2.406507749,53.782925536)	BCT
+250012790	Head Dyke Lane	(-2.937945099,53.916647194)	BCT
+250012794	St Williams RC School	(-2.893663853,53.923501369)	BCT
+250012796	Golden Ball	(-2.909479894,53.93164267)	BCT
+250012798	Pottery	(-2.909567065,53.927947899)	BCT
+250012799	Scronkey Farm	(-2.897623722,53.917144201)	BCT
+25001280	Towngate	(-2.409005394,53.785379762)	BCT
+250012803	Taylors Lane	(-2.895762794,53.928361747)	BCT
+25001281	Wordsworth Drive	(-2.415943272,53.782497683)	BCT
+250012815	Baines HS school only	(-2.993482377,53.836240988)	BCT
+250012817	Beech Drive	(-2.99139709,53.840599592)	BCT
+25001282	Buck Inn	(-2.367526402,53.905107674)	BCT
+250012820	Wyre Hotel	(-2.980725094,53.857369566)	BCT
+250012826	Hardhorn Rd	(-2.991666207,53.843626423)	BCT
+250012827	St Chads Church	(-2.992135586,53.847406613)	BCT
+25001283	Stone Hill Farm	(-2.371001807,53.909114547)	BCT
+250012833	Lawnswood Avenue	(-3.005898572,53.841979905)	BCT
+250012834	Wembley Avenue	(-2.986552797,53.84528648)	BCT
+250012836	Moorland Road End	(-2.987164777,53.851914798)	BCT
+250012837	Mossbourne Road	(-3.001399168,53.844498324)	BCT
+25001284	Greendale View	(-2.368520707,53.905670859)	BCT
+250012841	Wyresdale Ave	(-2.998796316,53.845616598)	BCT
+250012843	Moorland Road End	(-2.986427634,53.852244439)	BCT
+250012846	Wyresdale Avenue	(-2.998839124,53.845499393)	BCT
+250012847	The Ferns	(-2.964511302,53.914571627)	BCT
+250012849	Hampson Grove	(-2.971289395,53.92323103)	BCT
+250012850	Fordstone Avenue	(-2.970078623,53.92158248)	BCT
+250012858	Police Stn	(-2.972983237,53.925347509)	BCT
+25001286	Martin Top Chapel	(-2.27416931,53.907091339)	BCT
+250012862	Rose Cottages	(-2.95885509,53.916886473)	BCT
+250012863	Pilling Lane	(-2.976286139,53.92657904)	BCT
+250012864	Unsworth Avenue	(-2.969508884,53.92393751)	BCT
+25001287	Mire Ash Brow	(-2.537748665,53.767079256)	BCT
+250012872	Corpus Christi RCHS	(-2.705438006,53.785493661)	BCT
+250012873	St Anthonys Road	(-2.69147994,53.769207513)	BCT
+250012874	Hartington Road	(-2.71281763,53.755249633)	BCT
+250012875	Grasshoppers RUFC	(-2.729857105,53.795886077)	BCT
+250012876	Maudland Bank	(-2.712646696,53.764859057)	BCT
+250012880	Moor Park	(-2.706976595,53.774096561)	BCT
+250012881	Moor Park Gates	(-2.705517654,53.771246912)	BCT
+250012885	Cardinal Newman College	(-2.691235796,53.757119787)	BCT
+250012886	Our Ladys RCHS	(-2.726737115,53.781175693)	BCT
+250012887	Plungington Road	(-2.713148086,53.77385327)	BCT
+25001289	Feilden Arms	(-2.548196381,53.776006589)	BCT
+250012895	Winmarleigh Road	(-2.733628529,53.766682894)	BCT
+250012896	Plungington Road	(-2.714536417,53.773404579)	BCT
+250012897	Archbishop Temple CEHS	(-2.706999242,53.784468798)	BCT
+25001290	The Windmill	(-2.547276702,53.769467444)	BCT
+250012904	Langthwaite Terrace	(-2.765198943,54.021467588)	BCT
+250012905	Low Moorhead Farm	(-2.701274934,53.999648611)	BCT
+250012909	Rowton Brook Farm	(-2.720024973,54.027103452)	BCT
+25001291	Millstone	(-2.53088553,53.773819521)	BCT
+250012910	Stock-a-Bank	(-2.74272539,54.041696381)	BCT
+250012912	Yeat House Lane End	(-2.745552554,54.004271446)	BCT
+250012919	Barker Lane	(-2.501292398,53.770828096)	BCT
+250012921	Alder Grange CSS	(-2.284487865,53.708703384)	BCT
+250012922	All Saints RCHS	(-2.308023074,53.697329075)	BCT
+250012923	Holland Avenue	(-2.291101457,53.707716767)	BCT
+25001293	Three Fishes	(-2.435027987,53.846307697)	BCT
+250012931	Magistrates Court	(-2.291848271,53.699616641)	BCT
+250012935	Lever Street	(-2.275890381,53.700598242)	BCT
+25001294	Church Lane	(-2.438872878,53.852063957)	BCT
+250012945	Stork Hotel	(-2.350765735,53.806686208)	BCT
+250012946	Straits Lane	(-2.35460228,53.807861333)	BCT
+25001295	Bay Horse	(-2.537263602,53.780172651)	BCT
+250012950	Primary School	(-2.225605301,53.819723125)	BCT
+250012951	Spring Side	(-2.290673278,53.718117059)	BCT
+250012952	Thorn Street	(-2.291793363,53.715750461)	BCT
+250012955	Chatburn Rd	(-2.659494484,53.777692865)	BCT
+25001296	Pendleton Road	(-2.371526079,53.851572466)	BCT
+250012960	Morris Road	(-2.669998747,53.771235025)	BCT
+250012961	St Gregory Road	(-2.68543203,53.770482626)	BCT
+250012968	Pinfold Cottages	(-2.552077183,53.821935835)	BCT
+25001297	Village	(-2.373189291,53.852277349)	BCT
+250012971	Asturian Gate	(-2.568111216,53.824764079)	BCT
+25001298	Black Horse	(-2.384277461,53.884463988)	BCT
+250012980	Stopper Lane	(-2.287078883,53.908625662)	BCT
+250012984	War Memorial	(-2.42525238,53.76509108)	BCT
+250012985	Cricket Ground	(-2.423059946,53.765808899)	BCT
+250012987	Riverside Ind Park	(-2.402845217,53.769734453)	BCT
+250012988	Holt Street	(-2.407695295,53.769232692)	BCT
+25001299	Black Bull	(-2.534499559,53.813422909)	BCT
+250012992	Stourton Street	(-2.420210835,53.770654508)	BCT
+250012993	Roebuck Inn	(-2.413544145,53.768484614)	BCT
+250012995	Cricket Club	(-2.422063793,53.766315745)	BCT
+2500130	Library	(-2.397428565,53.742401806)	BCT
+250013009	Middle Slater Farm	(-2.607890829,54.063053687)	BCT
+25001301	Oaks Bar	(-2.501663513,53.796847033)	BCT
+250013011	Stauvin Farm	(-2.583050958,54.076352657)	BCT
+250013012	Hall Farm	(-2.846397816,53.821900407)	BCT
+250013013	Roseacre Village	(-2.860025498,53.824194317)	BCT
+250013015	Rossall School	(-3.039657611,53.897904857)	BCT
+25001302	Ribchester Arms	(-2.52875172,53.81407756)	BCT
+25001303	Black Bull	(-2.297714029,53.907925655)	BCT
+250013036	Somerset Avenue	(-2.47992575,53.78906696)	BCT
+250013044	Primary School	(-2.623830712,53.768275464)	BCT
+250013046	Spring Lane	(-2.604087319,53.765779037)	BCT
+25001305	Bay Horse	(-2.239408173,53.858847706)	BCT
+250013051	Huntley Lane	(-2.578137146,53.768450686)	BCT
+25001306	Spread Eagle	(-2.341820079,53.914593922)	BCT
+250013061	Arnside Road	(-2.758012612,53.77114211)	BCT
+250013063	Turning Circle	(-2.754135593,53.774078753)	BCT
+25001307	Village Hall	(-2.438059253,53.966158919)	BCT
+25001309	Derby Arms	(-2.600238389,53.847904582)	BCT
+250013091	Cliffe Wood	(-2.916008714,53.609522784)	BCT
+250013095	Primary School	(-2.75918049,53.932345512)	BCT
+250013096	Crosshill Farmhouse	(-2.722869715,53.952585791)	BCT
+2500131	Merlin Drive	(-2.397604778,53.740190147)	BCT
+250013100	Woodacre Hall Fm	(-2.759377813,53.916372579)	BCT
+25001311	Tower Lodge	(-2.604842051,53.979401883)	BCT
+250013117	Cemetery	(-2.820650477,54.173984084)	BCT
+25001312	Hospital	(-2.414101768,53.89126745)	BCT
+250013120	The Row	(-2.810745555,54.176684573)	BCT
+250013121	St Johns Primary School	(-2.824631249,54.171557175)	BCT
+25001313	Waddington Arms	(-2.41453749,53.890708697)	BCT
+250013130	Clough Lane	(-2.33991291,53.805360292)	BCT
+250013132	School Lane	(-2.343558581,53.805529656)	BCT
+250013133	Simonstone Lane	(-2.341653261,53.79530676)	BCT
+250013136	Haugh Avenue	(-2.346005241,53.805765294)	BCT
+250013145	Harsnips	(-2.76645199,53.552877074)	BCT
+25001315	Waddington and West Bradford CEPS	(-2.405083081,53.891702693)	BCT
+250013157	Lathom High School	(-2.793960506,53.562099614)	BCT
+250013163	Our Ladys RCHS	(-2.792543691,53.562225864)	BCT
+250013166	Red Cross	(-2.798823403,54.054854435)	BCT
+250013173	Brennands School	(-2.443514556,53.964566033)	BCT
+250013176	Higher Edge Farm	(-2.39266112,53.967286624)	BCT
+250013177	Hollins House	(-2.444413715,53.99318874)	BCT
+250013180	Lower Edge Farm	(-2.405754734,53.967243096)	BCT
+250013183	Standride Farm Road	(-2.400013005,53.974129009)	BCT
+250013186	Woodhouse Gate	(-2.439395357,53.978691981)	BCT
+25001319	Chapel Lane	(-2.390169271,53.89635391)	BCT
+250013191	Green Lane	(-2.827465716,53.662750524)	BCT
+2500132	White Bull	(-2.406104019,53.736413589)	BCT
+25001320	Bus Station	(-2.406675837,53.822247536)	BCT
+25001321	Bus Station	(-2.406229842,53.821682805)	BCS
+25001322	Bus Station	(-2.405911548,53.821755787)	BCS
+250013226	Cavendish Road	(-3.041246097,53.757879422)	BCT
+25001323	Rail Station	(-2.412891367,53.824050852)	BCT
+25001324	Sydney Avenue	(-2.403744281,53.820693535)	BCT
+25001326	Calfs Head	(-2.353879612,53.880638794)	BCT
+250013269	Grapes Hotel	(-2.820751581,53.864421925)	BCT
+25001327	Castletown Drive	(-2.190054458,53.694033245)	BCT
+250013273	The Oaks	(-2.819243527,53.865843369)	BCT
+250013277	Tarnacre House Fm	(-2.80104268,53.87945742)	BCT
+250013278	Village Hall	(-2.822887184,53.861665915)	BCT
+25001328	Cutler Crescent	(-2.216380483,53.689125948)	BCT
+25001329	Post Office	(-2.201412327,53.703452189)	BCT
+250013295	Moss Side Lane	(-2.949274253,53.898590802)	BCT
+2500133	Duke Street	(-2.403845757,53.739629981)	BCT
+250013317	Merewood	(-2.782567359,53.564035351)	BCT
+250013318	Eavesdale	(-2.755579469,53.547535165)	BCT
+25001333	The Sidings	(-2.196150274,53.692450483)	BCT
+250013331	High School	(-2.831572532,53.685318962)	BCT
+250013338	Bridge Inn	(-2.594129259,54.12005033)	BCT
+25001334	Post Office	(-2.20148914,53.703676763)	BCT
+250013341	Hawthorn House	(-2.532236619,54.078970021)	BCT
+250013343	Moorhead	(-2.580461266,54.111992238)	BCT
+250013357	Hall Cottage	(-2.557727831,53.864207287)	BCT
+25001336	Sandfield Rd	(-2.194377444,53.698798993)	BCT
+250013362	Laurel Drive	(-3.007098086,53.865986556)	BCT
+250013370	Gardeners Arms	(-3.012476476,53.876484532)	BCT
+250013377	Meadows Avenue	(-3.019895054,53.873806122)	BCT
+250013379	Neville Drive	(-3.010940521,53.867041823)	BCT
+25001338	St James Square	(-2.200610144,53.703588359)	BCT
+250013386	Tarn Road	(-2.994069823,53.864881788)	BCT
+250013389	Trunnah Road	(-3.009667498,53.88048101)	BCT
+25001339	St James Gardens	(-2.199972064,53.70319395)	BCT
+250013390	Centre	(-3.000967649,53.870361212)	BCT
+25001340	Union Street	(-2.200543264,53.702267218)	BCT
+25001342	Chestnut Drive	(-2.292138318,53.693387151)	BCT
+250013443	Abbey Lakes	(-2.71612915,53.540452316)	BCT
+250013446	Upholland High School	(-2.718310364,53.529356336)	BCT
+250013476	Walton Le Dale HS	(-2.655941097,53.735692558)	BCT
+250013479	Walton Green	(-2.673258041,53.745465564)	BCT
+25001348	Cobden Street	(-2.183880934,53.691795862)	BCT
+25001350	Mitton Avenue	(-2.285198671,53.710759973)	BCT
+25001351	War Memorial	(-2.246186137,53.684789977)	BCT
+250013521	Perrymoor Road	(-2.568788722,54.115247582)	BCT
+25001353	Black Dog	(-2.287362527,53.723697677)	BCT
+250013541	Hayhurst Road	(-2.405074778,53.824769592)	BCT
+250013542	Toby Jug	(-2.406544694,53.819686404)	BCT
+250013544	The Grove	(-2.407723087,53.823718009)	BCT
+250013553	Railway Stn	(-2.412172633,53.823567974)	BCT
+25001359	Bury Old Road	(-2.296679357,53.66509021)	BCT
+2500136	Stanhill Inn	(-2.416678332,53.744884479)	BCT
+25001360	Rostron Arms	(-2.304723417,53.668278779)	BCT
+25001362	Old Sch House	(-2.31167599,53.685419302)	BCT
+25001363	Halfway House	(-2.17050657,53.668698167)	BCT
+25001364	Helmshore PS	(-2.331601806,53.689248642)	BCT
+250013652	County Primary School	(-2.399089673,53.842379116)	BCT
+25001366	John Street	(-2.327707144,53.70639977)	BCT
+250013674	Above Beck Farm	(-2.599828036,54.098316905)	BCT
+25001368	Grasmere Road	(-2.316437588,53.692435548)	BCT
+250013682	Institute	(-2.608913889,54.102675206)	BCT
+25001369	Hillside Rd	(-2.316719258,53.703723915)	BCT
+2500137	Byron Close	(-2.403649487,53.747621067)	BCT
+250013716	Potter Lane	(-2.6227044,53.765980352)	BCT
+25001372	Health Centre	(-2.324050898,53.703731257)	BCT
+250013720	Waverley Gardens	(-2.667125259,53.76895008)	BCT
+250013723	Printers Fold	(-2.295840682,53.793622033)	BCT
+250013724	Farrer Street	(-2.223149773,53.832122083)	BCT
+25001373	Haslingden High School	(-2.321576857,53.689186114)	BCT
+250013737	Everard Close	(-2.925103949,53.612805544)	BCT
+25001374	Museum	(-2.337381302,53.688621295)	BCT
+250013753	Ambulance Station	(-3.035081957,53.911040272)	BCT
+250013758	Huds Brook Farm	(-2.689252951,53.893372985)	BCT
+25001376	Campion Drive	(-2.334010604,53.691300233)	BCT
+250013764	Marl Pits	(-2.273722765,53.702679477)	BCT
+250013768	Millfield High School	(-3.001406871,53.866465628)	BCT
+25001377	Health Centre	(-2.323988926,53.703551662)	BCT
+250013774	New Hall Street	(-2.23646574,53.803528322)	BCT
+250013784	North Holme Estate	(-2.152690845,53.91031008)	BCT
+25001379	Post Office	(-2.328364905,53.689715962)	BCT
+250013797	UCLAN Library	(-2.706926817,53.76391322)	BCT
+2500138	Civic Theatre	(-2.393546846,53.745614386)	BCT
+25001380	Lock Gate	(-2.313189081,53.695473099)	BCT
+250013802	Lamb Hill Farm	(-2.447213923,54.01678012)	BCT
+250013812	Hall Park	(-2.794512371,54.029869801)	BCT
+25001382	Warner Street	(-2.325532515,53.703358724)	BCT
+250013820	Rivers View Fold	(-2.733609393,53.974091703)	BCT
+250013828	Wood Lane	(-2.990063087,53.548448046)	BCT
+250013835	Post Office	(-2.784365016,53.586926369)	BCT
+250013838	Middle Lees	(-2.517633649,53.894065183)	BCT
+250013839	Wellhouse Road	(-2.186466274,53.919807347)	BCT
+25001384	Station Road	(-2.179094895,53.64173904)	BCT
+250013847	Higher Highfield	(-2.414422177,53.96510137)	BCT
+250013851	Hattersley Court	(-2.880574867,53.573681708)	BCT
+250013853	St Patricks Road South	(-3.02427559,53.753621334)	BCT
+250013855	Pope Walk	(-2.716880733,53.737347777)	BCT
+250013858	Caxton Road	(-2.692447731,53.797577591)	BCT
+25001386	Mayfield Avenue	(-2.327304846,53.695561168)	BCT
+250013861	Clifton Street	(-2.25169484,53.790810796)	BCT
+250013871	Higgins Lane	(-2.852692404,53.598215813)	BCT
+250013872	Coach and Horses	(-2.305894369,53.673219293)	BCT
+250013877	Robinson Street	(-2.239666022,53.802906322)	BCT
+250013886	Mitre Hotel	(-2.633396728,53.640753785)	BCT
+250013895	Marsh Farm	(-2.850069617,53.856186831)	BCT
+2500139	Spread Eagle Street	(-2.409362974,53.750405964)	BCT
+250013902	Crookhey Hall School	(-2.811543285,53.955039284)	BCT
+250013905	Windmill Lane	(-2.592627412,53.720095401)	BCT
+250013914	Moor Park HS	(-2.690736216,53.771036405)	BCT
+250013915	Kidsgrove	(-2.746601532,53.786448759)	BCT
+250013920	Parkers Farm	(-2.695579701,53.886757253)	BCT
+250013924	Mersey Road	(-3.027864381,53.919650086)	BCT
+25001393	Clarion House	(-2.257991523,53.85213115)	BCT
+250013930	Fairburn	(-2.772125794,53.556930363)	BCT
+250013933	War Memorial	(-2.764503368,54.076720171)	BCT
+250013934	Kingsway	(-2.885262108,54.053808688)	BCT
+250013939	Dean Slack Head	(-2.394560682,53.956989398)	BCT
+25001394	The Boars Head	(-2.252940858,53.697709825)	BCT
+250013942	Bell Hill Farm	(-2.678111092,54.048046103)	BCT
+25001395	Witches Galore	(-2.270555834,53.851006929)	BCT
+25001397	Barnes Avenue	(-2.296129662,53.703210368)	BCT
+250013972	Kirkbeck	(-2.187138599,53.916939195)	BCT
+250013975	Causey Foot	(-2.21695414,53.829877491)	BCT
+250013978	Farleton Old Road	(-2.653309809,54.099754975)	BCT
+250013985	Smithy Corner	(-2.912953317,53.682937422)	BCT
+2500140	Community Centre	(-2.40649511,53.75022698)	BCT
+25001400	Bank Street	(-2.285152198,53.703893156)	BCT
+250014000	Cam Lane	(-2.647770824,53.704197266)	BCT
+250014002	Carr Meadow	(-2.634580771,53.717552521)	BCT
+250014008	Ribbleton Park	(-2.669330426,53.765468345)	BCT
+25001401	Bus Station	(-2.285251356,53.700639216)	BCT
+250014017	Pendleton Avenue	(-2.385291016,53.744832298)	BCT
+250014024	Moor Nook	(-2.531723423,53.837657995)	BCT
+250014027	CP School	(-2.601588335,53.830748634)	BCT
+250014031	Braides Farm	(-2.850927378,53.954577953)	BCT
+250014034	Shuttleworth College	(-2.300324484,53.796531977)	BCT
+250014036	Caravan Park	(-2.266381232,53.918838617)	BCT
+250014037	New Lane	(-2.443219481,53.857719369)	BCT
+250014049	Brookside Road	(-2.714183633,53.793728972)	BCT
+25001405	Holland Avenue	(-2.289500986,53.706291536)	BCT
+250014051	Moss Side Stables	(-2.82949121,53.936419319)	BCT
+250014052	Middle Crimbles Farm	(-2.829039461,53.945131837)	BCT
+250014057	Old Moor Road	(-2.562463749,54.114729074)	BCT
+25001406	Fire Station	(-2.288667947,53.699678282)	BCT
+250014063	Traders Arms	(-2.523793011,53.774506862)	BCT
+250014065	Belle Vue Farm	(-2.876932933,53.870675689)	BCT
+25001407	Reeds Close	(-2.287549714,53.717819007)	BCT
+250014071	Carlinghurst Farm Road End	(-2.517617559,53.841054257)	BCT
+250014072	Tootle Hall	(-2.677678771,53.90030573)	BCT
+25001408	St Johns School	(-2.331287962,53.724465032)	BCT
+250014082	St Josephs RCPS	(-2.476387662,53.837126602)	BCT
+250014086	Hale Worth Farm	(-2.927818225,53.888404206)	BCT
+25001409	Rising Bridge Road	(-2.331175769,53.72561582)	BCT
+250014097	Thorneyholme	(-2.517085516,53.945765848)	BCT
+250014098	Snape Wood Lane	(-2.779061227,53.92113594)	BCT
+25001410	Langwood	(-2.31043494,53.695776883)	BCT
+250014105	Wheatley Farm	(-2.487070019,53.803046059)	BCT
+25001411	Goodshaw Fold Road	(-2.287073689,53.734681818)	BCT
+250014121	Kitchen Grn Fm	(-2.545211816,53.818488875)	BCT
+250014127	Hollin Lane	(-2.289860716,53.710137583)	BCT
+250014133	Clough Farm	(-2.448185388,53.999259428)	BCT
+25001415	Shanter Close	(-2.165630998,53.683598384)	BCT
+250014156	Smithy Lane	(-2.774453984,53.628149225)	BCT
+250014157	Lindle Lane	(-2.727813754,53.7313496)	BCT
+250014159	Red Lion	(-2.269035598,53.701647482)	BCT
+25001416	Chapel	(-2.164818954,53.681145744)	BCT
+25001417	School Street	(-2.229826308,53.691752377)	BCT
+250014170	Higher Stoneybank Fm	(-2.390735763,53.979812847)	BCT
+250014172	Balmoral Road	(-2.789771724,54.046357809)	BCT
+250014181	Red Pump Inn	(-2.464034548,53.883939342)	BCT
+250014184	White Pits Lane	(-2.516014329,54.090832503)	BCT
+250014185	Tunstall House	(-2.528596762,54.094426839)	BCT
+250014188	St Marys RCPS	(-2.535349121,53.781178897)	BCT
+25001419	Northfield Road	(-2.324869397,53.727376789)	BCT
+250014191	Cottam Hall Lane	(-2.744596985,53.783818696)	BCT
+250014192	Post Office	(-2.698642217,53.778414824)	BCT
+250014196	Greyhound Hotel	(-2.761648113,54.076873104)	BCT
+25001420	Industrial Estate	(-2.315318369,53.658193535)	BCT
+250014202	Moss House Farm	(-2.860266557,53.93669712)	BCT
+250014203	Frank Street	(-2.703098997,53.767243399)	BCT
+250014207	Jacksons Common	(-2.921822316,53.585676318)	BCT
+250014215	Bamford Crescent	(-2.35541937,53.74469996)	BCT
+250014216	Normandy Road	(-2.733565304,53.810024339)	BCT
+25001422	Westgate	(-2.184533096,53.650512239)	BCT
+250014222	Irongate	(-2.676024311,53.727931918)	BCT
+250014231	Yarrow Bridge	(-2.61884419,53.640632181)	BCT
+250014235	Kingfisher Drive	(-3.011148937,53.84289751)	BCT
+250014238	Melbourne Avenue	(-3.037314944,53.904702266)	BCT
+25001425	Dean Lane	(-2.241137065,53.728545421)	BCT
+250014263	Coal Pit Lane	(-2.810433789,53.525072909)	BCT
+250014269	Jackson Hill House	(-2.79342906,53.94648691)	BCT
+25001427	Baltic Bridge	(-2.253034557,53.693134666)	BCT
+250014271	Conder Mill Farm	(-2.750241817,54.029156617)	BCT
+250014274	Lunesdale Terrace	(-2.685411253,54.086049847)	BCT
+250014281	Beaumont College	(-2.801591251,54.067697601)	BCT
+250014285	Shady Lane	(-2.807871748,54.085020028)	BCT
+250014287	Hestham Parade	(-2.86176074,54.066715241)	BCT
+25001429	Foxhill Drive	(-2.247200698,53.708049173)	BCT
+250014294	Willowfield Road	(-2.885961935,54.047215397)	BCT
+250014297	Combermere Road	(-2.897971327,54.035397052)	BCT
+250014298	Riverside	(-2.850666205,54.03974971)	BCT
+250014299	North Farm	(-2.860332585,54.044938844)	BCT
+250014300	Cottom Farm	(-2.849965618,54.035350595)	BCT
+250014302	Manor Bungalow	(-2.8966417,54.007670139)	BCT
+250014306	Greendales Farm	(-2.889253783,54.018986954)	BCT
+25001431	Royal Hotel	(-2.25209096,53.692354689)	BCT
+250014312	Hall Grove	(-2.881577872,54.021209596)	BCT
+250014313	Heathfoot Avenue	(-2.898609366,54.04020083)	BCT
+250014314	Mossgate School	(-2.886730796,54.050328534)	BCT
+250014315	Littledale Avenue	(-2.886697262,54.048036865)	BCT
+250014316	Roeburndale Crescent	(-2.884342862,54.04936644)	BCT
+250014318	Grayrigg Drive	(-2.858519003,54.065120612)	BCT
+250014320	Industrial Estate	(-2.885884953,54.024930381)	BCT
+250014324	Londonderry Road	(-2.901733438,54.035674481)	BCT
+250014329	St Helens CEPS	(-2.859806104,54.016477877)	BCT
+25001433	Late Shop	(-2.254333352,53.692538696)	BCT
+250014331	Our Lady of Lourdes	(-2.761798866,54.126808059)	BCT
+250014339	Barnoldswick Road	(-2.153540399,53.897087934)	BCT
+25001434	Turning Circle	(-2.252775117,53.692802653)	BCT
+250014340	St Pauls CEPS	(-2.700816378,54.07400738)	BCT
+250014342	St Wilfrids CEPS	(-2.758704446,54.080558723)	BCT
+250014344	Village Hall	(-2.732109998,54.121446938)	BCT
+250014351	St Patricks RCPS	(-2.883687441,54.048710635)	BCT
+250014352	Euston Road School	(-2.861249892,54.071563358)	BCT
+250014354	Woodhouse	(-2.850925172,54.035981947)	BCT
+25001436	Richard Street	(-2.198147477,53.724274075)	BCT
+250014362	New House Farm	(-2.68328298,54.057004589)	BCT
+250014363	Leapers View	(-2.732666294,54.121758121)	BCT
+250014366	Wymber Hill Cottage	(-2.857038487,54.025872054)	BCT
+250014368	Bay View	(-2.732699989,54.122800489)	BCT
+250014369	Meadow Street	(-2.691569287,53.765413978)	BCT
+25001437	Community Centre	(-2.250161791,53.709220464)	BCT
+250014373	Bent Lane	(-2.141484791,53.860162744)	BCT
+25001438	The Inn at Whitewell	(-2.520533548,53.916792041)	BCT
+250014381	Christ The King RCHS	(-2.689403375,53.750811627)	BCT
+25001439	Hall Street	(-2.176718987,53.655907967)	BCT
+250014397	Queens Drive	(-2.712768704,53.788173713)	BCT
+25001440	Hoghton Avenue	(-2.191860186,53.694812329)	BCT
+250014403	Shuttleworth Mead	(-2.334121468,53.796954825)	BCT
+25001441	Tonacliffe School	(-2.180363645,53.648397388)	BCT
+250014419	Slade Street	(-2.71218315,53.758983518)	BCT
+25001442	Tong Lane	(-2.173203072,53.661917214)	BCT
+250014421	Fairhurst Lane End	(-2.687048238,53.860084966)	BCT
+250014429	Yew Tree Road	(-2.887670103,53.577880867)	BCT
+250014431	Bearncroft	(-2.764384787,53.537007502)	BCT
+250014446	St Wilfrids RCPS	(-2.608648655,53.832510619)	BCT
+250014447	Springfield Drive	(-3.013284961,53.885385071)	BCT
+250014449	Eskam House Farm	(-2.851797555,53.888851003)	BCT
+25001446	Brown Lane	(-2.654414447,53.734029098)	BCT
+250014460	Strawberry Gardens	(-2.892080714,54.048374534)	BCT
+250014461	Hazel Street	(-2.335019318,53.726764594)	BCT
+250014463	Windmill Lane	(-2.592473861,53.719952349)	BCT
+25001447	Brown Lane	(-2.653801998,53.73363696)	BCT
+250014473	St Georges Road	(-2.686508336,53.769496752)	BCT
+25001448	Hob Inn Turning Circle	(-2.662734253,53.721345893)	BCT
+250014480	Jepps Lane	(-2.738474728,53.833579093)	BCT
+250014485	Kintyre Way	(-2.9030079,54.042342952)	BCT
+250014489	Gerna Farm	(-2.31715903,53.888758682)	BCT
+25001449	Poplar Avenue	(-2.658010182,53.732283661)	BCT
+250014490	Mitton Hall	(-2.430032158,53.842326073)	BCT
+250014491	Masons Arms	(-2.247904746,53.698969713)	BCT
+250014497	Reedley Grove	(-2.235630367,53.814293086)	BCT
+25001450	Railway Station	(-2.66056815,53.72624293)	BCT
+250014500	Valley Road	(-2.717609329,53.749855056)	BCT
+250014502	Enfield Road	(-2.350741235,53.771021819)	BCT
+250014506	Jarlshof	(-2.812828333,53.95921001)	BCT
+250014507	Bold Venture Farm	(-2.408989809,53.726049451)	BCT
+250014508	Symonds Road	(-2.708306211,53.775562775)	BCT
+250014509	Smithy Street	(-2.661162279,53.724504921)	BCT
+25001451	Sainsburys	(-2.669217343,53.722109802)	BCT
+25001452	St Mary's Memorial	(-2.669375301,53.730144412)	BCT
+250014523	Lyndhurst	(-2.776963206,53.563065177)	BCT
+250014525	Hillam Lane	(-2.81981574,53.971997361)	BCT
+250014526	Pendle Terrace	(-2.300112563,53.907020897)	BCT
+250014528	Westfield House	(-2.700337064,54.010115938)	BCT
+25001453	Brownedge St Marys	(-2.66217377,53.731968561)	BCT
+250014534	Sandy Lane	(-2.851011785,53.640878296)	BCT
+25001454	Brooklyn Country Club	(-2.901725057,53.667643234)	BCT
+250014540	Deer Fold	(-2.643750655,53.663124454)	BCT
+250014542	New Parkside Farm	(-2.746307726,54.074569541)	BCT
+250014545	Swarthdale Farm	(-2.711048236,54.114679683)	BCT
+25001455	St Stephens Church	(-2.926479437,53.681107738)	BCT
+250014551	Ivybridge	(-2.775943539,53.55602477)	BCT
+250014554	College	(-2.765066912,53.853626709)	BCT
+250014555	Cricket Club	(-2.378837412,53.765682717)	BCT
+25001456	Church Road	(-2.924606863,53.680636835)	BCT
+250014562	Central Railway Station	(-2.245742307,53.793016223)	BCT
+250014563	Thwaites Lane	(-2.539347355,54.094558864)	BCT
+250014565	Borwick Lane	(-2.766284458,54.146813153)	BCT
+250014569	Croasdale House	(-2.443318743,53.986317159)	BCT
+250014574	Mallowdale Avenue	(-2.885806841,54.049975829)	BCT
+25001458	Schwartzman Drive	(-2.923747534,53.678728922)	BCT
+250014588	Three Fishes Inn	(-2.435470152,53.846440912)	BCT
+25001459	Station Road	(-2.924498451,53.677761358)	BCT
+250014594	Marsh Lane	(-2.587613541,53.719158365)	BCT
+25001460	Guinea Hall Avenue	(-2.922311975,53.674695171)	BCT
+250014601	Ryecroft Corner	(-2.955663487,53.875134824)	BCT
+250014602	Sunderland Drive	(-2.870207758,54.057077815)	BCT
+25001461	Riverside Caravan Park	(-2.899243445,53.666960798)	BCT
+250014616	Mill Close	(-2.816111918,53.833084915)	BCT
+250014617	Lord Street	(-2.860367009,54.075425467)	BCT
+25001462	Police Station	(-2.929364892,53.67738212)	BCT
+25001463	Pompian Brow	(-2.800739596,53.67790243)	BCT
+250014637	St Oswalds RCPS	(-2.37398,53.739753921)	BCT
+25001464	St James Church	(-2.608312019,53.713814891)	BCT
+250014655	Newton CE Primary School	(-2.832417106,53.771061895)	BCT
+25001466	High School	(-2.680417535,53.730607973)	BCT
+250014661	Swansea Street	(-2.726299687,53.764848996)	BCT
+250014668	Phynis Farm	(-2.438083837,53.985931917)	BCT
+25001467	Library	(-2.69082773,53.72578915)	BCT
+250014670	Browsholme Hall	(-2.484298187,53.901026169)	BCT
+250014694	Back Lane	(-2.950143904,53.896004313)	BCT
+250014695	Rydal Road	(-2.955791289,53.877403303)	BCT
+250014697	Norbeck House	(-2.837477775,53.973906809)	BCT
+250014698	Agricultural College	(-2.750011541,53.735958496)	BCT
+250014703	Byron Road	(-2.884457823,54.061966628)	BCT
+250014704	Kitchens Farm	(-2.464735553,53.89364357)	BCT
+250014706	Bridge End Cottage	(-2.289296167,53.912287366)	BCT
+250014709	Russell Drive	(-2.825941958,54.068916947)	BCT
+25001471	San Marcos	(-2.811216737,53.696064896)	BCT
+250014710	Claredon Road	(-2.880051563,54.064569491)	BCT
+25001472	Bangla Fusion	(-2.812813121,53.695595664)	BCT
+250014723	Hornby Bank	(-2.755988168,54.10854571)	BCT
+250014728	Lowthorpe Road	(-2.685429309,53.771246637)	BCT
+25001473	Smithy Inn	(-2.801209523,53.701057893)	BCT
+250014732	Forgewood Drive	(-2.751455609,54.078662874)	BCT
+250014733	Sunningdale Avenue	(-2.81012862,54.087871956)	BCT
+250014734	Rothesay Crescent	(-2.903940622,54.035361303)	BCT
+250014739	Police Station	(-2.771201124,54.127170592)	BCT
+25001474	Cock and Bottle	(-2.832088136,53.678448233)	BCT
+250014747	Harkers Farm	(-2.446811468,53.997745618)	BCT
+250014749	Littledale Hall	(-2.663000249,54.052480461)	BCT
+25001475	Hall Carr Lane	(-2.792273163,53.713179709)	BCT
+250014751	Osborne Road	(-2.871046264,54.0635655)	BCT
+250014752	Sand Villa Cottage	(-2.858311582,53.949797703)	BCT
+250014753	Westfield Hamlet	(-2.777254645,54.092506356)	BCT
+250014754	Rothesay Crescent	(-2.904550881,54.035338736)	BCT
+25001476	Walmer Bridge Inn	(-2.789730689,53.712531363)	BCT
+250014761	Stanley Club	(-2.844076715,53.60111275)	BCT
+250014762	Eagland Hill Farm	(-2.866692726,53.899853678)	BCT
+250014763	Grimbles Farm	(-2.836688135,53.954282522)	BCT
+250014775	Hodder Bridge Hotel	(-2.459877813,53.865602)	BCT
+250014778	Tranmere Avenue	(-2.89168449,54.051981626)	BCT
+250014779	Standerlands Farm	(-2.802513424,54.076688254)	BCT
+250014789	West Craven Sports Centre	(-2.183045201,53.91394359)	BCT
+25001479	Dawson Place	(-2.647900068,53.720492274)	BCT
+250014798	Bowland Road	(-2.646094855,53.773721175)	BCT
+250014802	Lunesdale Court	(-2.637307259,54.104280729)	BCT
+250014807	Asturian Gate	(-2.568325954,53.824915858)	BCT
+25001481	Gough Lane	(-2.631653888,53.713352506)	BCT
+25001482	Village Centre	(-2.637221065,53.712783721)	BCT
+250014822	Higher Kit Brow	(-2.769722211,54.00274391)	BCT
+25001483	Asda	(-2.643640184,53.707491266)	BCT
+250014830	Cross House Farm	(-2.724024778,53.881151239)	BCT
+250014831	London Road	(-2.686453573,53.760562797)	BCT
+250014835	Low Leck Lane	(-2.548389876,54.186505732)	BCT
+25001484	Pines Hotel	(-2.640031771,53.705308481)	BCT
+250014849	New Drop Inn	(-2.542746307,53.84630901)	BCT
+250014859	Greenside Farm	(-2.556704634,54.106199651)	BCT
+25001486	Meadow Lane	(-2.642446379,53.710670531)	BCT
+250014861	Monkswood Avenue	(-2.838950142,54.06987848)	BCT
+250014862	Methodist Church	(-2.672811878,53.821876443)	BCT
+250014863	Clarendon Street	(-2.355914189,53.754801092)	BCT
+250014866	Outhwaite Hall	(-2.588400826,54.087201686)	BCT
+250014867	Heights Farm	(-2.718188641,54.054293568)	BCT
+250014868	Bold Street	(-3.007879877,53.927567341)	BCT
+25001487	Grane Road	(-2.357032662,53.702504931)	BCT
+250014871	Greatwood CPS	(-2.838453705,54.072542344)	BCT
+250014873	Aspinall Arms	(-2.431959709,53.843550496)	BCT
+250014876	Blackwood End Farm	(-2.751214438,54.007741457)	BCT
+250014888	New Street	(-2.76175824,54.077879038)	BCT
+250014895	Ripon Street	(-2.713428434,53.76980691)	BCT
+250014897	Kingsfold Drive	(-2.723208034,53.735017741)	BCT
+25001491	Wood End Rdbt	(-2.644174144,53.699803427)	BCT
+250014912	Colliers Row	(-2.43272614,53.730680276)	BCT
+250014916	West End PS	(-2.87852367,54.064571675)	BCT
+25001492	Whitethorn Close	(-2.646011014,53.697106037)	BCT
+250014921	Church Lane	(-2.530818654,53.770925646)	BCT
+250014928	Coaching House	(-2.246924015,53.774543451)	BCT
+250014930	Post Office	(-2.170418746,53.905028328)	BCT
+250014935	Police House	(-2.733787189,53.978135178)	BCT
+25001494	Croston Road	(-2.701012499,53.718494423)	BCT
+250014941	Regent Street	(-2.327809081,53.707819616)	BCT
+25001495	Fidler Lane	(-2.706341079,53.714553216)	BCT
+250014955	Holden Clough Nursery	(-2.347232958,53.941263187)	BCT
+250014956	Moorside Barn	(-2.49291181,53.913906698)	BCT
+25001496	Lower Field	(-2.703615183,53.716456799)	BCT
+250014971	Valley Road	(-2.717759429,53.749764275)	BCT
+250014972	Altcar Lane	(-2.717558068,53.679207393)	BCT
+250014977	Lane Head Farm	(-2.698889955,53.87998801)	BCT
+250014978	Elston Lane	(-2.619123779,53.806144357)	BCT
+250014987	Stoneygate Lane	(-2.531172793,53.816969996)	BCT
+250014992	Sykes Farm	(-2.72844687,53.947339082)	BCT
+25001500	Prince Albert	(-2.842340162,53.562442742)	BCT
+250015005	Chaigley Manor	(-2.465749305,53.867134261)	BCT
+250015006	Stonehead Farm	(-2.712279779,53.962454896)	BCT
+250015011	Haywood Caravan Park	(-2.366620709,53.805160199)	BCT
+250015013	Harrison Road	(-2.629416353,53.642626387)	BCT
+250015016	Gibson House	(-2.720144158,54.157541698)	BCT
+250015019	Rydal Road	(-2.955526244,53.877787441)	BCT
+25001502	Dodney Drive	(-2.771667098,53.765311484)	BCT
+25001503	Aldfield Avenue	(-2.770796065,53.764966547)	BCT
+250015031	New Hague Cottages	(-2.160259303,53.887237473)	BCT
+25001504	Saddle Inn Services	(-2.776600169,53.788464735)	BCT
+250015041	Ambleside Avenue	(-2.979234695,53.929579521)	BCT
+250015042	Noel Rd	(-2.808673167,54.060199273)	BCT
+250015044	Devonshire Drive	(-2.383517698,53.776520941)	BCT
+250015045	Station Road	(-2.419827075,53.767168482)	BCT
+250015047	Post Office	(-2.739196023,53.974461911)	BCT
+25001505	Summer Trees Ave	(-2.763972134,53.773468175)	BCT
+250015050	Mylah Farm	(-2.280324688,53.91835746)	BCT
+250015055	Grayrigg Drive	(-2.856068762,54.06336747)	BCT
+25001506	Smiths Arms	(-2.795926983,53.774257925)	BCT
+250015065	Hall Drive	(-2.880708678,54.021970956)	BCT
+250015070	St Catherines RCPS	(-2.679733598,53.699490015)	BCT
+250015073	Fairhurst Bungalow	(-2.686558014,53.860788841)	BCT
+25001508	St Pauls Church	(-2.409093935,53.869273262)	BCT
+25001509	St Anns Court	(-2.412792757,53.871157041)	BCT
+2500151	Royal Oak	(-2.577289415,53.724358814)	BCT
+25001510	Tootles Farm	(-2.742128724,53.622331816)	BCT
+250015102	The Breck CPS	(-2.982863309,53.85453874)	BCT
+25001511	Methodist Church	(-2.771001607,53.626230013)	BCT
+25001512	New Street	(-2.769842212,53.626498143)	BCT
+250015131	Moss Lane	(-2.708349355,53.71143586)	BCT
+250015132	The Pier	(-3.012662702,53.927599003)	BCT
+250015134	Hill Top	(-2.286646461,53.892169971)	BCT
+25001514	Legh Arms	(-2.882641765,53.661969909)	BCT
+250015143	White Bull	(-2.596100416,53.831611927)	BCT
+250015147	Greenalls House	(-2.741649046,54.016411246)	BCT
+25001515	Moss Hey Lane	(-2.877236219,53.663286007)	BCT
+250015150	Lime Grove	(-3.005806597,53.871102726)	BCT
+250015153	Trout Farm	(-2.522325399,53.943235558)	BCT
+250015155	Crabtree Nook Farm	(-2.72600253,53.882038094)	BCT
+250015157	Lower Cockleach Barn	(-2.607324202,53.841784012)	BCT
+250015159	Haresnape Farm	(-2.846086321,53.981908708)	BCT
+25001516	Old Skelmersdale War Memorial	(-2.80827708,53.551226388)	BCT
+250015164	Bailey Green Cottage	(-2.500350716,53.835752717)	BCT
+250015166	Bartholomew Road	(-2.856655539,54.065151877)	BCT
+250015181	Dog and Partridge Fm	(-2.645487334,53.890245866)	BCT
+250015183	Limekiln Cottage	(-2.680692841,53.73732516)	BCT
+250015186	Southwoods Hill Farmhouse	(-2.836326567,53.90118363)	BCT
+250015188	Laneside Farm	(-2.324079174,53.890393953)	BCT
+25001519	Railway Approach	(-2.882868383,53.568514325)	BCT
+250015192	St Marys Church	(-2.734912646,53.653399824)	BCT
+250015193	Saswick House Farm	(-2.870339055,53.827778119)	BCT
+250015195	Gubberford Lane	(-2.777202591,53.916986531)	BCT
+250015197	Ye Old Sparrowhawk	(-2.245742385,53.84230614)	BCT
+250015198	Moss House Lane	(-2.95883342,53.90597501)	BCT
+250015199	St James The Less RCPS	(-2.290880632,53.704256874)	BCT
+250015201	Moss Lane	(-2.818114794,53.846966979)	BCT
+250015209	Garden Centre	(-2.665958296,53.746027677)	BCT
+25001521	Pinfold Road	(-2.876051985,53.566748754)	BCT
+250015211	New House	(-2.241032506,53.903338794)	BCT
+250015214	Hudson Street	(-2.363184813,53.746707973)	BCT
+250015217	Gardeners Farm	(-2.849132847,53.980997404)	BCT
+250015219	Farringdon Lane	(-2.658491997,53.775694016)	BCT
+25001522	Bus Station	(-2.883275211,53.567023651)	BCT
+250015223	Thornton Road	(-2.853710584,54.077261482)	BCT
+250015234	Birchwood Avenue	(-2.774974572,53.731557141)	BCT
+250015236	St Nicholas Road	(-2.384238752,53.759117745)	BCT
+250015243	Kings Causeway	(-2.20317785,53.821309181)	BCT
+250015250	Gaisgill Avenue	(-2.860455808,54.062724984)	BCT
+250015251	Woodburn Farm	(-2.879780937,54.020683486)	BCT
+250015254	Police Station	(-2.460639214,53.951424313)	BCT
+250015257	Windsor Grove	(-2.870772423,54.06654247)	BCT
+250015258	Foxfold Avenue	(-2.853031632,54.062786866)	BCT
+250015261	Six Arches Caravan Park	(-2.770444624,53.937765428)	BCT
+250015267	Chaigley Court	(-2.470794139,53.869496372)	BCT
+250015273	Tithebarn Place	(-2.99571497,53.848994848)	BCT
+250015275	Berwick Drive	(-2.257397686,53.795023034)	BCT
+250015279	De Tabley Arms	(-2.514229015,53.815057508)	BCT
+250015286	Yorkshire Street	(-2.199550998,53.703841797)	BCT
+250015293	Edmondson Street	(-2.192332198,53.92066091)	BCT
+25001530	Redgate	(-2.894044356,53.567891977)	BCT
+250015316	Bridge End	(-2.605975294,54.101467724)	BCT
+25001533	Yew Tree Road	(-2.888071019,53.578273389)	BCT
+250015341	Websters Farm	(-2.739359107,53.949231767)	BCT
+250015346	Whalley Street	(-2.399185346,53.869989728)	BCT
+250015347	Star Garage	(-2.793117053,53.708909113)	BCT
+250015348	Fowler Lane	(-2.70013182,53.71929953)	BCT
+250015351	Fober Farm	(-2.477876583,53.946413645)	BCT
+250015357	Ormerod Street	(-2.374869534,53.746006855)	BCT
+25001536	Railway Station	(-2.770285686,53.591071688)	BCT
+250015361	Business Park	(-2.280723596,53.930148517)	BCT
+250015366	Peel Park Avenue	(-2.354236814,53.760926938)	BCT
+25001537	The Common	(-2.767943474,53.596875343)	BCT
+250015373	Old Dawbers Lane	(-2.686983337,53.658232626)	BCT
+250015377	Eskridge Hall	(-2.660906266,54.11778769)	BCT
+250015379	Lonsdale Gardens	(-2.220985582,53.851045642)	BCT
+250015381	Slyne Lodge	(-2.800351367,54.085852242)	BCT
+250015382	Poulton Le Sands CEPS	(-2.858410358,54.074666493)	BCT
+250015387	Hebrew Road	(-2.239890142,53.796955833)	BCT
+250015389	Higher Brock Mill	(-2.650008288,53.895272713)	BCT
+250015392	Sugham Lane	(-2.891020395,54.048786852)	BCT
+250015394	Lea Barn	(-2.662331216,54.117923657)	BCT
+250015396	Tatham Hall	(-2.602993395,54.112016228)	BCT
+250015397	Black Lane Ends	(-2.108982348,53.885164968)	BCT
+250015403	Rainhall Road	(-2.184787937,53.915576696)	BCT
+250015408	Lee House	(-2.418021295,53.776279707)	BCT
+25001541	Scarisbrick Bridge	(-2.92563218,53.598257917)	BCT
+250015414	Fennyfold Terrace	(-2.313178798,53.791888227)	BCT
+250015420	Eastwood Avenue	(-3.029330968,53.918608346)	BCT
+250015423	Birkacre Road	(-2.652276436,53.636050326)	BCT
+25001543	Ayrefield Road	(-2.725071325,53.563044981)	BCT
+250015433	Kellet Lane	(-2.788631352,54.070812182)	BCT
+250015445	Swarthdale Road End	(-2.711243842,54.121634998)	BCT
+250015446	Waverley Gardens	(-2.666262119,53.769053752)	BCT
+250015450	Oak Mill	(-2.278749596,53.745855686)	BCT
+250015451	Boys Lane	(-2.719158736,53.782841505)	BCT
+25001546	Highsands Avenue	(-2.828221484,53.631060971)	BCT
+250015461	Twitter Lane	(-2.441035147,53.874085459)	BCT
+250015464	Four Lane Ends	(-2.337617983,53.833427219)	BCT
+25001547	The Paddock	(-2.817547461,53.633525305)	BCT
+250015471	Oak Street	(-2.162487637,53.861637075)	BCT
+250015472	Globe Centre	(-2.370475993,53.751602125)	BCT
+250015474	Gresgarth Hall	(-2.718884377,54.065389318)	BCT
+250015479	Raw Ridding Farm	(-2.597463485,54.117849827)	BCT
+250015487	Fountains Avenue	(-2.352023875,53.806421867)	BCT
+250015489	Acregate Lane	(-2.673282264,53.76404405)	BCT
+250015491	War Memorial	(-2.586572011,53.730335811)	BCT
+250015492	Spen Farm	(-2.547423632,54.099438612)	BCT
+250015497	St Leonards Gate	(-2.793900155,54.052217655)	BCT
+250015499	Ash Grove	(-2.970663921,53.922526024)	BCT
+2500155	Stourton Street	(-2.41955308,53.770117529)	BCT
+25001550	The Rufford Arms	(-2.819879476,53.645378574)	BCT
+250015501	Greendales Leisure	(-2.893937633,54.016768133)	BCT
+250015502	Midland Terrace	(-2.77074468,54.13390531)	BCT
+250015503	Forty Acre Farm	(-2.561457832,53.850923606)	BCT
+250015507	Hundred End Lane	(-2.887120482,53.697225474)	BCT
+250015508	Primary School	(-2.618502734,53.743315952)	BCT
+250015509	Brown Street	(-2.618602031,53.655086678)	BCT
+25001551	Morris Dancers	(-2.933897796,53.610588953)	BCT
+250015512	Oakworth Avenue	(-2.661346681,53.78353841)	BCT
+250015516	Wilpshire Road	(-2.424022796,53.774038569)	BCT
+250015519	St Hildas CEPS	(-3.007124821,53.853807208)	BCT
+250015529	Hill House Lane	(-2.600788824,53.718571685)	BCT
+250015531	Royal Avenue	(-2.704967946,53.687713242)	BCT
+250015534	Southport Road	(-2.655094734,53.656878932)	BCT
+250015539	Aughton Road Farm	(-2.919849905,53.544235862)	BCT
+250015543	Cromwell Road	(-2.666015837,53.773621115)	BCT
+250015545	New Brows Farm	(-2.894079796,54.010325624)	BCT
+250015555	War Memorial	(-2.463482622,53.949507954)	BCT
+250015556	Post Office	(-2.734193347,54.025485301)	BCT
+250015558	Wheatsheaf Inn	(-2.713093057,53.701668928)	BCT
+250015560	Duddle House Farm	(-2.528164469,53.835004282)	BCT
+250015561	Sheep Hill Lane	(-2.743544613,53.719999656)	BCT
+25001557	Northway ASDA	(-2.776218708,53.553739888)	BCT
+250015571	H M Prison	(-2.689367142,53.762487524)	BCT
+250015574	Brier Crescent	(-2.218652836,53.826396075)	BCT
+250015580	Health Centre	(-2.598360031,53.830243478)	BCT
+250015581	Market Place	(-2.604523442,53.612293169)	BCT
+25001559	Waverley	(-2.802710402,53.547394248)	BCT
+250015592	Bridge Road	(-2.763387953,54.105874566)	BCT
+250015598	Pedders Road	(-2.865504481,54.014549508)	BCT
+250015599	King Street	(-2.695955837,53.693994864)	BCT
+2500156	Station Road	(-2.419447919,53.767183255)	BCT
+25001560	Concourse	(-2.774363896,53.550534009)	BCS
+250015609	Chatburn Road	(-2.660021745,53.777447282)	BCT
+250015610	Castle O Trim Farmhouse	(-2.714059423,54.004130163)	BCT
+250015614	Cragg Cottage	(-2.709323417,54.048594013)	BCT
+250015615	Wyke House Farm	(-2.932789943,53.643289008)	BCT
+250015619	St Vincents Road	(-2.698622696,53.78728627)	BCT
+250015625	Lees Lane	(-2.72303515,53.571128997)	BCT
+25001563	Gilibrands Road	(-2.769396862,53.540480896)	BCT
+250015639	Marriott Hotel	(-2.720568392,53.804872044)	BCT
+25001564	Kiln Lane	(-2.802781024,53.555110531)	BCT
+250015647	Stafford Avenue	(-2.992573339,53.837641702)	BCT
+25001565	Derby Arms	(-2.792345501,53.54758479)	BCT
+250015652	Linton Street	(-2.714064503,53.774207342)	BCT
+250015657	St Peters RCPS	(-2.954149181,53.745068011)	BCT
+250015662	Westbourne Heights	(-2.765880825,54.032823897)	BCT
+250015665	Fife Street	(-2.377504129,53.747274889)	BCT
+250015667	Crosse Hall Lane	(-2.617715276,53.651356561)	BCT
+250015669	St Michaels CPS	(-2.918998687,53.54116828)	BCT
+25001567	Egerton	(-2.755056673,53.546145241)	BCT
+250015674	Brookfield Terrace	(-2.956784144,53.740912329)	BCT
+250015678	Martins Inn	(-2.888059613,53.607261654)	BCT
+250015679	Park Road	(-2.88764824,53.566025048)	BCT
+250015681	Romford Road	(-2.682622372,53.773114224)	BCT
+250015689	Buckshaw CPS	(-2.646648893,53.661652723)	BCT
+250015690	Beech House	(-2.716313652,54.156530975)	BCT
+250015693	Legh Arms	(-2.881672063,53.661914136)	BCT
+250015696	Burnley Lane	(-2.339098829,53.77035427)	BCT
+250015697	Primary School	(-2.341972097,53.771065147)	BCT
+25001570	Delphside Road	(-2.718336815,53.531810056)	BCT
+250015707	Laithwaite Farm	(-2.815082212,53.938809938)	BCT
+250015713	Old School	(-2.89898903,53.81977843)	BCT
+250015714	Dover Lane	(-2.583698581,53.726430992)	BCT
+250015715	Bolton Houses	(-2.847056649,53.796575899)	BCT
+250015716	St Peters Church	(-2.483629087,53.790359872)	BCT
+250015718	Park View	(-2.162126293,53.905740877)	BCT
+25001572	Aughton Institute	(-2.906896888,53.542608995)	BCT
+250015721	Chorley Road	(-2.672177778,53.74713445)	BCT
+250015723	Sandy Lane	(-2.575533468,53.690113131)	BCT
+250015724	St Johns CEPS	(-2.838105239,53.603280574)	BCT
+250015725	Craven Heifer	(-2.151291996,53.898142367)	BCT
+250015727	Post Office	(-2.7094922,53.628965497)	BCT
+250015729	The Sally House	(-2.531669753,54.077669319)	BCT
+25001573	Gresgarth Home Farm	(-2.718718493,54.065516139)	BCT
+250015733	Lothlorien	(-2.532465322,54.079107342)	BCT
+250015739	Mount Court	(-2.832655864,54.078357297)	BCT
+25001574	Whalley Drive	(-2.90145457,53.544286092)	BCT
+250015743	Clarksons Farm	(-2.857411934,53.979464571)	BCT
+250015745	Bridge Road	(-2.80137493,54.036628065)	BCT
+250015746	Burlington Street	(-2.629004189,53.648470979)	BCT
+250015753	Hemplands	(-2.531516943,54.173275399)	BCT
+250015758	Post Office	(-2.532315751,53.813675303)	BCT
+250015772	Carr House Farm	(-2.906906517,53.902172114)	BCT
+25001578	Upholland Railway Station	(-2.741428778,53.528019691)	BCT
+25001579	College Road	(-2.726979886,53.551964072)	BCT
+25001580	Ormond Avenue	(-2.846562426,53.563698294)	BCT
+25001584	Broadhurst Lane	(-2.705273266,53.614456158)	BCT
+25001585	Four Lane Ends	(-2.697112899,53.590747522)	BCT
+25001586	Wrightington Hospital	(-2.710992802,53.591402876)	BCT
+25001587	Robin Hood Lane	(-2.726251063,53.592237018)	BCT
+25001588	The Oaks	(-2.737420397,53.686106607)	BCT
+25001589	Willow Road	(-2.747397424,53.680894418)	BCT
+2500159	Roebuck Inn	(-2.414088256,53.76827601)	BCT
+25001591	Aspinall Crescent	(-3.017885564,53.549958234)	BCT
+25001593	Railway Station	(-2.721397384,53.579592626)	BCT
+25001594	Robin Hood Lane	(-2.723737509,53.591910691)	BCT
+25001595	Back Skull House Lane	(-2.718854866,53.584632501)	BCT
+250015965	Wood End	(-2.249862631,53.814524905)	BCT
+250015979	Mellings Fold	(-2.68097461,53.752873187)	BCT
+25001598	Toby Inn	(-2.778112406,53.560693715)	BCT
+25001599	Christ Church	(-2.905849784,53.557879676)	BCT
+250016002	Low House Road	(-2.560500929,54.166497669)	BCT
+250016004	Wheatley Farm	(-2.487008349,53.802965418)	BCT
+25001601	Smithy Lane	(-2.925500081,53.536902431)	BCT
+25001602	Butchers Lane	(-2.926815639,53.532887719)	BCT
+25001605	Royal Oak	(-2.910175163,53.554026652)	BCT
+25001606	Royal Oak	(-2.910434049,53.554132545)	BCT
+25001607	Shops	(-2.908700481,53.552833389)	BCT
+25001608	Barrow Nook Lane	(-2.838590459,53.519422571)	BCT
+25001609	Station Road	(-2.965768305,53.571855552)	BCT
+2500161	Bonny Inn	(-2.487249588,53.791037289)	BCT
+25001610	Mount Farm	(-2.930225872,53.613386043)	BCT
+25001613	Primary School	(-2.83814076,53.531021081)	BCT
+25001614	Stanley Gate Inn	(-2.841549837,53.540884628)	BCT
+25001615	Flimby	(-2.764160513,53.553035558)	BCT
+25001616	Inglewhite	(-2.776778135,53.556262042)	BCT
+25001618	Lathom Close	(-2.842128223,53.598119866)	BCT
+25001619	Clayton Gardens	(-2.845141839,53.599208648)	BCT
+25001620	Red Cat Lane	(-2.841179745,53.608939747)	BCT
+25001622	Interchange	(-2.841513422,53.605198172)	BCT
+25001623	Bull and Dog	(-2.861330854,53.587583374)	BCT
+25001624	Hesketh Road	(-2.848817687,53.599402892)	BCT
+25001625	Mill Dam Lane	(-2.855584628,53.59029422)	BCT
+25001627	Railway Station	(-2.867401373,53.611799624)	BCT
+25001628	Pardoe Court	(-2.837923927,53.594122523)	BCT
+25001629	Richmond Court	(-2.843864606,53.593505494)	BCT
+25001630	Burscough Bridge	(-2.841672052,53.604055512)	BCT
+25001634	Prince William Inn	(-2.75225059,53.561515375)	BCT
+25001635	Footbridge	(-2.776137467,53.543529397)	BCT
+25001636	Bearncroft	(-2.764881504,53.537777343)	BCT
+25001637	Cherrycroft	(-2.751454988,53.537925417)	BCT
+25001638	Cherrycroft	(-2.750418893,53.538210571)	BCT
+25001639	Shopping Parade	(-2.756600909,53.536266026)	BCT
+25001641	Smithy Lane	(-2.899084058,53.597606478)	BCT
+25001645	Shireburn Arms	(-2.480116061,53.836266861)	BCT
+25001648	Kenlis Arms	(-2.747003811,53.888452501)	BCT
+25001649	Caravan Park	(-2.591840565,53.834455273)	BCT
+25001650	Roebuck	(-2.746536262,53.851118933)	BCT
+25001651	Station Lane	(-2.774514819,53.937927991)	BCT
+25001652	St Johns School	(-2.704510941,53.911201948)	BCT
+25001653	Stubbins Lane	(-2.760108273,53.876119478)	BCT
+25001654	Pickering Gardens	(-2.762568009,53.879222734)	BCT
+25001656	Church Raike	(-2.575857949,53.884461421)	BCT
+25001657	Kirklands Estate	(-2.577555811,53.885127358)	BCT
+25001658	Sun Inn	(-2.575536884,53.884346118)	BCT
+25001659	Horns Inn	(-2.787453198,53.880787723)	BCT
+25001662	Beach Rd	(-3.035527561,53.921049312)	BCT
+25001663	Albert Square	(-3.008804184,53.924215973)	BCT
+25001664	Aldi Poulton Road	(-3.02936177,53.919241775)	BCT
+25001665	Ash Street	(-3.017363105,53.920485555)	BCT
+25001666	Bourne Arms	(-2.995839362,53.928458769)	BCT
+25001667	Interchange	(-3.031834534,53.904052887)	BCT
+25001668	Broadwater Caravan Park	(-3.024694916,53.899660402)	BCT
+25001669	Southfleet Ave	(-3.029891161,53.907345814)	BCT
+25001670	Bus Station	(-3.045124383,53.878523602)	BCS
+25001671	Cala Gran	(-3.021388226,53.897621291)	BCT
+25001673	Car Park	(-2.518137189,53.945801737)	BCT
+25001674	Station Road	(-3.015944839,53.91976952)	BCT
+25001676	Pharos Place	(-3.00744387,53.926537359)	BCT
+25001677	McDonalds	(-3.013072576,53.918742172)	BCT
+25001678	Northway Shops	(-3.042628929,53.907829077)	BCT
+25001679	Marine Hall	(-3.015606531,53.926531508)	BCT
+25001680	Albert Square	(-3.008926253,53.923594762)	BCT
+25001681	Nautical College	(-3.02945129,53.901839798)	BCT
+25001685	Queens Hotel	(-3.034336777,53.918461982)	BCT
+25001686	Quayside	(-3.006033996,53.926171677)	BCT
+25001687	Queens Hotel	(-3.035338257,53.917707327)	BCT
+25001689	The Esplanade	(-3.00762406,53.927695323)	BCT
+25001693	Garstang Academy	(-2.766922479,53.888578528)	BCT
+25001694	Bridge Street	(-2.773901552,53.899031779)	BCT
+25001696	Park Hill Road	(-2.775090914,53.901621651)	BCT
+25001697	St Thomas School	(-2.780080291,53.898209819)	BCT
+25001698	Whittingham House	(-2.660400748,53.823787997)	BCT
+25001699	Stags Head	(-2.668973693,53.822194524)	BCT
+25001700	Horns Inn	(-2.646676954,53.847065467)	BCT
+25001702	Halls Arms	(-2.540897286,53.838470831)	BCT
+25001703	Hornbys Corner	(-2.988416584,53.865036352)	BCT
+25001704	St Johns Church	(-2.992887114,53.872729342)	BCT
+25001705	Tarn Road	(-2.994712004,53.865029266)	BCT
+25001708	Primary School	(-2.81712528,53.896808336)	BCT
+2500171	Pleasant Retreat	(-2.692745048,53.726254455)	BCT
+25001710	Bell and Bottle	(-2.84303098,53.774502128)	BCT
+25001712	Parkers Arms	(-2.462588353,53.948819993)	BCT
+25001713	Post Office	(-2.841190731,53.771256768)	BCT
+25001716	Village Hall	(-2.464588172,53.948901498)	BCT
+25001718	Moorcock Inn	(-2.699586408,53.918039172)	BCT
+25001719	Paper Mill	(-2.707653877,53.922413973)	BCT
+2500172	Wateringpool Lane	(-2.690320879,53.727230193)	BCT
+25001720	Methodist Church	(-2.91361962,53.926622843)	BCT
+25001722	Golden Ball	(-2.909286225,53.931841875)	BCT
+25001725	Highcross Avenue	(-2.992884578,53.832812405)	BCT
+25001727	POULTON Hardhorn Crossroads	(-2.993474531,53.84361146)	BCT
+25001730	Booths	(-2.993144751,53.846373597)	BCT
+25001731	St Chads Church	(-2.992485976,53.847439667)	BCT
+25001733	Linderbreck Lane	(-2.986818869,53.831397371)	BCT
+25001734	Beech Drive	(-2.99158134,53.840678964)	BCT
+25001736	Holts Lane Estate	(-2.986136545,53.843743917)	BCT
+25001738	Moorland Road	(-2.978973747,53.844872194)	BCT
+25001741	Booths	(-2.993524462,53.846361464)	BCT
+25001745	Little Tongues Lane	(-2.961963689,53.921634317)	BCT
+25001747	Ranch House	(-2.94766594,53.916957343)	BCT
+25001748	Daggers Lane	(-2.966487552,53.918398198)	BCT
+25001749	Cartgate	(-2.965101575,53.916400469)	BCT
+25001753	Village Centre	(-2.759785369,53.932943882)	BCT
+25001756	Fire Station	(-2.940241465,53.83654433)	BCT
+25001758	Windy Harbour Centre	(-2.927185565,53.852258542)	BCT
+25001759	Grapes Hotel	(-2.820617734,53.864575639)	BCT
+25001760	Elletson Arms	(-2.895664733,53.923783066)	BCT
+25001762	Seven Stars	(-2.953726305,53.901620479)	BCT
+25001765	Town Head Farm	(-2.904804346,53.834461973)	BCT
+25001767	Four Lane Ends	(-2.989331745,53.874817018)	BCT
+25001768	Fleetwood Road	(-3.013197814,53.884298228)	BCT
+25001769	Leslie Avenue	(-3.006145392,53.878245553)	BCT
+25001770	Centre	(-3.001474804,53.870581687)	BCT
+25001778	Tennyson Avenue	(-3.019036323,53.882900554)	BCT
+25001780	Derby Arms	(-2.847905514,53.789738822)	BCT
+25001785	St James Church	(-2.67189934,53.865455738)	BCT
+25001788	Winmarleigh CEPS	(-2.804096912,53.926822077)	BCT
+25001791	Bankside Lane	(-2.202930505,53.701013845)	BCT
+25001800	Cogie Hill Farm	(-2.849506779,53.914681062)	BCT
+25001806	Eaves Green Square	(-2.64076649,53.638997775)	BCT
+25001809	Fence Gate Inn	(-2.266472561,53.830397787)	BCT
+25001811	Bullen's Farm	(-2.745483025,53.675369522)	BCT
+25001814	Church Road	(-2.935684717,53.793013716)	BCT
+25001819	Queens Green	(-2.969382168,53.56545778)	BCT
+25001820	St Pauls Church	(-2.408531094,53.869257204)	BCT
+25001825	Lees Lane	(-2.723215356,53.571069535)	BCT
+25001827	Howgill Farm	(-2.264026515,53.910026782)	BCT
+25001838	Moorland Road	(-2.980350118,53.844582317)	BCT
+25001842	Whitehill Road	(-2.980574321,53.789131513)	BCT
+25001847	Chiltern Avenue	(-2.210293816,53.786324734)	BCT
+25001857	Shaw Hill Golf Club	(-2.638960098,53.68357156)	BCT
+25001861	Rossendale Avenue	(-2.258043441,53.771648303)	BCT
+25001864	Oxenholme Avenue	(-3.035966743,53.886512692)	BCT
+25001866	Todber Caravan Park	(-2.258348776,53.914991427)	BCT
+25001868	Wenning Street	(-2.199832721,53.830185893)	BCT
+2500187	Durham Road	(-2.470665659,53.791678796)	BCT
+25001873	Haslingden High School	(-2.32136459,53.689150731)	BCT
+25001874	Whitestake Corner	(-2.730825198,53.723196873)	BCT
+25001877	Gloucester Avenue	(-2.375692428,53.758353901)	BCT
+25001878	Brown Street	(-2.370550043,53.749678447)	BCT
+25001879	Springfield Avenue	(-2.384427038,53.746524836)	BCT
+25001880	Craven Street	(-2.378076568,53.750230165)	BCT
+25001881	Rose Street	(-2.36839775,53.74806723)	BCT
+25001883	Richmond Road	(-2.375901009,53.747747312)	BCT
+25001884	Rothwell Avenue	(-2.363632422,53.744109057)	BCT
+25001885	Newton Drive	(-2.351993232,53.7393352)	BCT
+25001886	York Place	(-2.370603907,53.757515884)	BCT
+25001889	George Washington	(-2.769265083,54.144906727)	BCT
+25001890	Manor Crescent	(-2.801420206,54.08737305)	BCT
+25001891	Windermere Road	(-2.787974857,54.049865869)	BCT
+25001892	Wenning Stores	(-2.635893904,54.108862929)	BCT
+25001893	Institute	(-2.635649197,54.108864222)	BCT
+25001894	Borwick Lane End	(-2.76594802,54.14683327)	BCT
+25001897	Edge End	(-2.41469483,53.786708415)	BCT
+25001899	Bus Station	(-2.285555627,53.700836229)	BCT
+25001900	Lower North Ave	(-2.187803524,53.919221054)	BCT
+25001909	Morrison	(-2.216697791,53.839072596)	BCT
+25001910	Walton Lane	(-2.1987229,53.842860696)	BCT
+25001911	Queensgate Depot	(-2.233952683,53.807582369)	BCT
+25001915	White Swan	(-2.250648318,53.839267054)	BCT
+2500192	Prospect Terrace	(-2.554681653,53.692440631)	BCT
+25001923	Slaidburn Drive	(-2.380895991,53.745071057)	BCT
+25001925	Alma Row	(-2.619680748,53.733728442)	BCT
+25001926	Castle Court	(-2.632738846,53.737174573)	BCT
+2500193	Square	(-2.588777913,53.702713178)	BCT
+25001930	Tesco	(-2.698183403,53.690413537)	BCT
+25001932	Sainsburys	(-2.607235065,53.83457605)	BCT
+25001934	Parklands	(-2.714133794,53.796156075)	BCT
+25001935	Hill Rd South	(-2.724989565,53.738997762)	BCT
+25001936	Southland Drive	(-2.726569542,53.689085164)	BCT
+25001938	South Street	(-2.199166992,53.702718923)	BCT
+25001939	The Flowers	(-2.186365112,53.709058188)	BCT
+25001940	Market Street	(-2.201000439,53.702855129)	BCT
+25001950	The Grove	(-2.724373869,53.59113383)	BCT
+25001952	Three Oaks	(-2.82148704,53.591099534)	BCT
+25001954	Post Office	(-2.709769488,53.629269458)	BCT
+25001958	Village Green	(-2.967560925,53.608685523)	BCT
+25001960	Egerton	(-2.755436009,53.546259696)	BCT
+25001963	The Grapes Inn	(-2.671761587,53.825540489)	BCT
+25001964	Thornton Dovedale Ave	(-3.010628569,53.879331412)	BCT
+25001965	Cravendale Avenue	(-2.20722684,53.847600892)	BCT
+25001974	Fiveways	(-2.890203049,53.572639657)	BCT
+25001975	Daisy Hill Drive	(-2.600345983,53.619352104)	BCT
+25001976	Chapel Lane	(-2.653947719,53.614060049)	BCT
+25001980	Dawbers Lane	(-2.713315808,53.662891917)	BCT
+25001981	Heyes Street	(-2.722373682,53.575730667)	BCT
+25001983	Victoria Hotel	(-2.728727171,53.542092998)	BCT
+25001984	Victoria Hotel	(-2.728684992,53.542273027)	BCT
+25001987	Wellcross Road	(-2.728367892,53.538746895)	BCT
+25002	Tower View	(-2.426018168,53.714871751)	BCT
+250020001	Claylands Caravan Park	(-2.775732257,53.931295976)	BCT
+250020002	Middle Holly Cottage	(-2.776229447,53.943309715)	BCT
+250020003	Sunny Bank Nurseries	(-2.775590928,53.951591772)	BCT
+250020004	Brookfield Farm	(-2.775584874,53.95947426)	BCT
+250020005	Pennine Garage	(-2.776687498,53.962217452)	BCT
+250020008	Hazelrigg Lane	(-2.792226723,54.000386623)	BCT
+250020009	Bowling Green	(-2.795239412,54.028768473)	BCT
+250020011	Queens Square	(-2.801214989,54.046569704)	BCT
+250020012	ALDI	(-2.819041724,54.056839544)	BCT
+250020013	Homfray Avenue	(-2.835286172,54.064726986)	BCT
+250020014	Euston Road School	(-2.861261636,54.071392504)	BCT
+250020015	Arndale Centre	(-2.864259613,54.07152379)	BCT
+250020016	ALDI	(-2.876308491,54.069665988)	BCT
+250020019	Regent Road	(-2.880552663,54.066588096)	BCT
+250020021	ALDI	(-2.876260815,54.070304474)	BCT
+250020023	Bus Station	(-2.871088138,54.070674604)	BCS
+250020024	County Garage	(-2.854620446,54.070217534)	BCT
+250020025	Rosebery Ave	(-2.849191421,54.069267328)	BCT
+250020026	Christie Ave	(-2.844148762,54.067765908)	BCT
+250020027	Scale Hall	(-2.817563904,54.056265391)	BCT
+250020031	Red Cross	(-2.797790297,54.055148905)	BCT
+250020032	Skerton Bridge	(-2.795786289,54.053400569)	BCT
+250020035	Pointer	(-2.796832106,54.042599238)	BCT
+250020036	Sulby Drive	(-2.796007335,54.040195956)	BCT
+250020037	Belle Vue Terrace	(-2.795461587,54.037206611)	BCT
+250020038	Lily Grove	(-2.795063436,54.03554649)	BCT
+250020039	West Craven HS	(-2.182004626,53.912713846)	BCT
+250020041	Whinfell Drive	(-2.794807247,54.024520065)	BCT
+250020044	Hazelrigg Lane	(-2.79163036,53.999509737)	BCT
+250020045	Police Station	(-2.788996783,53.994161272)	BCT
+250020046	Crossroads	(-2.788810622,53.992382886)	BCT
+250020048	Pennine Garage	(-2.776360276,53.961833085)	BCT
+250020049	Forton Bank	(-2.77533688,53.959251162)	BCT
+250020050	School Lane	(-2.774950081,53.955653957)	BCT
+250020051	Sunny Bank Nurseries	(-2.775447965,53.951278116)	BCT
+250020053	Middle Holly Cottage	(-2.776028747,53.943167204)	BCT
+250020055	Claylands Park	(-2.775749876,53.930603785)	BCT
+250020057	Gubberford Lane	(-2.777125607,53.91776)	BCT
+250020059	Green Lane	(-2.774970403,53.909909405)	BCT
+250020060	Wyre Lane	(-2.77404095,53.908216663)	BCT
+250020061	Gt George Street	(-2.699983837,53.765113454)	BCT
+250020062	Frank Street	(-2.702451821,53.766644985)	BCT
+250020063	Aqueduct Street	(-2.705183044,53.769388323)	BCT
+250020065	St Pius X Prep School	(-2.71106854,53.781883094)	BCT
+250020066	Marriott Hotel	(-2.721211943,53.805209725)	BCT
+250020067	Kingsway Court	(-2.724159186,53.810575866)	BCT
+250020068	Fairlie Drive	(-2.736111464,53.82532454)	BCT
+250020070	Animal Centre	(-2.730386179,53.815841105)	BCT
+250020071	The Shrimp	(-2.840421235,54.067055013)	BCT
+250020072	The Shrimp Roundabout	(-2.837140959,54.065783642)	BCT
+250020073	Homfray Avenue	(-2.834641642,54.064587656)	BCT
+250020074	Morecambe Road School	(-2.832434885,54.063497447)	BCT
+250020080	Windermere Road	(-2.761128624,54.121132066)	BCT
+250020081	Windermere Road	(-2.788049856,54.049793475)	BCT
+250020082	Shops	(-2.887840785,54.049376612)	BCT
+250020084	Grab Lane	(-2.771641721,54.047104688)	BCT
+250020086	Denmark Street	(-2.820009177,54.045463309)	BCT
+250020088	Kentmere Grove	(-2.845807477,54.065925214)	BCT
+250020089	Highfield Crescent	(-2.878165897,54.067890815)	BCT
+250020090	Proctors Farm	(-2.608847833,54.103385565)	BCT
+250020091	Kenwood Avenue	(-2.868982481,54.066438575)	BCT
+250020093	Common Garden Street	(-2.800852062,54.047551798)	BCT
+250020094	Common Garden Street	(-2.801203297,54.047549457)	BCT
+250020095	George Street	(-2.799247306,54.046699643)	BCT
+250020096	Dalton Square	(-2.797468071,54.047897854)	BCT
+250020101	Primary School	(-2.180357255,53.714136683)	BCT
+250020103	Haydock Road	(-2.78576725,54.029199269)	BCT
+250020104	Middleton Road	(-2.896077013,54.041738692)	BCT
+250020105	Day Nursery	(-2.635711639,54.107947151)	BCT
+250020106	AXA Insurance	(-2.829126055,54.056932211)	BCT
+250020107	Cork Road	(-2.786503733,54.039099075)	BCT
+250020108	Summersgill Rd	(-2.81503028,54.055599515)	BCT
+250020109	Business Park	(-2.778332469,54.070043413)	BCT
+250020110	Islamic College	(-2.802495815,54.032989487)	BCT
+250020112	Infirmary	(-2.79854068,54.044097861)	BCT
+250020113	Stanley Road	(-2.887520564,54.063013621)	BCT
+250020114	Cross	(-2.73593827,54.12335594)	BCT
+250020115	Manor Crescent	(-2.80235749,54.08761846)	BCT
+250020116	School stop	(-2.850547687,54.061609076)	BCT
+250020117	Village Hall	(-2.612348576,54.178998438)	BCT
+250020118	Brookside Road	(-2.713921925,53.793514815)	BCT
+250020119	Belton Hill	(-2.720967309,53.797148813)	BCT
+250020120	St John the Baptist Church	(-2.718165417,53.802873115)	BCT
+250020121	Fairlie Drive	(-2.73588345,53.825316952)	BCT
+250020122	St Pius X Prep School	(-2.710884923,53.781794301)	BCT
+250020123	Gardner Street	(-2.69859611,53.763764333)	BCT
+250020124	Gardner Street	(-2.698506742,53.763863724)	BCT
+250020125	Horns Inn	(-2.787561867,53.880903855)	BCT
+250020126	Lincoln Ave	(-3.033248365,53.883632916)	BCT
+250020127	Shaftesbury Avenue	(-3.045475226,53.890753595)	BCT
+250020130	Daleford Close	(-2.997923186,53.865775592)	BCT
+250020131	Daleford Close	(-2.99777243,53.865830775)	BCT
+250020133	Car Park	(-2.982008662,53.879712843)	BCT
+250020134	Meadows Ave	(-3.020259143,53.873767073)	BCT
+250020136	Highcross Avenue	(-2.99286206,53.833145158)	BCT
+250020137	Trunnah Church	(-3.010124468,53.879874951)	BCT
+250020138	Marine Hall	(-3.015498204,53.926460518)	BCT
+250020139	Hornbys Corner Island	(-2.988540546,53.865134202)	BCT
+250020142	Booths	(-2.993327114,53.846372087)	BCT
+250020144	Fairway	(-3.014404482,53.842393643)	BCT
+250020145	Westmorland Avenue	(-3.03632444,53.884981597)	BCT
+250020146	Belford Ave	(-3.025849657,53.885916491)	BCT
+250020147	Morrisons	(-3.026384791,53.874847356)	BCT
+250020148	Jameson Road	(-3.025610282,53.900371643)	BCT
+250020149	Cala Gran	(-3.020326314,53.89713597)	BCT
+250020150	Northway Shops	(-3.042456595,53.907632832)	BCT
+250020151	ParkTerminus	(-3.030094387,53.888387857)	BCT
+250020152	White Bull	(-2.608891214,53.812573846)	BCT
+250020153	Black Horse	(-2.384340127,53.884661521)	BCT
+250020154	Ribchester Arms	(-2.529205063,53.813895798)	BCT
+250020155	Hospital	(-2.37533605,53.883207028)	BCT
+250020156	St Wilfrid's Church	(-2.607267202,53.831546912)	BCT
+250020157	Greendale View	(-2.368384118,53.905716218)	BCT
+250020158	Old Oak	(-2.619969942,53.741016378)	BCT
+250020159	Lightfoot Lane	(-2.750036317,53.79095737)	BCT
+250020161	Hesketh Arms	(-2.663750779,53.765661166)	BCT
+250020165	Roman Way Ind Est	(-2.63774233,53.792254526)	BCT
+250020166	Oaktree Ave	(-2.739700054,53.779804323)	BCT
+250020168	Anchor Drive	(-2.760691071,53.734668755)	BCT
+250020171	Royal Oak	(-2.633796375,53.694614103)	BCT
+250020172	Queens Hotel	(-2.688756063,53.698260995)	BCT
+250020173	Moss Lane	(-2.744576828,53.676345905)	BCT
+250020174	Bonny Inn	(-2.487567715,53.790982067)	BCT
+250020176	Hill Road South	(-2.721302323,53.740583975)	BCT
+250020177	Manor Lane	(-2.729340426,53.745982195)	BCT
+250020178	Abbot Meadow	(-2.717778204,53.742861191)	BCT
+250020179	Cop Lane	(-2.721856858,53.736670742)	BCT
+250020180	Knot Lane	(-2.662690821,53.745560431)	BCT
+250020181	Dawson Place	(-2.647413657,53.720396034)	BCT
+250020182	Norman Villas	(-2.630071302,53.765582319)	BCT
+250020183	Whitestake Corner	(-2.73102048,53.72309681)	BCT
+250020184	Wray Crescent	(-2.745698066,53.681543188)	BCT
+250020185	Coventry Street	(-2.635263004,53.646172858)	BCT
+250020187	The Talbot	(-2.66762423,53.660755585)	BCT
+250020188	Primary School	(-2.744503298,53.72279805)	BCT
+250020189	Lydiate Lane End	(-2.729165728,53.662311047)	BCT
+250020190	Institute	(-2.72419122,53.644031902)	BCT
+250020191	Bay Horse	(-2.676213903,53.669848511)	BCT
+250020192	Hospital Stop 1	(-2.632478301,53.665287812)	BCT
+250020193	Village Centre	(-2.636352214,53.712437799)	BCT
+250020194	Chapel Road	(-2.853195104,53.707790659)	BCT
+250020195	Glebe Road	(-2.782582199,53.541941346)	BCT
+250020196	Greenhey Place	(-2.789102896,53.543651258)	BCT
+250020197	Tansley Avenue	(-2.67020153,53.620041821)	BCT
+250020199	Ightenhill Park Lane	(-2.269501779,53.793441496)	BCT
+2500202	Eagle and Child	(-2.773611781,53.615175331)	BCT
+250020201	Haslingden High School	(-2.321152323,53.689115348)	BCT
+250020202	Haslingden High School	(-2.320924846,53.689071018)	BCT
+250020203	Haslingden High School	(-2.320697438,53.689035675)	BCT
+250020205	Bridge Inn	(-2.310804565,53.799255579)	BCT
+250020207	Slade Lane	(-2.316024575,53.8049493)	BCT
+250020210	Grasmere Road	(-2.316333201,53.69265154)	BCT
+250020211	Mayfield Avenue	(-2.327515265,53.695353864)	BCT
+250020212	Reynolds Street	(-2.251925342,53.77356233)	BCT
+250020218	White Lund Est	(-2.844252884,54.062354489)	BCT
+250020233	Gables Hotel	(-2.695092638,53.694916685)	BCT
+2500203	Farmers Arms	(-2.760778623,53.611015065)	BCT
+250020300	Bus Station	(-2.800584937,54.05033981)	BCS
+250020301	Bus Station	(-2.800616173,54.050375553)	BCS
+250020302	Bus Station	(-2.800632136,54.050411398)	BCS
+250020304	Bus Station	(-2.800648791,54.05048319)	BCS
+250020305	Our Lady's Catholic College	(-2.802038595,54.055232978)	BCT
+250020306	Luneside	(-2.809125582,54.054394566)	BCT
+250020307	New Inn	(-2.611800027,54.103424513)	BCT
+250020311	Bus Station	(-2.800864849,54.050598593)	BCS
+250020312	Bus Station	(-2.800864158,54.050562646)	BCS
+250020313	Bus Station	(-2.800848194,54.050526801)	BCS
+250020314	Bus Station	(-2.80083223,54.050490956)	BCS
+250020315	Bus Station	(-2.800831366,54.050446023)	BCS
+250020316	Bus Station	(-2.800815575,54.050419164)	BCS
+250020317	Bus Station	(-2.800799439,54.050374333)	BCS
+250020318	Bus Station	(-2.800798747,54.050338386)	BCS
+250020319	Dalton Square	(-2.797762874,54.04813857)	BCT
+250020323	The Academy	(-2.452572843,53.822802107)	BCT
+250020330	Bus Station	(-2.239644111,53.788426727)	BCS
+250020331	Bus Station	(-2.240033843,53.787576545)	BCS
+250020332	Bus Station	(-2.239658827,53.788345805)	BCS
+250020333	Bus Station	(-2.23971954,53.788345684)	BCS
+250020334	Bus Station	(-2.239734257,53.788264762)	BCS
+250020335	Bus Station	(-2.239673544,53.788264884)	BCS
+250020336	Bus Station	(-2.239794559,53.788192738)	BCS
+250020337	Bus Station	(-2.239703387,53.788174944)	BCS
+250020339	Bus Station	(-2.239733282,53.788093993)	BCS
+250020340	Bus Station	(-2.239794045,53.788102859)	BCS
+250020341	Bus Station	(-2.239778354,53.78801301)	BCS
+250020342	Bus Station	(-2.239839169,53.788030865)	BCS
+250020343	Bus Station	(-2.239823478,53.787941016)	BCS
+250020344	Bus Station	(-2.239884241,53.787949882)	BCS
+250020345	Bus Station	(-2.239883728,53.787860004)	BCS
+250020346	Bus Station	(-2.239944543,53.787877858)	BCS
+250020347	Bus Station	(-2.239959207,53.787787948)	BCS
+250020348	Bus Station	(-2.240004895,53.787814821)	BCS
+250020358	War Memorial	(-2.769462748,54.129150029)	BCT
+250020901	Bus Station	(-2.628301812,53.653121638)	BCS
+250020902	Bus Station	(-2.62827102,53.653085847)	BCS
+250020903	Bus Station	(-2.628240228,53.653050055)	BCS
+250020904	Bus Station	(-2.62822443,53.653005196)	BCS
+250020907	Bus Station	(-2.628131921,53.652888833)	BCS
+250020908	Bus Station	(-2.628116257,53.652852962)	BCS
+250020909	Bus Station	(-2.628085332,53.652808183)	BCS
+250020910	Bus Station	(-2.62805454,53.652772391)	BCS
+250020911	Bus Station	(-2.628023748,53.652736599)	BCS
+250020912	Bus Station	(-2.628007951,53.652691741)	BCS
+250020913	Bus Station	(-2.62797716,53.652655949)	BCS
+250020914	Bus Station	(-2.627946234,53.652611169)	BCS
+250020915	Bus Station	(-2.627915443,53.652575378)	BCS
+25002141	Lancaster Road	(-2.801887632,54.075146524)	BCT
+25002161	Agnew Road	(-3.024860928,53.920116185)	BCT
+25002173	Hawthorn Road	(-2.788009794,54.113013868)	BCT
+2500273	Pontins Holiday Centre	(-3.051624737,53.772592787)	BCT
+25003066	Victoria	(-2.813402254,54.050460501)	BCT
+25003122	Bus Station	(-2.696065002,53.760233175)	BCS
+25003123	Bus Station	(-2.696049091,53.760188326)	BCS
+25003126	Bus Station	(-2.696017122,53.760089642)	BCS
+25003128	Bus Station	(-2.695912886,53.760207094)	BCS
+25003129	Bus Station	(-2.695820397,53.760117749)	BCS
+25003130	Bus Station	(-2.696268063,53.760587068)	BCS
+25003132	Bus Station	(-2.696299438,53.760649803)	BCS
+25003133	Bus Station	(-2.696299885,53.760676765)	BCS
+25003134	Bus Station	(-2.696331111,53.760730513)	BCS
+25003135	Bus Station	(-2.696347022,53.760775361)	BCS
+25003136	Bus Station	(-2.696362785,53.760811222)	BCS
+25003137	Bus Station	(-2.696378993,53.760874046)	BCS
+25003138	Bus Station	(-2.696425387,53.760927705)	BCS
+25003139	Bus Station	(-2.696441596,53.760990529)	BCS
+25003140	Bus Station	(-2.696457656,53.761044364)	BCS
+25003141	Bus Station	(-2.696489032,53.7611071)	BCS
+25003142	Bus Station	(-2.696505092,53.761160936)	BCS
+25003143	Bus Station	(-2.696536319,53.761214683)	BCS
+25003144	Bus Station	(-2.696552379,53.761268519)	BCS
+25003145	Bus Station	(-2.69656844,53.761322355)	BCS
+25003146	Bus Station	(-2.696599667,53.761376103)	BCS
+25003147	Bus Station	(-2.696630895,53.761429851)	BCS
+25003148	Bus Station	(-2.696646806,53.761474699)	BCS
+25003149	Bus Station	(-2.696662718,53.761519548)	BCS
+25003150	Bus Station	(-2.696678778,53.761573384)	BCS
+25003151	Bus Station	(-2.69669469,53.761618232)	BCS
+25003152	Bus Station	(-2.696710602,53.761663081)	BCS
+25003153	Bus Station	(-2.696726364,53.761698942)	BCS
+25003154	Bus Station	(-2.696757444,53.761743702)	BCS
+25003155	Arrival Stand	(-2.695280693,53.760311431)	BCS
+2500320	Bus Station	(-3.044805903,53.878562329)	BCS
+2500324	Dorset Avenue	(-3.039033178,53.883780712)	BCT
+2500326	Shaftesbury Avenue	(-3.045333824,53.890575061)	BCT
+2500327	Blythe Avenue	(-3.032936299,53.887635381)	BCT
+2500332	Pheasant Wood Drive	(-3.016777744,53.887625037)	BCT
+2500334	Morrisons	(-3.025802079,53.874654597)	BCT
+2500337	Kings Road	(-3.046247284,53.877803742)	BCT
+2500339	Rail Station	(-2.883451609,53.78738786)	BCT
+2500342	Royal Avenue	(-2.869877905,53.77911903)	BCT
+2500343	Grammar School	(-2.887412193,53.780869053)	BCT
+2500344	Lower Lane Estate	(-2.871017425,53.767461912)	BCT
+2500345	Market Square	(-2.871693434,53.782512404)	BCT
+2500349	Swan Hotel	(-2.875717662,53.781898832)	BCT
+2500357	Wildfowl Trust	(-2.865153796,53.623851539)	BCT
+2500384	Pontins Car Park	(-3.053714312,53.776052964)	BCT
+2500385	New Road	(-3.05298348,53.774742544)	BCT
+2500386	Clifton Drive North	(-3.051513379,53.77238703)	BCT
+2500395	Barley Mow	(-2.272909794,53.860007469)	BCT
+2500396	Car Park	(-2.270771528,53.858511338)	BCT
+2500397	Regent Street	(-2.234926634,53.821520777)	BCT
+2500398	Every Street	(-2.233664758,53.826781188)	BCT
+2500401	Moorland Drive	(-2.221808445,53.819829081)	BCT
+2500402	Sackville Street	(-2.235821254,53.823936776)	BCT
+2500403	Town Hall	(-2.234305314,53.82450599)	BCT
+2500404	Barracks Rail Station	(-2.259008695,53.790399735)	BCT
+25004041	Lord Street	(-2.860205979,54.075768157)	BCT
+2500405	Mechanics Institute	(-2.243950905,53.78776191)	BCT
+2500412	Burnley General Hospital	(-2.227394958,53.810812684)	BCT
+2500413	Reynolds Street	(-2.251274093,53.773761435)	BCT
+2500414	Trafalgar Street	(-2.248175675,53.786081464)	BCT
+2500416	St James Street	(-2.24581366,53.789645581)	BCT
+2500417	Piccadilly Road	(-2.252606213,53.78586548)	BCT
+2500419	Queensgate Depot	(-2.234274079,53.808031139)	BCT
+2500421	Leaver Street	(-2.281998183,53.787121136)	BCT
+2500422	Rail Station	(-2.281502441,53.785621305)	BCT
+2500423	Industrial Estate	(-2.27233021,53.780150833)	BCT
+2500425	St Mary Magdalenes RCPS	(-2.263416026,53.798528714)	BCT
+2500426	Lockyer Ave	(-2.279916547,53.793615352)	BCT
+2500428	Ightenhill Park Lane	(-2.269350671,53.793549691)	BCT
+2500431	Richmond Road	(-2.228975543,53.838861021)	BCT
+2500432	Harrison Drive	(-2.179439724,53.861334266)	BCT
+2500434	Broken Banks	(-2.163437061,53.855568969)	BCT
+2500436	Bus Station	(-2.166315196,53.85678736)	BCS
+2500437	Walton Street	(-2.169765872,53.856683654)	BCT
+2500439	Glenroy Avenue	(-2.170641484,53.862645835)	BCT
+2500440	Green Road	(-2.178033519,53.852447351)	BCT
+2500444	Market Street	(-2.165192585,53.857400088)	BCS
+2500446	Park High School	(-2.156994504,53.864574443)	BCT
+2500447	Knotts Mount	(-2.18112897,53.851139469)	BCT
+2500448	Rail Station	(-2.182295896,53.853816089)	BCT
+2500449	Ruskin Ave	(-2.173577816,53.863050595)	BCT
+2500451	Castle Road	(-2.165327289,53.864563236)	BCT
+2500452	Walton Lane	(-2.201279905,53.843638376)	BCT
+2500453	Keighley Road Roundabout	(-2.150254853,53.859379109)	BCT
+2500454	Oxford Close	(-2.308747815,53.792088474)	BCT
+2500455	Hapton Inn	(-2.315255173,53.773255076)	BCT
+2500456	Rail Station	(-2.316709974,53.781066365)	BCT
+2500458	Methodist Church	(-2.215582768,53.787717457)	BCT
+2500459	Industrial Estate	(-2.231479245,53.835431815)	BCT
+2500462	Business Village	(-2.228303498,53.835446895)	BCT
+2500465	The Long Causeway	(-2.193527249,53.770880123)	BCT
+2500467	Pendle Heritage Centre	(-2.209827259,53.853923845)	BCT
+2500468	Nelson and Colne College	(-2.219373828,53.845152541)	BCT
+2500469	Broadway	(-2.212564356,53.836087024)	BCT
+2500470	Carr Hall Road	(-2.237633808,53.843553834)	BCT
+2500472	Halifax Road	(-2.216169465,53.827973469)	BCT
+2500473	Hallam Road	(-2.194323481,53.838032417)	BCT
+2500474	Marsden Hall Road	(-2.192310184,53.83973438)	BCT
+2500475	Moorland Drive	(-2.222199375,53.81907337)	BCT
+2500476	Duerden Street	(-2.214879401,53.83415948)	BCT
+2500478	Waidshouse Road Top	(-2.21292365,53.826046875)	BCT
+2500482	Waterside Mews	(-2.311821493,53.799216985)	BCT
+2500483	Bridge Inn	(-2.311274741,53.799191443)	BCT
+2500484	Memorial Park	(-2.319653965,53.801002935)	BCT
+2500485	Slade Lane	(-2.316222577,53.80502967)	BCT
+2500486	Town Hall	(-2.313271224,53.800210871)	BCT
+2500489	Lower Manor Lane	(-2.245104464,53.811173236)	BCT
+2500490	Dorset Street	(-2.281148153,53.789379122)	BCT
+2500491	Four Lane Ends	(-2.337465172,53.833319794)	BCT
+2500492	Simonstone Road	(-2.333580093,53.830095005)	BCT
+2500493	White Hart	(-2.336362752,53.832271302)	BCT
+2500495	Rock Lane	(-2.232992264,53.776809377)	BCT
+2500496	Church Square	(-2.190599038,53.787589051)	BCT
+2500498	Hare and Hounds	(-2.54234661,53.696541843)	BCT
+2500500	Peel Street	(-2.597831004,53.616829976)	BCT
+2500501	Village Centre	(-2.647200779,53.661128417)	BCT
+2500502	War Memorial	(-2.569027028,53.688247709)	BCT
+2500506	Hinds Head	(-2.67894905,53.626266409)	BCT
+2500507	Church Lane	(-2.665983029,53.637287132)	BCT
+2500508	Camelot	(-2.694879793,53.632332012)	BCT
+2500509	Park Hall Entrance	(-2.695146848,53.63109905)	BCT
+2500510	Rail Station	(-2.627316573,53.65300097)	BCT
+2500514	Coniston House	(-2.640576681,53.645434455)	BCT
+2500516	Strawberry Fields	(-2.636923878,53.667034939)	BCT
+2500517	Hospital Stop 2	(-2.632229247,53.665837415)	BCT
+2500518	Beaconsfield Terrace	(-2.62535056,53.661235577)	BCT
+2500519	Liptrott Road	(-2.646944926,53.639485859)	BCT
+2500520	Market Street	(-2.631654503,53.650686129)	BCT
+2500524	Kent Drive	(-2.67112918,53.696563422)	BCT
+2500526	Stoney Holt	(-2.663081115,53.69523305)	BCT
+2500528	Glover Road	(-2.673893398,53.612641597)	BCT
+2500530	Burwell Ave	(-2.672090989,53.620022234)	BCT
+2500531	Byron Crescent	(-2.658416831,53.619549972)	BCT
+2500532	Printers Arms	(-2.652484139,53.625011463)	BCT
+2500534	Clancutt Lane Roundabout	(-2.656305509,53.627678091)	BCT
+2500535	Coventry St	(-2.634872557,53.646363685)	BCT
+2500537	Mill Street	(-2.659602585,53.622878137)	BCT
+2500538	Oak Tree	(-2.673686954,53.617712226)	BCT
+2500539	Park Road	(-2.664523102,53.621385801)	BCT
+2500541	Tansley Avenue	(-2.67027455,53.619879621)	BCT
+2500545	Croston Park	(-2.772227238,53.660216353)	BCT
+2500548	Rail Station	(-2.673756165,53.660954925)	BCT
+2500549	Bay Horse	(-2.675969734,53.669724054)	BCT
+2500550	Cotswold Avenue	(-2.667326662,53.658204555)	BCT
+2500550004	The Whim	(-2.747557484,53.880260933)	BCT
+2500550005	Stubbins Farm	(-2.751560309,53.878680994)	BCT
+2500550013	Jack Anderton Bridge	(-2.662060029,53.900060347)	BCT
+2500550014	Woodsfold	(-2.797078716,53.824602251)	BCT
+2500550015	Brook Vale Farm	(-2.800464921,53.844434553)	BCT
+2500550018	New House Farm	(-2.803556811,53.856673708)	BCT
+2500550053	WRIGHTINGTON BAR Cross Roads	(-2.704292604,53.615477628)	BCT
+2500550054	Headley Road	(-2.706890795,53.694928514)	BCT
+2500550062	Hospital Grounds	(-2.227880831,53.80799853)	BCT
+2500550069	The Mount	(-3.018095762,53.924937491)	BCT
+2500550070	Wyresdale Avenue	(-2.372514673,53.764331901)	BCT
+2500550073	Village Hall	(-2.708805582,53.626794369)	BCT
+2500550099	Old Sawley Grange	(-2.318455694,53.917201756)	BCT
+2500550100	Higher Green Head Farm	(-2.330004037,53.910465635)	BCT
+2500550277	Stanley Street	(-2.400645559,53.739501373)	BCT
+2500550291	Ivy Bank School	(-2.294807139,53.795601939)	BCT
+2500550313	Spring Barn	(-2.918604557,53.528542199)	BCT
+2500550406	Birkdale Avenue	(-3.023183593,53.766097633)	BCT
+2500550421	Hatfield Avenue	(-3.031481653,53.913821659)	BCT
+2500550424	Bus Depot	(-2.693012353,53.768290853)	BCT
+2500551	Sycamore Avenue	(-2.671640362,53.668741729)	BCT
+2500552	Barnside	(-2.67729927,53.669572726)	BCT
+2500553	The Talbot	(-2.667410544,53.660639929)	BCT
+2500554	Glebe Road	(-2.783048619,53.541866383)	BCT
+2500555	Gillibrands Road	(-2.787787465,53.543516116)	BCT
+2500556	Westgate	(-2.801342453,53.545286667)	BCT
+2500559	St Barnabas Church	(-2.603867577,53.67961909)	BCT
+2500562	Kittiwake Road	(-2.60422259,53.668462831)	BCT
+2500563	Bay Horse	(-2.58813315,53.626046172)	BCT
+2500565	Fishwick Lane	(-2.595412199,53.695175188)	BCT
+2500566	Boars Head	(-2.587787378,53.73487788)	BCT
+2500570	Old Oak	(-2.619075085,53.740994041)	BCT
+2500571	Smithy Lane	(-2.861708079,53.644702764)	BCT
+2500574	Old School Lane	(-2.615943968,53.606644134)	BCT
+2500575	White Bear	(-2.605054442,53.611373669)	BCT
+2500576	Red Lion Hotel	(-2.606903314,53.685428144)	BCT
+2500580	Theobald Garage	(-2.676507189,53.686259531)	BCT
+2500582	St Johns Church	(-2.639504777,53.687541476)	BCT
+2500584	Royal Oak	(-2.633658008,53.694475561)	BCT
+2500585	Swansey Garage	(-2.638515067,53.696184497)	BCT
+2500593	Arundel Drive	(-3.006696369,53.856857834)	BCT
+2500595	Fairway	(-3.014784151,53.842381443)	BCT
+2500598	School Lane End	(-2.790855336,53.811979104)	BCT
+250060003	Ribby Hall Entrance	(-2.898669376,53.779994213)	BCT
+2500603	Valentines Meadow	(-2.756185445,53.78006544)	BCT
+2500605	Beech Road	(-2.880685948,53.84010633)	BCT
+2500606	Ship Hotel	(-2.884602404,53.838450643)	BCT
+2500607	Fairhaven Hotel	(-2.992694022,53.739262932)	BCT
+2500608	Methodist Church	(-2.993859204,53.739810556)	BCT
+2500611	War Memorial	(-2.865917138,53.754798376)	BCT
+2500614	Raikes Road	(-2.864144461,53.856018891)	BCT
+2500615	White Bull	(-2.872632714,53.854788985)	BCT
+2500616	Square	(-2.873437408,53.854738188)	BCT
+2500617	Square	(-2.872463264,53.854682359)	BCT
+2500618	Methodist Church	(-2.870044167,53.850196846)	BCT
+2500622	Ryecroft Corner	(-2.954881908,53.875545516)	BCT
+2500623	Ryecroft Corner	(-2.954752875,53.875222967)	BCT
+2500624	Green Meadow Lane	(-2.958404535,53.871283979)	BCT
+2500626	Derby Arms	(-2.814487027,53.830785999)	BCT
+2500627	Barton Square	(-2.988185735,53.928108549)	BCT
+2500630	Bourne Arms	(-2.995882474,53.928350554)	BCT
+2500634	Plumpton Lodge	(-2.942201166,53.786419171)	BCT
+2500636	Sandy Lane	(-2.76381744,53.796694708)	BCT
+2500639	Lytham Hospital	(-2.946214239,53.738794109)	BCT
+2500641	Bath Street	(-2.9606574,53.73590175)	BCT
+2500643	Square	(-2.962591451,53.736946861)	BCT
+2500645	Green Drive	(-2.959999521,53.744949373)	BCT
+2500647	Meadow Lane	(-2.940412047,53.74374746)	BCT
+2500649	Railway Station	(-2.943330089,53.765026997)	BCT
+2500650	Dicconson Terrace	(-2.962278405,53.735852788)	BCT
+2500664	Boltons Croft	(-2.80358478,53.792264208)	BCT
+2500666	Grand Hotel	(-3.027812883,53.745690189)	BCT
+2500686	Wood Street	(-3.031673096,53.749755755)	BCT
+2500691	St Michaels & St John RCPS	(-2.391328955,53.870644769)	BCT
+2500696	Black Bull	(-2.714272893,53.790942106)	BCT
+2500699	Croftlands	(-2.764416935,54.148487748)	BCT
+2500702	Kirkham Road	(-2.936476683,53.804710319)	BCT
+2500703	Camp Entrance	(-2.933045257,53.819765497)	BCT
+2500707	Wyre Street	(-2.885037796,53.789191795)	BCT
+2500708	St. Josephs Church	(-2.886935248,53.792072001)	BCT
+2500715	Primary School	(-2.916406022,53.777028599)	BCT
+2500716	Edmund Street	(-2.364771345,53.747808686)	BCT
+2500717	Adelaide Street	(-2.360747301,53.750688071)	BCT
+2500718	Asda	(-2.371919443,53.755350137)	BCT
+2500719	Avenue Parade	(-2.353594125,53.756650517)	BCT
+2500720	Bradford Street	(-2.35449134,53.753331267)	BCT
+2500721	Towneley Avenue	(-2.34027773,53.77167217)	BCT
+2500723	Woodside Road	(-2.347017447,53.764705076)	BCT
+2500724	Bus Station	(-2.363425372,53.753493244)	BCT
+2500725	Rail Station	(-2.367986624,53.753074856)	BCT
+2500726	Granville Road	(-2.358126246,53.742067375)	BCT
+2500727	ACCRINGTON Bus Station Stand N	(-2.36304484,53.753332613)	BCT
+2500728	Higher Antley Street	(-2.371553257,53.748228257)	BCT
+2500729	Scaitcliffe House	(-2.369278157,53.749898089)	BCT
+2500730	Accrington Academy	(-2.373295446,53.760006211)	BCT
+2500736	Walton Arms	(-2.348636232,53.79161954)	BCT
+2500737	Walton Arms	(-2.347456269,53.792108319)	BCT
+2500739	Woodley Avenue	(-2.359492108,53.743995722)	BCT
+2500740	The Mission	(-2.350677313,53.737882989)	BCT
+2500741	The Bay Horse	(-2.346071706,53.73457079)	BCT
+2500742	Southwood Drive	(-2.347292775,53.735582911)	BCT
+2500746	Church Street	(-2.393197019,53.756859634)	BCT
+2500748	Bridge Street	(-2.392169134,53.752350986)	BCT
+2500749	Cricket Club	(-2.379164905,53.764985143)	BCT
+2500751	Railway Station	(-2.391649701,53.750312389)	BCT
+2500752	Kirk House	(-2.389405008,53.753555418)	BCT
+2500753	Pendleton Ave Top	(-2.382564144,53.743429907)	BCT
+2500754	Alleytroyds	(-2.391301555,53.752012275)	BCT
+2500757	Devonshire Drive	(-2.383304857,53.776476682)	BCT
+2500758	Sparth Road	(-2.388851807,53.777384578)	BCT
+2500759	Hare and Hounds	(-2.381695015,53.771687976)	BCT
+2500762	Sparth Road	(-2.384827454,53.778700837)	BCT
+2500764	Cemetery	(-2.380949401,53.762696514)	BCT
+2500765	Crown Inn	(-2.372946906,53.765175434)	BCT
+2500766	Regent Road	(-2.38263963,53.761738392)	BCT
+2500767	Clarence Road	(-2.374530481,53.743688988)	BCT
+2500768	St Oswalds RCPS	(-2.3742758,53.740624843)	BCT
+2500769	Shops	(-2.376914306,53.742369248)	BCT
+2500770	Shops	(-2.377427214,53.742080014)	BCT
+2500772	Red Lion Hotel	(-2.368877262,53.735302659)	BCT
+2500773	Turning Circle	(-2.375758658,53.731802868)	BCT
+2500776	Newhouse Road	(-2.352790869,53.769379977)	BCT
+2500777	Rail Station	(-2.346457771,53.772265645)	BCT
+2500778	Within Grove	(-2.348375794,53.765703264)	BCT
+2500779	Griffin Head	(-2.335874658,53.767487178)	BCT
+250078	Primary School	(-2.728980608,53.647202696)	BCT
+2500780	Within Grove	(-2.348193532,53.76567683)	BCT
+2500781	Oak Mill	(-2.279640498,53.745296348)	BCT
+2500783	Aldcliffe	(-2.183668103,53.691607438)	BCT
+250079	Lydiate Lane End	(-2.728242226,53.662289703)	BCT
+250080	Institute	(-2.723947215,53.643916529)	BCT
+2500801	North Holme Estate	(-2.152872955,53.910157056)	BCT
+2500804	West Craven Sports Centre	(-2.183610097,53.914311226)	BCT
+2500807	Railway Station	(-2.770470459,54.129026741)	BCT
+2500808	New Street	(-2.769615539,54.127486325)	BCT
+2500810	The Nib	(-2.772365705,54.136303622)	BCT
+2500811	Scotland Road	(-2.766459194,54.129753397)	BCT
+2500813	Manchester Road	(-2.187563379,53.913208597)	BCT
+2500814	County Library	(-2.716445066,54.07635097)	BCT
+2500815	County Library	(-2.717099092,54.076167317)	BCT
+2500816	Police Station	(-2.713670995,54.076789889)	BCT
+2500817	Station Hotel	(-2.71779694,54.075866558)	BCT
+2500818	Station Hotel	(-2.717980167,54.075856477)	BCT
+2500819	Manor Inn	(-2.816707474,53.963515906)	BCT
+2500820	Marsh Close	(-2.828436598,53.958528134)	BCT
+2500821	Stork Hotel	(-2.825089056,53.99737022)	BCT
+2500826	St Marks Church	(-2.738568133,53.974303991)	BCT
+2500829	Crossroads	(-2.789005995,53.992228808)	BCT
+2500832	Swingbridge	(-2.848696108,53.997763053)	BCT
+2500833	Bowland View	(-2.849453252,53.997488065)	BCT
+2500835	Lunesdale View	(-2.753426816,54.081167117)	BCT
+2500836	War Memorial	(-2.764977604,54.076744119)	BCT
+2500838	Chapel Rd	(-2.854022578,53.707506122)	BCT
+2500839	All Saints Church	(-2.840517205,53.702595132)	BCT
+2500842	The Crescent	(-2.815477937,54.090136685)	BCT
+2500843	Peacock Lane	(-2.810688119,54.089908416)	BCT
+2500844	Peacock Lane	(-2.811132834,54.089977321)	BCT
+2500845	Railway Station	(-2.81226261,54.092243609)	BCT
+2500846	Station Road	(-2.81326244,54.091769488)	BCT
+2500848	Whalley Place	(-3.003404832,53.752278866)	BCT
+2500849	Combermere Road	(-2.897686884,54.035659827)	BCT
+2500852	Kingsway Shops	(-2.887187369,54.04953423)	BCT
+2500854	Peel Avenue	(-2.898730579,54.038033832)	BCT
+2500855	Middleton Road	(-2.896186786,54.041162647)	BCT
+2500856	Tomlinson Road	(-2.894935769,54.039796813)	BCT
+2500859	Day Nursery	(-2.635915137,54.108251656)	BCT
+2500860	Swimming Pool	(-2.637921309,54.115386221)	BCT
+2500863	Penrhyn Road	(-2.823144,54.058797846)	BCT
+2500864	Norfolk Street	(-2.796279865,54.059239394)	BCT
+2500866	Ashfield Avenue	(-2.810968596,54.046279611)	BCT
+2500867	Ashford Road	(-2.805561291,54.028079577)	BCT
+2500872	Chapel Street	(-2.799380165,54.050437704)	BCT
+2500877	Common Garden Street	(-2.801020044,54.047550679)	BCT
+2500878	Coolidge Avenue	(-2.816937598,54.043812476)	BCT
+2500879	Higher Park Farm	(-2.176199357,53.907878094)	BCT
+2500881	Higher Park Farm	(-2.177314607,53.908838145)	BCT
+2500882	Lancaster Farms Prison	(-2.772954833,54.052021583)	BCT
+2500883	George Street	(-2.799384743,54.046698729)	BCT
+2500884	Hala Square	(-2.789848437,54.027051383)	BCT
+2500885	Wentworth Drive	(-2.773905607,54.048114749)	BCT
+2500886	Summersgill Road	(-2.814422837,54.055783388)	BCT
+2500887	Grab Lane	(-2.772042855,54.047168431)	BCT
+2500890	Haydock Road	(-2.786022507,54.028972903)	BCT
+2500891	Lancaster Business Park	(-2.777775867,54.07051438)	BCT
+2500892	Postern Gate	(-2.743594303,54.052728045)	BCT
+2500893	St Martins Road	(-2.789456682,54.042629921)	BCT
+2500894	Railway Station	(-2.808495888,54.048713999)	BCT
+2500897	Primary School	(-2.78679693,54.05300135)	BCT
+2500898	Ridge Shops	(-2.787439163,54.055459812)	BCT
+2500899	Ripley St Thomas School	(-2.800470338,54.038818143)	BCT
+2500900	Islamic College	(-2.802708843,54.032952114)	BCT
+2500901	Royal Grammar School	(-2.790899288,54.047024485)	BCT
+2500902	Infirmary	(-2.798815882,54.044114008)	BCT
+2500904	Hindburn Place	(-2.810236459,54.056530698)	BCT
+2500906	Sainsbury's Layby	(-2.797312318,54.051727709)	BCT
+2500908	Lancaster and Morecambe College	(-2.826911664,54.060812237)	BCT
+2500909	Windholme	(-2.824037434,54.056854832)	BCT
+2500910	ST Chads Church	(-2.81262272,54.060604063)	BCT
+2500911	John Kay Court	(-2.812041322,54.062126936)	BCT
+2500913	Sainsburys	(-2.797331847,54.051152357)	BCT
+2500914	County College	(-2.783428487,54.013611579)	BCT
+2500915	InfoLab21	(-2.785509962,54.00583245)	BCT
+2500916	University Gates	(-2.794294815,54.010448416)	BCT
+2500917	University Gates	(-2.79401211,54.010827776)	BCT
+2500918	Underpass	(-2.785501379,54.010236577)	BCT
+2500919	Williamson Park Gates	(-2.785260982,54.043646063)	BCT
+2500920	Leighton Moss RSPB Nature Reserve	(-2.803197906,54.168268774)	BCT
+2500921	Denmark Street	(-2.819882768,54.045248462)	BCT
+2500922	St WilfrIds Church	(-2.616522788,54.135171685)	BCT
+2500923	Gillison Close	(-2.615390164,54.135168495)	BCT
+2500924	Corner	(-2.88229278,54.022534566)	BCT
+2500925	Trinket Lane	(-2.584204363,54.104056015)	BCT
+2500927	Clock Tower	(-2.865465176,54.073645243)	BCT
+2500930	Arndale Centre	(-2.864849727,54.071240924)	BCT
+2500931	Battery	(-2.885626908,54.064492608)	BCT
+2500933	Battery	(-2.885238501,54.064908911)	BCT
+2500934	Greatwood School	(-2.838699818,54.072621518)	BCT
+2500936	Kentmere Grove	(-2.845319965,54.065996062)	BCT
+2500938	Festival Market	(-2.873040306,54.070489678)	BCT
+2500939	Schola Green Lane	(-2.862965836,54.067353725)	BCT
+2500944	Euston Road School	(-2.86089474,54.071386143)	BCT
+2500945	Euston Road School	(-2.860989207,54.071520285)	BCT
+2500947	Highfield Crescent	(-2.878230994,54.068079085)	BCT
+2500949	Health Centre	(-2.85797164,54.073402337)	BCT
+2500950	Stanley Road	(-2.887486178,54.062834117)	BCT
+2500951	Kenwood Avenue	(-2.868633719,54.066566925)	BCT
+2500952	Mossgate School	(-2.886868286,54.051046553)	BCT
+2500955	The Platform	(-2.875213772,54.071381655)	BCT
+2500956	Morrisons	(-2.873433604,54.070298077)	BCT
+2500958	Clock Tower	(-2.865295409,54.073565574)	BCT
+2500960	Park Hotel	(-2.876243932,54.063698508)	BCT
+2500962	St Barnabas Church	(-2.877792267,54.064666895)	BCT
+2500964	Town Hall	(-2.859501689,54.076447281)	BCT
+2500966	Bus Station	(-2.870960071,54.070396907)	BCT
+2500968	Limeburners Arms	(-2.75875884,54.106991366)	BCT
+2500969	Village Bus Stop	(-2.7589911,54.104635114)	BCT
+2500970	Cross	(-2.735760413,54.123680584)	BCT
+2500971	Memorial Hall	(-2.861318278,54.016538953)	BCT
+2500972	St Helens Church	(-2.855548726,54.011304242)	BCT
+2500973	The Green	(-2.72058867,54.157566001)	BCT
+2500974	Four Lane Ends	(-2.740891331,54.041608832)	BCT
+2500975	Post Office	(-2.734082478,54.025256803)	BCT
+2500979	The Royal	(-2.826665999,54.168352592)	BCT
+2500980	The Row	(-2.811521211,54.172482106)	BCT
+2500981	Clevelands Avenue	(-2.82230406,54.173936852)	BCT
+2500982	War Memorial	(-2.823249249,54.17293276)	BCT
+2500983	Gaskell Hall	(-2.826647376,54.168954895)	BCT
+2500984	Wolf House Gallery	(-2.825161067,54.161235674)	BCT
+2500985	Lindeth Close	(-2.826207705,54.164571919)	BCT
+2500986	Railway Station	(-2.803955883,54.1694411)	BCT
+2500989	Hall Gates	(-2.82401403,53.98310473)	BCT
+2500990	Square	(-2.830495858,54.066629636)	BCT
+2500990126	Community Hall	(-2.353747913,54.000019519)	BCT
+2500990213	Emmott Arms	(-2.118898442,53.862703896)	BCT
+2500991	Lunesdale Arms	(-2.601627883,54.15607131)	BCT
+2500993	Greenset Close	(-2.811681245,54.065598671)	BCT
+2500994	Pickthorn Close	(-2.810317032,54.064592246)	BCT
+2500995	Estate	(-2.813778167,54.066564172)	BCT
+2500998	Wennington Station	(-2.587959305,54.12407114)	BCT
+2500999	White Lund Road	(-2.851215054,54.061370669)	BCT
+250GLANBS	Lancaster Bus Station	(-2.800817383,54.050513512)	GBCS
+\.
+
+
+--
+-- Name: bus_routes_route_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.bus_routes_route_id_seq', 1, false);
+
+
+--
+-- Name: journey_tracking_tracking_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.journey_tracking_tracking_id_seq', 1, false);
+
+
+--
+-- Name: planned_routes_route_plan_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.planned_routes_route_plan_id_seq', 1, false);
+
+
+--
+-- Name: route_stops_stop_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.route_stops_stop_id_seq', 1, false);
+
+
+--
+-- Name: bus_routes bus_routes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bus_routes
+    ADD CONSTRAINT bus_routes_pkey PRIMARY KEY (route_id);
+
+
+--
+-- Name: journey_tracking journey_tracking_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.journey_tracking
+    ADD CONSTRAINT journey_tracking_pkey PRIMARY KEY (tracking_id);
+
+
+--
+-- Name: national_rail national_rail_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.national_rail
+    ADD CONSTRAINT national_rail_pkey PRIMARY KEY (tiploc_code);
+
+
+--
+-- Name: operators operators_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.operators
+    ADD CONSTRAINT operators_pkey PRIMARY KEY (operator_code);
+
+
+--
+-- Name: planned_routes planned_routes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.planned_routes
+    ADD CONSTRAINT planned_routes_pkey PRIMARY KEY (route_plan_id);
+
+
+--
+-- Name: rail_schedule rail_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rail_schedule
+    ADD CONSTRAINT rail_schedule_pkey PRIMARY KEY (train_uid);
+
+
+--
+-- Name: route_stops route_stops_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.route_stops
+    ADD CONSTRAINT route_stops_pkey PRIMARY KEY (stop_id);
+
+
+--
+-- Name: schedule_points schedule_points_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.schedule_points
+    ADD CONSTRAINT schedule_points_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: stops stops_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.stops
+    ADD CONSTRAINT stops_pkey PRIMARY KEY (atco_code);
+
+
+--
+-- Name: idx_journey_tracking_time; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_journey_tracking_time ON public.journey_tracking USING btree (recorded_time DESC);
+
+
+--
+-- Name: idx_planned_routes_locations; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_planned_routes_locations ON public.planned_routes USING btree (start_atco_code, end_atco_code);
+
+
+--
+-- Name: idx_route_stops_route; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_route_stops_route ON public.route_stops USING btree (route_id);
+
+
+--
+-- Name: bus_routes bus_routes_end_atco_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bus_routes
+    ADD CONSTRAINT bus_routes_end_atco_code_fkey FOREIGN KEY (end_atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: bus_routes bus_routes_operator_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bus_routes
+    ADD CONSTRAINT bus_routes_operator_code_fkey FOREIGN KEY (operator_code) REFERENCES public.operators(operator_code);
+
+
+--
+-- Name: bus_routes bus_routes_start_atco_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bus_routes
+    ADD CONSTRAINT bus_routes_start_atco_code_fkey FOREIGN KEY (start_atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: national_rail fk_atco; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.national_rail
+    ADD CONSTRAINT fk_atco FOREIGN KEY (atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: rail_schedule fk_operator; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.rail_schedule
+    ADD CONSTRAINT fk_operator FOREIGN KEY (operator_code) REFERENCES public.operators(operator_code);
+
+
+--
+-- Name: schedule_points fk_schedule; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.schedule_points
+    ADD CONSTRAINT fk_schedule FOREIGN KEY (train_uid) REFERENCES public.rail_schedule(train_uid);
+
+
+--
+-- Name: schedule_points fk_tiploc; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.schedule_points
+    ADD CONSTRAINT fk_tiploc FOREIGN KEY (tiploc_code) REFERENCES public.national_rail(tiploc_code);
+
+
+--
+-- Name: journey_tracking journey_tracking_atco_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.journey_tracking
+    ADD CONSTRAINT journey_tracking_atco_code_fkey FOREIGN KEY (atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: journey_tracking journey_tracking_operator_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.journey_tracking
+    ADD CONSTRAINT journey_tracking_operator_code_fkey FOREIGN KEY (operator_code) REFERENCES public.operators(operator_code);
+
+
+--
+-- Name: planned_routes planned_routes_end_atco_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.planned_routes
+    ADD CONSTRAINT planned_routes_end_atco_code_fkey FOREIGN KEY (end_atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: planned_routes planned_routes_start_atco_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.planned_routes
+    ADD CONSTRAINT planned_routes_start_atco_code_fkey FOREIGN KEY (start_atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: route_stops route_stops_atco_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.route_stops
+    ADD CONSTRAINT route_stops_atco_code_fkey FOREIGN KEY (atco_code) REFERENCES public.stops(atco_code);
+
+
+--
+-- Name: route_stops route_stops_route_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.route_stops
+    ADD CONSTRAINT route_stops_route_id_fkey FOREIGN KEY (route_id) REFERENCES public.bus_routes(route_id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict LWzVMbV4RrxDhrkY4stjiWcFzLQvaASm5X1R4JG14p2ZEEhePV3TbArXJD96zte
+
+--
+-- Database "postgres" dump
+--
+
+--
+-- PostgreSQL database dump
+--
+
+\restrict dcynu7RcW0IHrdNa0lAkcYGYOWueBgjeC9UmKu62PYZhBn5aOI8ZJvJNCQzJd9g
+
+-- Dumped from database version 16.12
+-- Dumped by pg_dump version 16.12
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+DROP DATABASE postgres;
+--
+-- Name: postgres; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE postgres WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'en_US.utf8';
+
+
+ALTER DATABASE postgres OWNER TO postgres;
+
+\unrestrict dcynu7RcW0IHrdNa0lAkcYGYOWueBgjeC9UmKu62PYZhBn5aOI8ZJvJNCQzJd9g
+\connect postgres
+\restrict dcynu7RcW0IHrdNa0lAkcYGYOWueBgjeC9UmKu62PYZhBn5aOI8ZJvJNCQzJd9g
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: DATABASE postgres; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON DATABASE postgres IS 'default administrative connection database';
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict dcynu7RcW0IHrdNa0lAkcYGYOWueBgjeC9UmKu62PYZhBn5aOI8ZJvJNCQzJd9g
+
+--
+-- PostgreSQL database cluster dump complete
+--
+

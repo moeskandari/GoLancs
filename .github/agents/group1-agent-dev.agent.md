@@ -29,6 +29,7 @@ Technical requirements:
 - The application will be designed with accessibility in mind, ensuring it is usable by people with disabilities.
 - Backend will be stored in ./backend and frontend in ./frontend in the github repo.
 - We need to pull and rebuild the containers whenever we boot up computers because we are on lab machines.
+- Only ports 5000-5100 are available for use, so we will need to ensure our application runs within this range.
 
 Rules: 
 - Before git push commands, wait for a review from the team to ensure code quality and consistency. Wait for approval before pushing to the main branch.

@@ -19,6 +19,40 @@
   max-width: 500px;
 }
 
+.route-btn {
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 25px;
+  border: none;
+  background: #2196F3;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.route-btn:hover {
+  background: #1b7ed1;
+  transform: translateY(-1px);
+}
+
+.route-btn:disabled {
+  background: #9bbfe3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.route-error {
+  background: #ffecec;
+  color: #a33a3a;
+  border: 1px solid #f5b5b5;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
   .search-container {
     width: 95%;

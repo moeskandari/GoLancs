@@ -12,14 +12,6 @@ conn = psycopg2.connect(
 
 # creating a cursor object
 cursor = conn.cursor()
-# Create tables
-
-operatorsSQL = "CREATE TABLE IF NOT EXISTS operators(operator_code TEXT PRIMARY KEY, name TEXT, mode TEXT);"
-
-rail_schedule_SQL = "CREATE TABLE IF NOT EXISTS rail_schedule(train_uid TEXT PRIMARY KEY, operator_code TEXT, schedule_start_date DATE, schedule_end_date DATE, days_run BYTEA, CONSTRAINT fk_operator FOREIGN KEY (operator_code) REFERENCES operators(operator_code));"
-
-cursor.execute(operatorsSQL)
-cursor.execute(rail_schedule_SQL)
 
 
 
