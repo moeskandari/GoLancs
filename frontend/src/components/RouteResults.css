@@ -1,9 +1,10 @@
+/* ===== Route Results Panel ===== */
 .route-results {
   position: absolute;
   bottom: 70px;
   left: 0;
   right: 0;
-  max-height: 45vh;
+  max-height: 50vh;
   background: #fff;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
@@ -13,56 +14,63 @@
   transition: max-height 0.3s ease;
 }
 
+/* ===== Header ===== */
 .results-header {
   margin-bottom: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #eee;
 }
 
+.results-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
 .results-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
-  margin: 0 0 4px 0;
+  margin: 0;
   color: #1a1a2e;
 }
 
 .results-meta {
   font-size: 13px;
   color: #666;
-  margin-bottom: 8px;
 }
 
 .results-meta .distance {
   color: #999;
 }
 
-.sort-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.results-meta .using-time {
+  color: #2196F3;
+  font-weight: 500;
 }
 
-.sort-label {
-  font-size: 13px;
-  color: #666;
+.sort-controls {
+  flex-shrink: 0;
 }
 
 .sort-select {
-  padding: 4px 8px;
-  border-radius: 8px;
+  padding: 5px 10px;
+  border-radius: 10px;
   border: 1px solid #ddd;
   font-size: 13px;
   background: #f8f9fa;
   cursor: pointer;
+  font-weight: 500;
 }
 
+/* ===== Route List ===== */
 .route-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-/* Route Card */
+/* ===== Route Card ===== */
 .route-card {
   background: #f8f9fa;
   border: 2px solid transparent;
@@ -80,55 +88,21 @@
 .route-card.selected {
   background: #e8f0fe;
   border-color: #2196F3;
+  cursor: default;
 }
 
+/* ===== Route Header (times + duration) ===== */
 .route-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
-}
-
-.route-modes {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.mode-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.walk-tag {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.bus-tag {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.train-tag {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.route-duration {
-  font-size: 16px;
-  font-weight: 700;
-  color: #1a1a2e;
+  margin-bottom: 8px;
 }
 
 .route-times {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
 }
 
 .departure, .arrival {
@@ -142,117 +116,234 @@
   font-size: 16px;
 }
 
-.route-summary {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 4px;
+.route-duration {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2196F3;
+  background: #e3f2fd;
+  padding: 3px 10px;
+  border-radius: 10px;
 }
 
-/* Legs */
-.route-legs {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #ddd;
-}
-
-.leg {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 0;
-  position: relative;
-}
-
-.leg + .leg {
-  border-top: 1px dashed #e0e0e0;
-}
-
-.leg-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-  width: 30px;
-  text-align: center;
-}
-
-.leg-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.leg-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a2e;
+/* ===== Modes Summary Bar ===== */
+.modes-summary {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
+.mode-chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.walk-chip { background: #e8f5e9; color: #2e7d32; }
+.bus-chip { background: #fff3e0; color: #e65100; }
+.train-chip { background: #e3f2fd; color: #1565c0; }
+
+.mode-separator {
+  color: #bbb;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 2px;
+}
+
+/* ===== Expanded Route Details ===== */
+.route-expanded {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #ddd;
+}
+
+/* ===== Journey Timeline ===== */
+.journey-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.leg-detail-card {
+  display: flex;
+  gap: 12px;
+  min-height: 60px;
+}
+
+/* ===== Timeline Visual ===== */
+.timeline-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.timeline-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.walk-dot { background: #e8f5e9; }
+.bus-dot { background: #fff3e0; }
+.train-dot { background: #e3f2fd; }
+.transfer-dot { background: #fce4ec; }
+
+.timeline-line {
+  width: 3px;
+  flex: 1;
+  min-height: 20px;
+  margin: 2px 0;
+}
+
+.walk-line { background: #4CAF50; opacity: 0.4; border-left: 3px dashed #4CAF50; width: 0; }
+.bus-line { background: #FF9800; }
+.train-line { background: #1976D2; }
+.transfer-line { background: #9E9E9E; opacity: 0.4; border-left: 3px dashed #9E9E9E; width: 0; }
+
+/* ===== Leg Content ===== */
+.leg-content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 14px;
+}
+
+.leg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.leg-mode-label {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 8px;
+}
+
+.walk-label { background: #e8f5e9; color: #2e7d32; }
+.transfer-label { background: #fce4ec; color: #c62828; }
+
+.leg-operator {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.leg-duration {
+  font-size: 12px;
+  color: #2196F3;
+  font-weight: 700;
+  margin-left: auto;
+  background: #e3f2fd;
+  padding: 1px 8px;
+  border-radius: 8px;
+}
+
+/* ===== Badges ===== */
 .route-badge {
   display: inline-block;
-  padding: 1px 8px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 
-.bus-badge {
-  background: #ff9800;
-  color: #fff;
+.bus-badge { background: #FF9800; color: #fff; }
+.train-badge { background: #1976D2; color: #fff; }
+
+/* ===== Leg Stops ===== */
+.leg-stops {
+  margin-left: 2px;
 }
 
-.train-badge {
-  background: #1976d2;
-  color: #fff;
+.leg-stop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
 }
 
-.leg-detail {
+.stop-time {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a2e;
+  min-width: 40px;
+}
+
+.stop-name {
   font-size: 13px;
   color: #444;
-  margin-top: 2px;
 }
 
-.leg-detail .time {
-  font-weight: 600;
-  color: #1a1a2e;
-}
-
-.leg-detail .arrow {
+.crs-code {
+  font-size: 11px;
   color: #999;
+  font-weight: 500;
 }
 
-.leg-meta {
-  font-size: 12px;
+.leg-arrow {
+  font-size: 11px;
+  color: #999;
+  padding: 2px 0 2px 48px;
+}
+
+.leg-extra {
+  font-size: 11px;
   color: #888;
-  margin-top: 2px;
+  margin-top: 4px;
+  padding-left: 2px;
 }
 
-/* Transfer leg */
-.transfer-leg {
-  opacity: 0.7;
+/* ===== Changeover Info ===== */
+.leg-changeover-info {
+  margin-left: 2px;
 }
 
-/* Walk leg */
-.walk-leg .leg-title {
-  color: #2e7d32;
+.changeover-station {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
 }
 
-/* No routes */
+.changeover-tip {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+/* ===== No Routes ===== */
 .no-routes {
   text-align: center;
   padding: 24px;
   color: #666;
 }
 
+.no-routes-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
 .no-routes p {
   margin: 4px 0;
 }
 
-/* Responsive */
+/* ===== Responsive ===== */
 @media (max-width: 768px) {
   .route-results {
-    max-height: 50vh;
+    max-height: 55vh;
     padding: 12px;
     bottom: 60px;
   }
@@ -264,6 +355,16 @@
   .route-card {
     padding: 10px;
   }
+
+  .timeline-dot {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .timeline-connector {
+    width: 30px;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -272,7 +373,7 @@
     right: 20px;
     bottom: 20px;
     max-height: 80vh;
-    width: 400px;
+    width: 420px;
     border-radius: 16px;
   }
 }

@@ -1,64 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './SearchBar.css';
 
 function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
+  const [inputText, setInputText] = useState('');
   const [filteredStops, setFilteredStops] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  
+  const [isSelected, setIsSelected] = useState(false);
+  const wrapperRef = useRef(null);
+
+  // Sync display text when value changes externally (e.g. swap button)
   useEffect(() => {
-    // If this is the start location search bar, try to get user location
-    if (type === 'start' && navigator.geolocation && !value) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          // Find nearest stop to user location
-          if (stops.length > 0) {
-            let nearest = stops[0];
-            let minDistance = Infinity;
-            
-            stops.forEach(stop => {
-              const coords = stop.coordinates;
-              let stopLat, stopLng;
-              if (typeof coords === 'object') {
-                stopLat = coords.y;
-                stopLng = coords.x;
-              } else {
-                const match = coords.match(/\(([^,]+),([^)]+)\)/);
-                if (match) {
-                  stopLat = parseFloat(match[2]);
-                  stopLng = parseFloat(match[1]);
-                }
-              }
-              
-              const distance = Math.sqrt(
-                Math.pow(stopLat - latitude, 2) + Math.pow(stopLng - longitude, 2)
-              );
-              
-              if (distance < minDistance) {
-                minDistance = distance;
-                nearest = stop;
-              }
-            });
-            
-            onChange?.(nearest);
-          }
-        },
-        (error) => {
-          console.log('Location access denied');
-        }
-      );
+    if (value?.common_name) {
+      setInputText(value.common_name);
+      setIsSelected(true);
+    } else if (!value) {
+      setInputText('');
+      setIsSelected(false);
     }
-  }, [type, onChange, stops]);
+  }, [value]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleInputChange = (e) => {
     const input = e.target.value;
-    onChange?.({ ...value, search: input });
-    
-    if (input.length > 0) {
+    setInputText(input);
+    setIsSelected(false);
+
+    // Clear the selected stop so user can pick a new one
+    if (value?.common_name) {
+      onChange?.(null);
+    }
+
+    if (input.length >= 2) {
+      const query = input.toLowerCase();
       const filtered = stops.filter(stop =>
-        stop.common_name.toLowerCase().includes(input.toLowerCase())
+        stop.common_name.toLowerCase().includes(query)
       );
-      setFilteredStops(filtered.slice(0, 8)); // Limit to 8 results
+      // Sort: exact start match first, then alphabetical
+      filtered.sort((a, b) => {
+        const aStarts = a.common_name.toLowerCase().startsWith(query) ? 0 : 1;
+        const bStarts = b.common_name.toLowerCase().startsWith(query) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.common_name.localeCompare(b.common_name);
+      });
+      setFilteredStops(filtered.slice(0, 10));
       setShowDropdown(true);
     } else {
       setFilteredStops([]);
@@ -68,23 +62,59 @@ function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
 
   const handleSelectStop = (stop) => {
     onChange?.(stop);
+    setInputText(stop.common_name);
+    setIsSelected(true);
     setShowDropdown(false);
   };
 
-  const displayValue = value?.common_name || value?.search || '';
+  const handleClear = () => {
+    setInputText('');
+    setIsSelected(false);
+    setFilteredStops([]);
+    setShowDropdown(false);
+    onChange?.(null);
+  };
+
+  const handleFocus = () => {
+    // If there's text but no stop selected, re-filter
+    if (inputText.length >= 2 && !isSelected) {
+      const query = inputText.toLowerCase();
+      const filtered = stops.filter(stop =>
+        stop.common_name.toLowerCase().includes(query)
+      );
+      filtered.sort((a, b) => {
+        const aStarts = a.common_name.toLowerCase().startsWith(query) ? 0 : 1;
+        const bStarts = b.common_name.toLowerCase().startsWith(query) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.common_name.localeCompare(b.common_name);
+      });
+      setFilteredStops(filtered.slice(0, 10));
+      setShowDropdown(true);
+    }
+  };
 
   return (
-    <div className="search-bar-wrapper">
+    <div className="search-bar-wrapper" ref={wrapperRef}>
       <div className="search-bar">
         <input
           type="text"
-          value={displayValue}
+          value={inputText}
           onChange={handleInputChange}
-          onFocus={() => displayValue.length > 0 && setShowDropdown(true)}
+          onFocus={handleFocus}
           placeholder={placeholder}
-          className="search-input"
+          className={`search-input ${isSelected ? 'selected' : ''}`}
           autoComplete="off"
         />
+        {inputText && (
+          <button
+            className="clear-btn"
+            onClick={handleClear}
+            aria-label="Clear"
+            type="button"
+          >
+            ✕
+          </button>
+        )}
         {showDropdown && filteredStops.length > 0 && (
           <div className="search-dropdown">
             {filteredStops.map((stop) => (

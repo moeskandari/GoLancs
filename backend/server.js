@@ -77,9 +77,8 @@ app.get('/api/stops', async (req, res) => {
       }).filter(s => s !== null)
        .sort((a, b) => a.distance - b.distance)
        .slice(0, 5);
-    } else {
-      stops = stops.slice(0, 5);
     }
+    // When no location given, return all stops for autocomplete search
     
     res.json(stops);
   } catch (err) {
@@ -690,8 +689,8 @@ async function findNearbyRailStations(atcoCode, maxDistKm = 1.0) {
            s_stop.coordinates[0] as stop_lon, s_stop.coordinates[1] as stop_lat
     FROM stops s_stop
     JOIN stops s_rail ON s_rail.atco_code LIKE '9100%'
-      AND ABS(s_rail.coordinates[0] - s_stop.coordinates[0]) < 0.025
-      AND ABS(s_rail.coordinates[1] - s_stop.coordinates[1]) < 0.025
+      AND ABS(s_rail.coordinates[0] - s_stop.coordinates[0]) < 0.04
+      AND ABS(s_rail.coordinates[1] - s_stop.coordinates[1]) < 0.04
     JOIN national_rail nr ON nr.atco_code = s_rail.atco_code
     WHERE s_stop.atco_code = $1
       AND s_stop.coordinates IS NOT NULL
@@ -1002,6 +1001,100 @@ async function findBusRailConnections(busAtco, railAtco, departAfter, dayIndex, 
 }
 
 // Main journey planner endpoint
+/**
+ * Enrich all route legs with from/to coordinates so the frontend can draw polylines.
+ * Resolves ATCO codes (bus stops) and CRS codes (rail stations) to lat/lon.
+ */
+async function enrichLegsWithCoordinates(allRoutes, startStop, endStop) {
+  // Collect all ATCO codes and CRS codes referenced by legs
+  const atcoCodes = new Set();
+  const crsCodes = new Set();
+
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      if (leg.boardAtco) atcoCodes.add(leg.boardAtco);
+      if (leg.alightAtco) atcoCodes.add(leg.alightAtco);
+      if (leg.atco) atcoCodes.add(leg.atco);
+      if (leg.startCrs) crsCodes.add(leg.startCrs);
+      if (leg.endCrs) crsCodes.add(leg.endCrs);
+      if (leg.crs) crsCodes.add(leg.crs);
+    }
+  }
+
+  // Build coordinate lookup map
+  const coordMap = {};
+  coordMap[startStop.atco_code] = { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) };
+  coordMap[endStop.atco_code] = { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) };
+
+  // Resolve bus stop coordinates by ATCO code
+  if (atcoCodes.size > 0) {
+    const codes = [...atcoCodes];
+    const placeholders = codes.map((_, i) => `$${i + 1}`).join(',');
+    const result = await pool.query(
+      `SELECT atco_code, coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code IN (${placeholders})`,
+      codes
+    );
+    for (const row of result.rows) {
+      coordMap[row.atco_code] = { lat: parseFloat(row.lat), lon: parseFloat(row.lon) };
+    }
+  }
+
+  // Resolve rail station coordinates by CRS code
+  if (crsCodes.size > 0) {
+    const codes = [...crsCodes];
+    const placeholders = codes.map((_, i) => `$${i + 1}`).join(',');
+    const result = await pool.query(
+      `SELECT nr.crs_code, nr.atco_code, s.coordinates[0] as lon, s.coordinates[1] as lat
+       FROM national_rail nr JOIN stops s ON nr.atco_code = s.atco_code
+       WHERE nr.crs_code IN (${placeholders})`,
+      codes
+    );
+    for (const row of result.rows) {
+      coordMap[`crs:${row.crs_code}`] = { lat: parseFloat(row.lat), lon: parseFloat(row.lon) };
+      coordMap[row.atco_code] = { lat: parseFloat(row.lat), lon: parseFloat(row.lon) };
+    }
+  }
+
+  // Apply coordinates to each leg
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      if (leg.type === 'bus') {
+        leg.fromCoords = coordMap[leg.boardAtco] || null;
+        leg.toCoords = coordMap[leg.alightAtco] || null;
+      } else if (leg.type === 'train') {
+        leg.fromCoords = coordMap[`crs:${leg.startCrs}`] || null;
+        leg.toCoords = coordMap[`crs:${leg.endCrs}`] || null;
+      } else if (leg.type === 'transfer') {
+        const coords = coordMap[`crs:${leg.crs}`] || coordMap[leg.atco] || null;
+        leg.fromCoords = coords;
+        leg.toCoords = coords;
+      }
+    }
+
+    // Resolve walk legs using context from adjacent legs or start/end stops
+    for (let i = 0; i < route.legs.length; i++) {
+      const leg = route.legs[i];
+      if (leg.type !== 'walk') continue;
+
+      // fromCoords: if first leg use startStop, otherwise use previous leg's toCoords
+      if (i === 0) {
+        leg.fromCoords = coordMap[startStop.atco_code];
+      } else {
+        const prevLeg = route.legs[i - 1];
+        leg.fromCoords = prevLeg.toCoords || null;
+      }
+
+      // toCoords: if last leg use endStop, otherwise use next leg's fromCoords
+      if (i === route.legs.length - 1) {
+        leg.toCoords = coordMap[endStop.atco_code];
+      } else {
+        const nextLeg = route.legs[i + 1];
+        leg.toCoords = nextLeg.fromCoords || null;
+      }
+    }
+  }
+}
+
 app.get('/api/plan', async (req, res) => {
   try {
     const { start, end, time, day, sort } = req.query;
@@ -1033,8 +1126,8 @@ app.get('/api/plan', async (req, res) => {
     const directBus = await findDirectBusJourneys(start, end, departureTime, dayIndex, 5);
 
     // === Strategy 2: Find nearby rail stations for both start and end ===
-    const startRailStations = await findNearbyRailStations(start, 1.5);
-    const endRailStations = await findNearbyRailStations(end, 2.0);
+    const startRailStations = await findNearbyRailStations(start, 2.5);
+    const endRailStations = await findNearbyRailStations(end, 2.5);
 
     // Also check if start/end IS a rail station
     const startIsRail = start.startsWith('9100');
@@ -1122,7 +1215,7 @@ app.get('/api/plan', async (req, res) => {
         if (endTiplocs.length === 0) continue;
 
         // Find bus from start to near the rail station
-        const nearStart = await findNearbyBusStops(startStation.atco_code, 0.5);
+        const nearStart = await findNearbyBusStops(startStation.atco_code, 1.0);
         for (const nearStop of nearStart.slice(0, 3)) {
           const busLegs = await findDirectBusJourneys(start, nearStop.atco_code, departureTime, dayIndex, 2);
           
@@ -1273,8 +1366,11 @@ app.get('/api/plan', async (req, res) => {
 
     // Direct train routes
     for (const train of directTrain) {
-      const walkToStation = startRailStations.length > 0 ? startRailStations[0] : null;
-      const walkFromStation = endRailStations.length > 0 ? endRailStations[0] : null;
+      // Match walk leg to the actual train's boarding station
+      const walkToStation = startRailStations.find(s => s.tiploc_code === train.startTiploc)
+        || startRailStations[0] || null;
+      const walkFromStation = endRailStations.find(s => s.tiploc_code === train.endTiploc)
+        || endRailStations[0] || null;
       const walkTo = walkToStation ? walkToStation.walk_minutes : 0;
       const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
 
@@ -1315,8 +1411,13 @@ app.get('/api/plan', async (req, res) => {
 
     // Train + Train connections
     for (const conn of trainConnections) {
-      const walkToStation = startRailStations.length > 0 ? startRailStations[0] : null;
-      const walkFromStation = endRailStations.length > 0 ? endRailStations[0] : null;
+      const firstTrainLeg = conn.legs[0];
+      const lastTrainLeg = conn.legs[conn.legs.length - 1];
+      // Match walk leg to the actual train's boarding/alighting station
+      const walkToStation = startRailStations.find(s => s.tiploc_code === firstTrainLeg.startTiploc)
+        || startRailStations[0] || null;
+      const walkFromStation = endRailStations.find(s => s.tiploc_code === lastTrainLeg.endTiploc)
+        || endRailStations[0] || null;
       const walkTo = walkToStation ? walkToStation.walk_minutes : 0;
       const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
 
@@ -1417,6 +1518,9 @@ app.get('/api/plan', async (req, res) => {
         }]
       });
     }
+
+    // === Enrich all legs with coordinates for map polylines ===
+    await enrichLegsWithCoordinates(allRoutes, startStop, endStop);
 
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance

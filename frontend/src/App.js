@@ -6,6 +6,7 @@ import SearchBar from './components/SearchBar';
 import RouteResults from './components/RouteResults';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const MAX_ROUTES = 3;
 
 function App() {
   const [userLocation, setUserLocation] = useState(null);
@@ -16,7 +17,7 @@ function App() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
-  const [sortBy, setSortBy] = useState('departure');
+  const [sortBy, setSortBy] = useState('duration');
   const [departureTime, setDepartureTime] = useState('');
 
   // Get user's location on mount
@@ -40,6 +41,15 @@ function App() {
     fetchStops();
   }, []);
 
+  // Swap start and end stops
+  const swapStops = () => {
+    const temp = startStop;
+    setStartStop(endStop);
+    setEndStop(temp);
+    setRoutes(null);
+    setSelectedRoute(null);
+  };
+
   // Find routes between start and end
   const findRoutes = useCallback(async () => {
     if (!startStop?.atco_code || !endStop?.atco_code) {
@@ -57,6 +67,7 @@ function App() {
     setSelectedRoute(null);
 
     try {
+      // If no time given, use current time (find most recent routes)
       const now = new Date();
       const time = departureTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
       const day = (now.getDay() + 6) % 7; // Convert to 0=Mon
@@ -69,8 +80,15 @@ function App() {
       if (data.error) {
         setRouteError(data.error);
       } else {
-        setRoutes(data);
-        if (data.routes?.length > 0) {
+        // Limit to MAX_ROUTES best options
+        const limited = {
+          ...data,
+          routes: data.routes.slice(0, MAX_ROUTES),
+          totalRoutes: Math.min(data.totalRoutes, MAX_ROUTES),
+          usingTime: departureTime ? time : `Now (${time.substring(0, 5)})`
+        };
+        setRoutes(limited);
+        if (limited.routes.length > 0) {
           setSelectedRoute(0);
         }
       }
@@ -98,37 +116,56 @@ function App() {
   return (
     <div className="App">
       <div className="search-container">
-        <SearchBar
-          placeholder="Where are you traveling from?"
-          type="start"
-          value={startStop}
-          onChange={setStartStop}
-          stops={allStops}
-        />
-        <SearchBar
-          placeholder="Where are you going?"
-          type="end"
-          value={endStop}
-          onChange={setEndStop}
-          stops={allStops}
-        />
+        <div className="search-inputs-row">
+          <div className="search-fields">
+            <SearchBar
+              placeholder="Where are you travelling from?"
+              type="start"
+              value={startStop}
+              onChange={setStartStop}
+              stops={allStops}
+            />
+            <SearchBar
+              placeholder="Where are you going?"
+              type="end"
+              value={endStop}
+              onChange={setEndStop}
+              stops={allStops}
+            />
+          </div>
+          <button
+            className="swap-btn"
+            onClick={swapStops}
+            title="Swap start and destination"
+            aria-label="Swap start and destination"
+          >
+            ⇅
+          </button>
+        </div>
         <div className="search-controls">
-          <input
-            type="time"
-            className="time-input"
-            value={departureTime}
-            onChange={(e) => setDepartureTime(e.target.value ? e.target.value + ':00' : '')}
-            aria-label="Departure time"
-          />
+          <div className="time-wrapper">
+            <input
+              type="time"
+              className="time-input"
+              value={departureTime ? departureTime.substring(0, 5) : ''}
+              onChange={(e) => setDepartureTime(e.target.value ? e.target.value + ':00' : '')}
+              aria-label="Departure time"
+            />
+            {!departureTime && <span className="time-hint">Now</span>}
+          </div>
           <button
             className="route-btn"
             onClick={findRoutes}
             disabled={routeLoading || !startStop?.atco_code || !endStop?.atco_code}
           >
-            {routeLoading ? 'Finding routes...' : 'Find Routes'}
+            {routeLoading ? '⏳ Searching...' : '🔍 Find Routes'}
           </button>
         </div>
-        {routeError && <div className="route-error">{routeError}</div>}
+        {routeError && (
+          <div className="route-error" role="alert">
+            <span className="error-icon">⚠️</span> {routeError}
+          </div>
+        )}
       </div>
 
       <MapView
