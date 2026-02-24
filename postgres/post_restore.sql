@@ -68,3 +68,33 @@ CREATE TABLE IF NOT EXISTS public.planned_routes (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_planned_routes_locations ON public.planned_routes(start_atco_code, end_atco_code);
+
+-- Bus timetable tables
+CREATE TABLE IF NOT EXISTS public.bus_journeys (
+    journey_id serial NOT NULL PRIMARY KEY,
+    route_id integer REFERENCES bus_routes(route_id),
+    route_number text NOT NULL,
+    operator_code text NOT NULL REFERENCES operators(operator_code),
+    direction text,
+    departure_time time NOT NULL,
+    days_of_week text NOT NULL DEFAULT '1111100',
+    valid_from date,
+    valid_until date,
+    journey_code text
+);
+CREATE INDEX IF NOT EXISTS idx_bus_journeys_route ON public.bus_journeys(route_id);
+CREATE INDEX IF NOT EXISTS idx_bus_journeys_departure ON public.bus_journeys(departure_time);
+CREATE INDEX IF NOT EXISTS idx_bus_journeys_operator ON public.bus_journeys(operator_code);
+
+CREATE TABLE IF NOT EXISTS public.bus_journey_stops (
+    id serial NOT NULL PRIMARY KEY,
+    journey_id integer NOT NULL REFERENCES bus_journeys(journey_id) ON DELETE CASCADE,
+    atco_code text NOT NULL REFERENCES stops(atco_code),
+    stop_sequence integer NOT NULL,
+    arrival_time time,
+    departure_time time,
+    activity text DEFAULT 'pickUpAndSetDown'
+);
+CREATE INDEX IF NOT EXISTS idx_bjs_journey ON public.bus_journey_stops(journey_id);
+CREATE INDEX IF NOT EXISTS idx_bjs_atco ON public.bus_journey_stops(atco_code);
+CREATE INDEX IF NOT EXISTS idx_bjs_departure ON public.bus_journey_stops(departure_time);
