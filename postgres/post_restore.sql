@@ -55,6 +55,49 @@ ON CONFLICT (atco_code) DO UPDATE
 SET common_name = EXCLUDED.common_name,
     coordinates = EXCLUDED.coordinates,
     stop_type = EXCLUDED.stop_type;
+
+-- Insert/fix rail station stops with accurate OSM coordinates
+-- These stations had no stops entries or had inaccurate coordinates
+INSERT INTO stops (atco_code, common_name, coordinates) VALUES
+  ('9100ANSDELL', 'Ansdell and Fairhaven Rail Station', POINT(-2.993513, 53.741637)),
+  ('9100LYTHAM',  'Lytham Rail Station',                POINT(-2.9641884, 53.7393224)),
+  ('9100KIRKHAM', 'Kirkham and Wesham Rail Station',     POINT(-2.8833796, 53.7869046)),
+  ('9100LAYTON',  'Layton Rail Station',                 POINT(-3.0299186, 53.8353457)),
+  ('9100LEYLAND', 'Leyland Rail Station',                POINT(-2.686555, 53.6985644)),
+  ('9100ORMSKRK', 'Ormskirk Rail Station',               POINT(-2.8809051, 53.5695845)),
+  ('9100PARBOLD', 'Parbold Rail Station',                POINT(-2.7711373, 53.5908551)),
+  ('9100SALWICK', 'Salwick Rail Station',                POINT(-2.8182384, 53.7817543)),
+  ('9100SQUIRES', 'Squires Gate Rail Station',           POINT(-3.0501715, 53.7769901)),
+  ('9100EUXT',    'Euxton Balshaw Lane Rail Station',    POINT(-2.6716808, 53.6598241)),
+  ('9100SOUTHPT', 'Southport Rail Station',              POINT(-3.0028279, 53.6468651))
+ON CONFLICT (atco_code) DO UPDATE
+SET common_name = EXCLUDED.common_name,
+    coordinates = EXCLUDED.coordinates;
+
+-- Fix coordinates for pre-existing rail stations (imported with inaccurate data)
+UPDATE stops SET coordinates = POINT(-2.7071573, 53.7552898) WHERE atco_code = '9100PRST';
+UPDATE stops SET coordinates = POINT(-2.8349663, 54.0746566) WHERE atco_code = '9100BARELA';
+UPDATE stops SET coordinates = POINT(-3.048373, 53.8229372)  WHERE atco_code = '9100BLCKPLN';
+UPDATE stops SET coordinates = POINT(-3.0538832, 53.787882)  WHERE atco_code = '9100BLCKPB';
+UPDATE stops SET coordinates = POINT(-3.04882, 53.7984415)   WHERE atco_code = '9100BLCKS';
+UPDATE stops SET coordinates = POINT(-2.8685482, 54.0703282) WHERE atco_code = '9100MORCAME';
+UPDATE stops SET coordinates = POINT(-2.9896795, 53.8482922) WHERE atco_code = '9100PLTNLFY';
+
+-- Ensure national_rail mappings exist for all stations above
+INSERT INTO national_rail (tiploc_code, crs_code, atco_code) VALUES
+  ('ANSDELL',  'AFV', '9100ANSDELL'),
+  ('LYTHAM',   'LTM', '9100LYTHAM'),
+  ('KIRKHAM',  'KKM', '9100KIRKHAM'),
+  ('LAYTON',   'LAY', '9100LAYTON'),
+  ('LEYLAND',  'LEY', '9100LEYLAND'),
+  ('ORMSKRK',  'OMS', '9100ORMSKRK'),
+  ('PARBOLD',  'PBL', '9100PARBOLD'),
+  ('SALWICK',  'SAL', '9100SALWICK'),
+  ('SQUIRES',  'SQU', '9100SQUIRES'),
+  ('EUXT',     'EBA', '9100EUXT'),
+  ('SOUTHPT',  'SOP', '9100SOUTHPT')
+ON CONFLICT (tiploc_code) DO UPDATE
+SET crs_code = EXCLUDED.crs_code, atco_code = EXCLUDED.atco_code;
 -- Create new tables for route planning and historical tracking
 CREATE TABLE IF NOT EXISTS public.bus_routes (
     route_id serial NOT NULL PRIMARY KEY,

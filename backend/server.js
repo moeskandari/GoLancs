@@ -1262,7 +1262,107 @@ async function enrichLegsWithCoordinates(allRoutes, startStop, endStop) {
 }
 
 /**
- * Fetch road-following geometry from OSRM for a set of waypoints.
+ * Decode an encoded polyline string from Valhalla.
+ * Valhalla uses precision 6 (1e6) by default, unlike Google's precision 5.
+ * Returns an array of [lat, lon] pairs.
+ */
+function decodeValhallaPolyline(encoded, precision = 6) {
+  const factor = Math.pow(10, precision);
+  const points = [];
+  let lat = 0, lon = 0, index = 0;
+
+  while (index < encoded.length) {
+    let shift = 0, result = 0, byte;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+    shift = 0; result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lon += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+    points.push([lat / factor, lon / factor]);
+  }
+  return points;
+}
+
+/**
+ * Fetch walking/driving geometry from Valhalla (valhalla1.openstreetmap.de).
+ * Returns an array of [lat, lon] coordinate pairs following actual footpaths/roads.
+ * Falls back to null if service is unreachable. Includes retry on rate limit.
+ */
+async function fetchValhallaGeometry(fromLat, fromLon, toLat, toLon, costing = 'pedestrian') {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const requestBody = JSON.stringify({
+        locations: [
+          { lat: fromLat, lon: fromLon },
+          { lat: toLat, lon: toLon }
+        ],
+        costing: costing,
+        directions_options: { units: 'kilometers' }
+      });
+
+      const result = await new Promise((resolve) => {
+        const https = require('https');
+        const options = {
+          hostname: 'valhalla1.openstreetmap.de',
+          path: '/route',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(requestBody)
+          },
+          timeout: 8000
+        };
+
+        const req = https.request(options, (response) => {
+          let data = '';
+          response.on('data', chunk => data += chunk);
+          response.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.trip && parsed.trip.legs && parsed.trip.legs[0] && parsed.trip.legs[0].shape) {
+                const points = decodeValhallaPolyline(parsed.trip.legs[0].shape);
+                resolve(points.length >= 2 ? points : null);
+              } else {
+                resolve(null);
+              }
+            } catch {
+              // HTML response means rate limit — return 'retry' sentinel
+              resolve('retry');
+            }
+          });
+        });
+
+        req.on('error', () => resolve(null));
+        req.on('timeout', function() { this.destroy(); resolve(null); });
+        req.write(requestBody);
+        req.end();
+      });
+
+      if (result === 'retry' && attempt === 0) {
+        await delay(500); // Wait and retry
+        continue;
+      }
+      if (result === 'retry') return null;
+      return result;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetch road-following geometry from OSRM for a set of waypoints (legacy fallback).
  * Returns an array of [lat, lon] coordinate pairs.
  * profile: 'driving' for bus/car routes, 'foot' for walking
  * Falls back to null if OSRM is unreachable (e.g. on restricted networks).
@@ -1337,43 +1437,25 @@ async function getTrainJourneyWaypoints(trainUid, startTiploc, endTiploc) {
 }
 
 /**
- * Enrich route legs with geometry from stop waypoints (and OSRM when available).
+ * Simple delay helper for rate limiting.
+ */
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/**
+ * Enrich route legs with geometry from stop waypoints and routing services.
  * Adds a 'geometry' property (array of [lat, lon]) to each leg.
  * Uses intermediate bus stops / rail calling points to create a multi-point polyline
- * that closely follows the actual route. Falls back to OSRM for walking legs.
+ * that closely follows the actual route.
+ * Uses Valhalla for walking/driving geometry with deduplication and rate limiting.
  */
 async function enrichLegsWithGeometry(allRoutes) {
-  const geometryPromises = [];
+  // --- Phase 1: Train and bus waypoint-based geometry (no external API needed for trains) ---
+  const localGeometryPromises = [];
 
   for (const route of allRoutes) {
     for (const leg of route.legs) {
-      if (leg.type === 'bus' && leg.journeyId && leg.boardAtco && leg.alightAtco) {
-        geometryPromises.push(
-          (async () => {
-            const waypoints = await getBusJourneyWaypoints(leg.journeyId, leg.boardAtco, leg.alightAtco);
-            if (waypoints && waypoints.length >= 2) {
-              // Try OSRM first for smooth road-following geometry
-              let sampled = waypoints;
-              if (waypoints.length > 25) {
-                const step = Math.ceil(waypoints.length / 23);
-                sampled = [waypoints[0]];
-                for (let i = step; i < waypoints.length - 1; i += step) {
-                  sampled.push(waypoints[i]);
-                }
-                sampled.push(waypoints[waypoints.length - 1]);
-              }
-              const osrmGeometry = await fetchOSRMGeometry(sampled, 'driving');
-              if (osrmGeometry) {
-                leg.geometry = osrmGeometry;
-              } else {
-                // Fallback: use bus stop coordinates as polyline points
-                leg.geometry = waypoints.map(w => [w.lat, w.lon]);
-              }
-            }
-          })()
-        );
-      } else if (leg.type === 'train' && leg.trainUid && leg.startTiploc && leg.endTiploc) {
-        geometryPromises.push(
+      if (leg.type === 'train' && leg.trainUid && leg.startTiploc && leg.endTiploc) {
+        localGeometryPromises.push(
           (async () => {
             const waypoints = await getTrainJourneyWaypoints(leg.trainUid, leg.startTiploc, leg.endTiploc);
             if (waypoints && waypoints.length >= 2) {
@@ -1393,11 +1475,9 @@ async function enrichLegsWithGeometry(allRoutes) {
                     waypoints[i + 1].lat, waypoints[i + 1].lon
                   );
                   if (seg && seg.length >= 2) {
-                    // Avoid duplicate points at segment joins
                     if (segments.length > 0) seg.shift();
                     segments.push(...seg);
                   } else {
-                    // No track path for this segment, add straight line
                     if (segments.length > 0) {
                       segments.push([waypoints[i + 1].lat, waypoints[i + 1].lon]);
                     } else {
@@ -1409,33 +1489,121 @@ async function enrichLegsWithGeometry(allRoutes) {
                 if (segments.length >= 2) {
                   leg.geometry = segments;
                 } else {
-                  // Final fallback: station coordinates
                   leg.geometry = waypoints.map(w => [w.lat, w.lon]);
                 }
               }
             }
           })()
         );
-      } else if (leg.type === 'walk' && leg.fromCoords && leg.toCoords) {
-        geometryPromises.push(
+      } else if (leg.type === 'bus' && leg.journeyId && leg.boardAtco && leg.alightAtco) {
+        localGeometryPromises.push(
           (async () => {
-            // Try OSRM walking profile, fall back to straight line
-            const osrmGeometry = await fetchOSRMGeometry(
-              [{ lat: leg.fromCoords.lat, lon: leg.fromCoords.lon },
-               { lat: leg.toCoords.lat, lon: leg.toCoords.lon }],
-              'foot'
-            );
-            if (osrmGeometry) {
-              leg.geometry = osrmGeometry;
+            const waypoints = await getBusJourneyWaypoints(leg.journeyId, leg.boardAtco, leg.alightAtco);
+            if (waypoints && waypoints.length >= 2) {
+              // Store bus waypoints for potential Valhalla enhancement later
+              leg._busWaypoints = waypoints;
+              // Set stop-coordinate fallback immediately
+              leg.geometry = waypoints.map(w => [w.lat, w.lon]);
             }
-            // If OSRM fails, no geometry is set — frontend draws straight line from fromCoords/toCoords
           })()
         );
       }
     }
   }
 
-  await Promise.allSettled(geometryPromises);
+  await Promise.allSettled(localGeometryPromises);
+
+  // --- Phase 2: Valhalla API requests for walk and bus geometry (rate-limited + deduplicated) ---
+  // Build a unique set of geometry requests to avoid duplicate API calls
+  const valhallaCache = new Map(); // key → Promise<geometry>
+  const valhallaQueue = []; // { key, fromLat, fromLon, toLat, toLon, costing, legs[] }
+
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      if (leg.type === 'walk' && leg.fromCoords && leg.toCoords) {
+        // Round to 4 decimal places (~11m) for dedup key
+        const key = `walk:${leg.fromCoords.lat.toFixed(4)},${leg.fromCoords.lon.toFixed(4)}:${leg.toCoords.lat.toFixed(4)},${leg.toCoords.lon.toFixed(4)}`;
+        if (!valhallaCache.has(key)) {
+          const entry = {
+            key, costing: 'pedestrian',
+            fromLat: leg.fromCoords.lat, fromLon: leg.fromCoords.lon,
+            toLat: leg.toCoords.lat, toLon: leg.toCoords.lon,
+            legs: [leg]
+          };
+          valhallaCache.set(key, entry);
+          valhallaQueue.push(entry);
+        } else {
+          valhallaCache.get(key).legs.push(leg);
+        }
+      } else if (leg.type === 'bus' && leg._busWaypoints && leg._busWaypoints.length >= 2) {
+        const wp = leg._busWaypoints;
+        const key = `bus:${wp[0].lat.toFixed(4)},${wp[0].lon.toFixed(4)}:${wp[wp.length-1].lat.toFixed(4)},${wp[wp.length-1].lon.toFixed(4)}`;
+        if (!valhallaCache.has(key)) {
+          const entry = {
+            key, costing: 'auto',
+            fromLat: wp[0].lat, fromLon: wp[0].lon,
+            toLat: wp[wp.length-1].lat, toLon: wp[wp.length-1].lon,
+            legs: [leg]
+          };
+          valhallaCache.set(key, entry);
+          valhallaQueue.push(entry);
+        } else {
+          valhallaCache.get(key).legs.push(leg);
+        }
+      }
+    }
+  }
+
+  console.log(`Valhalla queue: ${valhallaQueue.length} unique geometry requests (${valhallaQueue.filter(e => e.costing === 'pedestrian').length} walk, ${valhallaQueue.filter(e => e.costing === 'auto').length} bus)`);
+
+  // Process Valhalla requests in small batches to balance speed vs rate limits
+  const BATCH_SIZE = 2;
+  for (let batchStart = 0; batchStart < valhallaQueue.length; batchStart += BATCH_SIZE) {
+    const batch = valhallaQueue.slice(batchStart, batchStart + BATCH_SIZE);
+
+    await Promise.allSettled(batch.map(async (entry) => {
+      const geometry = await fetchValhallaGeometry(entry.fromLat, entry.fromLon, entry.toLat, entry.toLon, entry.costing);
+
+      if (geometry && geometry.length >= 2) {
+        for (const leg of entry.legs) {
+          const geoClone = geometry.map(p => [...p]);
+          if (leg.type === 'walk') {
+            geoClone[0] = [leg.fromCoords.lat, leg.fromCoords.lon];
+            geoClone[geoClone.length - 1] = [leg.toCoords.lat, leg.toCoords.lon];
+          }
+          leg.geometry = geoClone;
+        }
+        console.log(`${entry.costing} geometry: ${geometry.length} pts → ${entry.legs.length} legs`);
+      } else if (entry.costing === 'pedestrian') {
+        // Walk fallback: try OSRM
+        const osrmGeometry = await fetchOSRMGeometry(
+          [{ lat: entry.fromLat, lon: entry.fromLon },
+           { lat: entry.toLat, lon: entry.toLon }],
+          'foot'
+        );
+        if (osrmGeometry && osrmGeometry.length >= 2) {
+          for (const leg of entry.legs) {
+            const geoClone = osrmGeometry.map(p => [...p]);
+            geoClone[0] = [leg.fromCoords.lat, leg.fromCoords.lon];
+            geoClone[geoClone.length - 1] = [leg.toCoords.lat, leg.toCoords.lon];
+            leg.geometry = geoClone;
+          }
+        }
+      }
+    }));
+
+    // Small delay between batches
+    if (batchStart + BATCH_SIZE < valhallaQueue.length) {
+      await delay(100);
+    }
+  }
+
+  // Clean up temporary properties
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      delete leg._busWaypoints;
+    }
+  }
 }
 
 app.get('/api/plan', async (req, res) => {
