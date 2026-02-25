@@ -189,6 +189,216 @@ app.get('/api/stops', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch stops' });
   }
 });
+
+// ─── Geocode: Search places via Nominatim, bounded to Lancashire/Fylde area ───
+app.get('/api/geocode', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+      return res.json([]);
+    }
+
+    const https = require('https');
+
+    // Bounding box: roughly Lancashire / Preston / Blackpool / Fylde & Wyre coast / Lancaster
+    // SW corner: 53.6, -3.1  NE corner: 54.15, -2.5
+    const viewbox = '-3.1,53.6,-2.5,54.15';
+
+    const url = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6` +
+      `&viewbox=${viewbox}&bounded=1` +
+      `&countrycodes=gb`;
+
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+      }, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch (e) { reject(e); }
+        });
+        response.on('error', reject);
+      }).on('error', reject);
+    });
+
+    // Format results
+    const places = data.map(item => ({
+      type: 'place',
+      name: item.display_name.split(',').slice(0, 3).join(','),
+      fullName: item.display_name,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon),
+      category: item.type,
+      osmType: item.osm_type
+    }));
+
+    res.json(places);
+  } catch (err) {
+    console.error('Geocode error:', err.message);
+    res.json([]);
+  }
+});
+
+// ─── Search: Combined stop + place search for the frontend ───
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+      return res.json({ stops: [], places: [] });
+    }
+
+    const query = q.toLowerCase().trim();
+
+    // Search DB stops by name (fast)
+    // Prioritize: rail stations > bus stations > exact name matches > partial matches
+    const stopResult = await pool.query(`
+      SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat,
+        CASE
+          WHEN s.atco_code LIKE '9100%' THEN 'rail'
+          ELSE 'bus'
+        END as stop_type
+      FROM stops s
+      WHERE LOWER(s.common_name) LIKE $1
+        AND s.coordinates IS NOT NULL
+      ORDER BY
+        CASE WHEN LOWER(s.common_name) = $3 THEN 0 ELSE 1 END,
+        CASE WHEN s.atco_code LIKE '9100%' THEN 0 ELSE 1 END,
+        CASE
+          WHEN LOWER(s.common_name) LIKE $3 || ' rail%' THEN 0
+          WHEN LOWER(s.common_name) LIKE $3 || ' bus%' THEN 1
+          WHEN LOWER(s.common_name) LIKE $2 THEN 2
+          ELSE 3
+        END,
+        s.common_name
+      LIMIT 8
+    `, [`%${query}%`, `${query}%`, query]);
+
+    const stops = stopResult.rows.map(r => ({
+      type: 'stop',
+      atco_code: r.atco_code,
+      name: r.common_name,
+      lat: r.lat,
+      lon: r.lon,
+      stop_type: r.stop_type
+    }));
+
+    // Also search places via Nominatim (parallel)
+    const https = require('https');
+    const viewbox = '-3.1,53.6,-2.5,54.15';
+    const url = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=5` +
+      `&viewbox=${viewbox}&bounded=1&countrycodes=gb`;
+
+    let places = [];
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('timeout')), 3000);
+        https.get(url, {
+          headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+        }, (response) => {
+          let body = '';
+          response.on('data', chunk => body += chunk);
+          response.on('end', () => {
+            clearTimeout(timer);
+            try { resolve(JSON.parse(body)); }
+            catch (e) { reject(e); }
+          });
+          response.on('error', e => { clearTimeout(timer); reject(e); });
+        }).on('error', e => { clearTimeout(timer); reject(e); });
+      });
+
+      places = data.map(item => ({
+        type: 'place',
+        name: item.display_name.split(',').slice(0, 3).join(','),
+        fullName: item.display_name,
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        category: item.type || item.class
+      }));
+    } catch (e) {
+      // Nominatim timeout or error — return stops only
+      console.warn('Nominatim search failed:', e.message);
+    }
+
+    res.json({ stops, places });
+  } catch (err) {
+    console.error('Search error:', err.message);
+    res.json({ stops: [], places: [] });
+  }
+});
+
+// ─── Nearby stops: find closest stops to given coordinates ───
+app.get('/api/stops/nearby', async (req, res) => {
+  try {
+    const { lat, lon, radius } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'lat and lon required' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLon = parseFloat(lon);
+    const maxKm = parseFloat(radius) || 1.5; // default 1.5km
+    const degDelta = maxKm / 111.0; // rough degrees for bounding box
+
+    // Find nearby bus stops that have routes
+    const busResult = await pool.query(`
+      SELECT s.atco_code, s.common_name,
+             s.coordinates[0] as lon, s.coordinates[1] as lat
+      FROM stops s
+      WHERE s.coordinates IS NOT NULL
+        AND s.atco_code NOT LIKE '9100%'
+        AND ABS(s.coordinates[0] - $1) < $3
+        AND ABS(s.coordinates[1] - $2) < $3
+        AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+    `, [userLon, userLat, degDelta]);
+
+    // Find nearby rail stations
+    const railResult = await pool.query(`
+      SELECT s.atco_code, s.common_name,
+             s.coordinates[0] as lon, s.coordinates[1] as lat,
+             nr.tiploc_code, nr.crs_code
+      FROM stops s
+      JOIN national_rail nr ON nr.atco_code = s.atco_code
+      WHERE s.coordinates IS NOT NULL
+        AND s.atco_code LIKE '9100%'
+        AND ABS(s.coordinates[0] - $1) < $3
+        AND ABS(s.coordinates[1] - $2) < $3
+    `, [userLon, userLat, degDelta * 3]); // Wider search for rail
+
+    const busStops = busResult.rows.map(r => {
+      const dist = haversineDistance(userLat, userLon, r.lat, r.lon);
+      return {
+        atco_code: r.atco_code,
+        common_name: r.common_name,
+        lat: r.lat, lon: r.lon,
+        distance_km: Math.round(dist * 1000) / 1000,
+        walk_minutes: Math.ceil(dist / 0.08),
+        stop_type: 'bus'
+      };
+    }).filter(s => s.distance_km <= maxKm).sort((a, b) => a.distance_km - b.distance_km).slice(0, 5);
+
+    const railStops = railResult.rows.map(r => {
+      const dist = haversineDistance(userLat, userLon, r.lat, r.lon);
+      return {
+        atco_code: r.atco_code,
+        common_name: r.common_name,
+        lat: r.lat, lon: r.lon,
+        tiploc_code: r.tiploc_code,
+        distance_km: Math.round(dist * 1000) / 1000,
+        walk_minutes: Math.ceil(dist / 0.08),
+        stop_type: 'rail'
+      };
+    }).filter(s => s.distance_km <= maxKm * 3).sort((a, b) => a.distance_km - b.distance_km).slice(0, 3);
+
+    res.json({ bus: busStops, rail: railStops });
+  } catch (err) {
+    console.error('Nearby stops error:', err.message);
+    res.status(500).json({ error: 'Failed to find nearby stops' });
+  }
+});
+
 // Expand a stop ATCO code into all nearby bay/platform stops (for bus stations etc.)
 // Finds all stops within ~150m that have routes, plus the original stop
 async function expandStopCode(atcoCode) {
@@ -1473,6 +1683,59 @@ function setCachedGeometry(key, geometry) {
 }
 
 /**
+ * Merge consecutive walk legs in each route into a single walk leg.
+ * This handles the case where a place-based walk (e.g. city centre → bus stop)
+ * is followed by a strategy-generated walk (e.g. bus stop → rail station),
+ * producing one clean walk leg (city centre → rail station) instead of two.
+ * Geometry is cleared on merged legs so Valhalla can re-route the full path.
+ */
+function mergeConsecutiveWalkLegs(allRoutes) {
+  for (const route of allRoutes) {
+    let i = 0;
+    while (i < route.legs.length - 1) {
+      if (route.legs[i].type === 'walk' && route.legs[i + 1].type === 'walk') {
+        const leg1 = route.legs[i];
+        const leg2 = route.legs[i + 1];
+
+        // Recalculate distance from actual coords if available
+        let mergedDistance = (leg1.distance_km || 0) + (leg2.distance_km || 0);
+        let mergedDuration = (leg1.duration || 0) + (leg2.duration || 0);
+        const fromCoords = leg1.fromCoords || null;
+        const toCoords = leg2.toCoords || null;
+
+        if (fromCoords && toCoords) {
+          // Use direct haversine for a better estimate (actual walk will be fetched by Valhalla)
+          const directDist = haversineDistance(fromCoords.lat, fromCoords.lon, toCoords.lat, toCoords.lon);
+          mergedDistance = Math.round(directDist * 1000) / 1000;
+          mergedDuration = Math.ceil(directDist / 0.08); // ~5 km/h
+        }
+
+        const merged = {
+          type: 'walk',
+          fromName: leg1.fromName,
+          toName: leg2.toName,
+          fromCoords: fromCoords,
+          toCoords: toCoords,
+          duration: mergedDuration,
+          distance_km: mergedDistance,
+          geometry: null // Clear geometry so Valhalla fetches the optimal full-path route
+        };
+
+        // Adjust the route's total duration: remove old durations, add merged
+        route.durationMinutes -= (leg1.duration || 0) + (leg2.duration || 0);
+        route.durationMinutes += mergedDuration;
+
+        // Replace the two legs with the merged one
+        route.legs.splice(i, 2, merged);
+        // Don't increment — check if the merged leg can merge with the next one too
+      } else {
+        i++;
+      }
+    }
+  }
+}
+
+/**
  * Enrich route legs with geometry from stop waypoints and routing services.
  * - Train legs: use railway graph (local, fast)
  * - Bus legs: use intermediate stop coordinates (local, fast)  
@@ -1600,30 +1863,135 @@ async function enrichLegsWithGeometry(allRoutes) {
 
 app.get('/api/plan', async (req, res) => {
   try {
-    const { start, end, time, day, sort } = req.query;
+    const { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
     const _t0 = Date.now();
     const _timers = {};
     const _mark = (label) => { _timers[label] = Date.now() - _t0; };
 
-    if (!start || !end) {
-      return res.status(400).json({ error: 'start and end ATCO codes required' });
+    // Support two modes:
+    // 1) ATCO codes: start=2500918&end=9100PRST
+    // 2) Coordinates: startLat=53.8&startLon=-2.9&endLat=53.7&endLon=-2.7
+    // 3) Mixed: start=2500918&endLat=53.7&endLon=-2.7
+
+    let resolvedStart = start || null;  // ATCO code
+    let resolvedEnd = end || null;
+    let startWalkLeg = null; // walk leg from place to nearest stop
+    let endWalkLeg = null;   // walk leg from nearest stop to place
+    let startPlaceName = startName || null;
+    let endPlaceName = endName || null;
+    let startPlaceCoords = null;
+    let endPlaceCoords = null;
+
+    // Resolve start from coordinates if no ATCO code given
+    if (!resolvedStart && startLat && startLon) {
+      const sLat = parseFloat(startLat);
+      const sLon = parseFloat(startLon);
+      startPlaceCoords = { lat: sLat, lon: sLon };
+      const degDelta = 1.5 / 111.0; // 1.5km search radius
+
+      // Find nearest bus stop with routes
+      const busNear = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [sLon, sLat, degDelta]);
+
+      // Also check rail stations (wider radius)
+      const railNear = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+      `, [sLon, sLat, degDelta * 3]);
+
+      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon))
+      })).sort((a, b) => a.dist - b.dist);
+
+      if (allNear.length === 0) {
+        return res.status(404).json({ error: 'No stops found near the start location. Try a location closer to a bus stop or rail station.' });
+      }
+      const nearest = allNear[0];
+      resolvedStart = nearest.atco_code;
+
+      // Add walk leg from place to nearest stop
+      if (nearest.dist > 0.05) { // >50m, worth showing a walk
+        startWalkLeg = {
+          type: 'walk',
+          fromName: startPlaceName || 'Start location',
+          toName: nearest.common_name,
+          fromCoords: { lat: sLat, lon: sLon },
+          toCoords: { lat: parseFloat(nearest.lat), lon: parseFloat(nearest.lon) },
+          duration: Math.ceil(nearest.dist / 0.08),
+          distance_km: Math.round(nearest.dist * 1000) / 1000
+        };
+      }
+    }
+
+    // Resolve end from coordinates if no ATCO code given
+    if (!resolvedEnd && endLat && endLon) {
+      const eLat = parseFloat(endLat);
+      const eLon = parseFloat(endLon);
+      endPlaceCoords = { lat: eLat, lon: eLon };
+      const degDelta = 1.5 / 111.0;
+
+      const busNear = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [eLon, eLat, degDelta]);
+
+      const railNear = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+      `, [eLon, eLat, degDelta * 3]);
+
+      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon))
+      })).sort((a, b) => a.dist - b.dist);
+
+      if (allNear.length === 0) {
+        return res.status(404).json({ error: 'No stops found near the destination. Try a location closer to a bus stop or rail station.' });
+      }
+      const nearest = allNear[0];
+      resolvedEnd = nearest.atco_code;
+
+      if (nearest.dist > 0.05) {
+        endWalkLeg = {
+          type: 'walk',
+          fromName: nearest.common_name,
+          toName: endPlaceName || 'Destination',
+          fromCoords: { lat: parseFloat(nearest.lat), lon: parseFloat(nearest.lon) },
+          toCoords: { lat: eLat, lon: eLon },
+          duration: Math.ceil(nearest.dist / 0.08),
+          distance_km: Math.round(nearest.dist * 1000) / 1000
+        };
+      }
+    }
+
+    if (!resolvedStart || !resolvedEnd) {
+      return res.status(400).json({ error: 'Please provide start and end locations (ATCO codes or coordinates)' });
     }
 
     const departureTime = time || `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:00`;
     const dayIndex = getDayIndex(day);
-    const sortBy = sort || 'departure'; // 'departure', 'arrival', 'duration'
+    const sortBy = sort || 'departure';
 
     // Get coordinates for start and end stops
     const stopInfo = await pool.query(
       `SELECT atco_code, common_name, coordinates[0] as lon, coordinates[1] as lat, stop_type
        FROM stops WHERE atco_code IN ($1, $2)`,
-      [start, end]
+      [resolvedStart, resolvedEnd]
     );
-    const startStop = stopInfo.rows.find(s => s.atco_code === start);
-    const endStop = stopInfo.rows.find(s => s.atco_code === end);
+    const startStop = stopInfo.rows.find(s => s.atco_code === resolvedStart);
+    const endStop = stopInfo.rows.find(s => s.atco_code === resolvedEnd);
 
     if (!startStop || !endStop) {
-      return res.status(404).json({ error: 'One or both stops not found' });
+      return res.status(404).json({ error: 'One or both resolved stops not found in database' });
     }
 
     const directDistance = haversineDistance(startStop.lat, startStop.lon, endStop.lat, endStop.lon);
@@ -1631,23 +1999,23 @@ app.get('/api/plan', async (req, res) => {
 
     // === Strategies 1 & 2: Run in parallel (independent DB queries) ===
     const [directBus, startRailStations, endRailStations] = await Promise.all([
-      findDirectBusJourneys(start, end, departureTime, dayIndex, 5),
-      findNearbyRailStations(start, 5.0),
-      findNearbyRailStations(end, 5.0)
+      findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, 5),
+      findNearbyRailStations(resolvedStart, 5.0),
+      findNearbyRailStations(resolvedEnd, 5.0)
     ]);
     _mark('directBus+nearbyRail');
 
     // Also check if start/end IS a rail station
-    const startIsRail = start.startsWith('9100');
-    const endIsRail = end.startsWith('9100');
+    const startIsRail = resolvedStart.startsWith('9100');
+    const endIsRail = resolvedEnd.startsWith('9100');
 
     let startTiplocs = startRailStations.map(s => s.tiploc_code);
     let endTiplocs = endRailStations.map(s => s.tiploc_code);
 
     // Resolve rail TIPLOC codes in parallel
     const [startRailResult, endRailResult] = await Promise.all([
-      startIsRail ? pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [start]) : null,
-      endIsRail ? pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [end]) : null
+      startIsRail ? pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedStart]) : null,
+      endIsRail ? pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedEnd]) : null
     ]);
     if (startRailResult?.rows.length > 0) startTiplocs = [startRailResult.rows[0].tiploc_code, ...startTiplocs];
     if (endRailResult?.rows.length > 0) endTiplocs = [endRailResult.rows[0].tiploc_code, ...endTiplocs];
@@ -2261,6 +2629,24 @@ app.get('/api/plan', async (req, res) => {
     await enrichLegsWithGeometry(allRoutes);
     _mark('enrichGeometry');
 
+    // === Prepend/append walk legs for place-based (coordinate) searches ===
+    if (startWalkLeg || endWalkLeg) {
+      for (const route of allRoutes) {
+        if (startWalkLeg) {
+          route.legs.unshift({ ...startWalkLeg });
+          route.durationMinutes += startWalkLeg.duration;
+        }
+        if (endWalkLeg) {
+          route.legs.push({ ...endWalkLeg });
+          route.durationMinutes += endWalkLeg.duration;
+        }
+      }
+      // Merge any consecutive walk legs (e.g. place→bus stop + bus stop→rail station → place→rail station)
+      mergeConsecutiveWalkLegs(allRoutes);
+      // Enrich the merged/new walk legs with Valhalla geometry
+      await enrichLegsWithGeometry(allRoutes);
+    }
+
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance
     // - Remove routes arriving later than the last sensible option
@@ -2303,14 +2689,16 @@ app.get('/api/plan', async (req, res) => {
 
     res.json({
       start: {
-        atco: start,
-        name: startStop.common_name,
-        coordinates: { lon: startStop.lon, lat: startStop.lat }
+        atco: resolvedStart,
+        name: startPlaceName || startStop.common_name,
+        coordinates: startPlaceCoords || { lon: startStop.lon, lat: startStop.lat },
+        resolvedStop: startWalkLeg ? startStop.common_name : undefined
       },
       end: {
-        atco: end,
-        name: endStop.common_name,
-        coordinates: { lon: endStop.lon, lat: endStop.lat }
+        atco: resolvedEnd,
+        name: endPlaceName || endStop.common_name,
+        coordinates: endPlaceCoords || { lon: endStop.lon, lat: endStop.lat },
+        resolvedStop: endWalkLeg ? endStop.common_name : undefined
       },
       directDistance_km: Math.round(directDistance * 100) / 100,
       departureTime: departureTime,

@@ -8,9 +8,29 @@ import RouteResults from './components/RouteResults';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
 
+// Geocode free text to coordinates via the backend Nominatim proxy
+async function geocodeText(text) {
+  try {
+    const res = await fetch(`${API_URL}/api/geocode?q=${encodeURIComponent(text)}`);
+    const places = await res.json();
+    if (places && places.length > 0) {
+      return {
+        type: 'place',
+        name: places[0].name,
+        common_name: places[0].name,
+        lat: places[0].lat,
+        lon: places[0].lon,
+        category: places[0].category
+      };
+    }
+  } catch (err) {
+    console.error('Geocode failed:', err);
+  }
+  return null;
+}
+
 function App() {
   const [userLocation, setUserLocation] = useState(null);
-  const [allStops, setAllStops] = useState([]);
   const [startStop, setStartStop] = useState(null);
   const [endStop, setEndStop] = useState(null);
   const [routes, setRoutes] = useState(null);
@@ -27,20 +47,6 @@ function App() {
     );
   }, []);
 
-  // Fetch all stops for search autocomplete
-  useEffect(() => {
-    const fetchStops = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/stops`);
-        const data = await res.json();
-        setAllStops(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Failed to fetch stops:', err);
-      }
-    };
-    fetchStops();
-  }, []);
-
   // Swap start and end stops
   const swapStops = () => {
     const temp = startStop;
@@ -52,35 +58,76 @@ function App() {
 
   // Find routes between start and end
   const findRoutes = useCallback(async () => {
-    if (!startStop?.atco_code || !endStop?.atco_code) {
-      setRouteError('Please select both a start and end location');
+    // Resolve any free-text inputs to coordinates via geocoding
+    let resolvedStart = startStop;
+    let resolvedEnd = endStop;
+
+    setRouteLoading(true);
+    setRouteError(null);
+
+    // If user just typed text without selecting, geocode it to get centre coordinates
+    if (resolvedStart?.type === 'text') {
+      resolvedStart = await geocodeText(resolvedStart.text);
+      if (resolvedStart) setStartStop(resolvedStart);
+    }
+    if (resolvedEnd?.type === 'text') {
+      resolvedEnd = await geocodeText(resolvedEnd.text);
+      if (resolvedEnd) setEndStop(resolvedEnd);
+    }
+
+    if (!resolvedStart || !resolvedEnd) {
+      setRouteError('Could not find one or both locations. Try a more specific name or pick from the suggestions.');
+      setRouteLoading(false);
       return;
     }
-    if (startStop.atco_code === endStop.atco_code) {
+
+    // Check for same location
+    if (resolvedStart.atco_code && resolvedEnd.atco_code && resolvedStart.atco_code === resolvedEnd.atco_code) {
+      setRouteError('Start and end locations must be different');
+      return;
+    }
+    if (resolvedStart.lat === resolvedEnd.lat && resolvedStart.lon === resolvedEnd.lon) {
       setRouteError('Start and end locations must be different');
       return;
     }
 
-    setRouteLoading(true);
-    setRouteError(null);
     setRoutes(null);
     setSelectedRoute(null);
 
     try {
-      // If no time given, use current time (find most recent routes)
       const now = new Date();
       const time = departureTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-      const day = (now.getDay() + 6) % 7; // Convert to 0=Mon
+      const day = (now.getDay() + 6) % 7;
 
-      const res = await fetch(
-        `${API_URL}/api/plan?start=${startStop.atco_code}&end=${endStop.atco_code}&time=${time}&day=${day}&sort=${sortBy}`
-      );
+      // Build query params based on whether selections are stops or places
+      const params = new URLSearchParams();
+      params.set('time', time);
+      params.set('day', day);
+      params.set('sort', sortBy);
+
+      if (resolvedStart.type === 'stop' && resolvedStart.atco_code) {
+        params.set('start', resolvedStart.atco_code);
+      } else {
+        // Place — send coordinates
+        params.set('startLat', resolvedStart.lat);
+        params.set('startLon', resolvedStart.lon);
+        params.set('startName', resolvedStart.name || resolvedStart.common_name || 'Start');
+      }
+
+      if (resolvedEnd.type === 'stop' && resolvedEnd.atco_code) {
+        params.set('end', resolvedEnd.atco_code);
+      } else {
+        params.set('endLat', resolvedEnd.lat);
+        params.set('endLon', resolvedEnd.lon);
+        params.set('endName', resolvedEnd.name || resolvedEnd.common_name || 'Destination');
+      }
+
+      const res = await fetch(`${API_URL}/api/plan?${params.toString()}`);
       const data = await res.json();
 
       if (data.error) {
         setRouteError(data.error);
       } else {
-        // Limit to MAX_ROUTES best options
         const limited = {
           ...data,
           routes: data.routes.slice(0, MAX_ROUTES),
@@ -123,14 +170,12 @@ function App() {
               type="start"
               value={startStop}
               onChange={setStartStop}
-              stops={allStops}
             />
             <SearchBar
               placeholder="Where are you going?"
               type="end"
               value={endStop}
               onChange={setEndStop}
-              stops={allStops}
             />
           </div>
           <button
@@ -156,7 +201,7 @@ function App() {
           <button
             className="route-btn"
             onClick={findRoutes}
-            disabled={routeLoading || !startStop?.atco_code || !endStop?.atco_code}
+            disabled={routeLoading}
           >
             {routeLoading ? '⏳ Searching...' : '🔍 Find Routes'}
           </button>

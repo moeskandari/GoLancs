@@ -38,8 +38,10 @@ function FitToRoute({ startLocation, endLocation, routes, selectedRoute }) {
     };
 
     // Add start/end
-    if (startLocation?.coordinates) addCoord(startLocation.coordinates);
-    if (endLocation?.coordinates) addCoord(endLocation.coordinates);
+    if (startLocation?.lat && startLocation?.lon) points.push([startLocation.lat, startLocation.lon]);
+    else if (startLocation?.coordinates) addCoord(startLocation.coordinates);
+    if (endLocation?.lat && endLocation?.lon) points.push([endLocation.lat, endLocation.lon]);
+    else if (endLocation?.coordinates) addCoord(endLocation.coordinates);
 
     // Add all leg coordinates from selected route
     if (routes && selectedRoute !== null && routes.routes[selectedRoute]) {
@@ -221,7 +223,10 @@ function MapView({ userLocation: propUserLocation, startLocation, endLocation, r
   }
 
   const getLatLng = (stop) => {
-    if (!stop?.coordinates) return null;
+    if (!stop) return null;
+    // Support direct lat/lon (from place selection)
+    if (stop.lat !== undefined && stop.lon !== undefined) return [stop.lat, stop.lon];
+    if (!stop.coordinates) return null;
     const coords = stop.coordinates;
     if (typeof coords === 'object' && coords.y !== undefined) return [coords.y, coords.x];
     if (typeof coords === 'object' && coords.lat !== undefined) return [coords.lat, coords.lon];
@@ -267,7 +272,7 @@ function MapView({ userLocation: propUserLocation, startLocation, endLocation, r
               iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
             })}
           >
-            <Popup><strong>📍 Start</strong><br/>{startLocation?.common_name}</Popup>
+            <Popup><strong>📍 Start</strong><br/>{startLocation?.name || startLocation?.common_name}</Popup>
           </Marker>
         )}
 
@@ -281,7 +286,7 @@ function MapView({ userLocation: propUserLocation, startLocation, endLocation, r
               iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
             })}
           >
-            <Popup><strong>🏁 Destination</strong><br/>{endLocation?.common_name}</Popup>
+            <Popup><strong>🏁 Destination</strong><br/>{endLocation?.name || endLocation?.common_name}</Popup>
           </Marker>
         )}
 

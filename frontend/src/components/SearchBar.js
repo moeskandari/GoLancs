@@ -1,16 +1,27 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './SearchBar.css';
 
-function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+function SearchBar({ placeholder, type, value, onChange }) {
   const [inputText, setInputText] = useState('');
-  const [filteredStops, setFilteredStops] = useState([]);
+  const [results, setResults] = useState({ stops: [], places: [] });
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
+  const [loading, setLoading] = useState(false);
   const wrapperRef = useRef(null);
+  const debounceRef = useRef(null);
 
   // Sync display text when value changes externally (e.g. swap button)
   useEffect(() => {
-    if (value?.common_name) {
+    if (value?.type === 'text') {
+      // Don't overwrite — this came from our own typing
+      return;
+    }
+    if (value?.name) {
+      setInputText(value.name);
+      setIsSelected(true);
+    } else if (value?.common_name) {
       setInputText(value.common_name);
       setIsSelected(true);
     } else if (!value) {
@@ -30,39 +41,75 @@ function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Debounced search function
+  const searchLocations = useCallback(async (query) => {
+    if (query.length < 2) {
+      setResults({ stops: [], places: [] });
+      setShowDropdown(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      setResults({
+        stops: data.stops || [],
+        places: data.places || []
+      });
+      setShowDropdown(true);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setResults({ stops: [], places: [] });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const handleInputChange = (e) => {
     const input = e.target.value;
     setInputText(input);
     setIsSelected(false);
 
-    // Clear the selected stop so user can pick a new one
-    if (value?.common_name) {
+    // Always pass the typed text up so App.js knows what's in the box
+    // This allows findRoutes to geocode it if the user doesn't pick from dropdown
+    const trimmed = input.trim();
+    if (trimmed.length >= 2) {
+      onChange?.({ type: 'text', text: trimmed });
+    } else {
       onChange?.(null);
     }
 
-    if (input.length >= 2) {
-      const query = input.toLowerCase();
-      const filtered = stops.filter(stop =>
-        stop.common_name.toLowerCase().includes(query)
-      );
-      // Sort: exact start match first, then alphabetical
-      filtered.sort((a, b) => {
-        const aStarts = a.common_name.toLowerCase().startsWith(query) ? 0 : 1;
-        const bStarts = b.common_name.toLowerCase().startsWith(query) ? 0 : 1;
-        if (aStarts !== bStarts) return aStarts - bStarts;
-        return a.common_name.localeCompare(b.common_name);
-      });
-      setFilteredStops(filtered.slice(0, 10));
-      setShowDropdown(true);
-    } else {
-      setFilteredStops([]);
-      setShowDropdown(false);
-    }
+    // Debounce the dropdown search (300ms)
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchLocations(input), 300);
   };
 
   const handleSelectStop = (stop) => {
-    onChange?.(stop);
-    setInputText(stop.common_name);
+    onChange?.({
+      type: 'stop',
+      atco_code: stop.atco_code,
+      name: stop.name,
+      common_name: stop.name,
+      lat: stop.lat,
+      lon: stop.lon,
+      stop_type: stop.stop_type
+    });
+    setInputText(stop.name);
+    setIsSelected(true);
+    setShowDropdown(false);
+  };
+
+  const handleSelectPlace = (place) => {
+    onChange?.({
+      type: 'place',
+      name: place.name,
+      common_name: place.name,
+      lat: place.lat,
+      lon: place.lon,
+      category: place.category
+    });
+    setInputText(place.name);
     setIsSelected(true);
     setShowDropdown(false);
   };
@@ -70,27 +117,46 @@ function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
   const handleClear = () => {
     setInputText('');
     setIsSelected(false);
-    setFilteredStops([]);
+    setResults({ stops: [], places: [] });
     setShowDropdown(false);
     onChange?.(null);
   };
 
   const handleFocus = () => {
-    // If there's text but no stop selected, re-filter
     if (inputText.length >= 2 && !isSelected) {
-      const query = inputText.toLowerCase();
-      const filtered = stops.filter(stop =>
-        stop.common_name.toLowerCase().includes(query)
-      );
-      filtered.sort((a, b) => {
-        const aStarts = a.common_name.toLowerCase().startsWith(query) ? 0 : 1;
-        const bStarts = b.common_name.toLowerCase().startsWith(query) ? 0 : 1;
-        if (aStarts !== bStarts) return aStarts - bStarts;
-        return a.common_name.localeCompare(b.common_name);
-      });
-      setFilteredStops(filtered.slice(0, 10));
-      setShowDropdown(true);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => searchLocations(inputText), 100);
     }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setShowDropdown(false);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      setShowDropdown(false);
+    }
+  };
+
+  const hasResults = results.stops.length > 0 || results.places.length > 0;
+
+  const getStopIcon = (stopType) => {
+    return stopType === 'rail' ? '🚂' : '🚌';
+  };
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      school: '🏫', university: '🎓', college: '🎓',
+      hospital: '🏥', clinic: '🏥',
+      restaurant: '🍽️', cafe: '☕', pub: '🍺',
+      supermarket: '🛒', shop: '🛍️',
+      park: '🌳', garden: '🌳',
+      church: '⛪', library: '📚', cinema: '🎬',
+      hotel: '🏨', museum: '🏛️',
+      city: '🏙️', town: '🏘️', village: '🏘️',
+      suburb: '🏘️', neighbourhood: '🏘️', residential: '🏘️',
+    };
+    return icons[category] || '📍';
   };
 
   return (
@@ -101,11 +167,17 @@ function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
           value={inputText}
           onChange={handleInputChange}
           onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`search-input ${isSelected ? 'selected' : ''}`}
           autoComplete="off"
+          role="combobox"
+          aria-expanded={showDropdown}
+          aria-haspopup="listbox"
+          aria-label={placeholder}
         />
-        {inputText && (
+        {loading && <span className="search-loading" aria-hidden="true">⏳</span>}
+        {inputText && !loading && (
           <button
             className="clear-btn"
             onClick={handleClear}
@@ -115,18 +187,59 @@ function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
             ✕
           </button>
         )}
-        {showDropdown && filteredStops.length > 0 && (
-          <div className="search-dropdown">
-            {filteredStops.map((stop) => (
-              <div
-                key={stop.atco_code}
-                className="dropdown-item"
-                onClick={() => handleSelectStop(stop)}
-              >
-                <div className="stop-name">{stop.common_name}</div>
-                <div className="stop-code">{stop.atco_code}</div>
-              </div>
-            ))}
+        {showDropdown && hasResults && (
+          <div className="search-dropdown" role="listbox">
+            {results.stops.length > 0 && (
+              <>
+                <div className="dropdown-section-header">
+                  <span className="section-icon">🚏</span> Stops & Stations
+                </div>
+                {results.stops.map((stop) => (
+                  <div
+                    key={stop.atco_code}
+                    className="dropdown-item stop-item"
+                    onClick={() => handleSelectStop(stop)}
+                    role="option"
+                  >
+                    <span className="item-icon">{getStopIcon(stop.stop_type)}</span>
+                    <div className="item-content">
+                      <div className="item-name">{stop.name}</div>
+                      <div className="item-detail">
+                        {stop.stop_type === 'rail' ? 'Rail Station' : 'Bus Stop'} · {stop.atco_code}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+            {results.places.length > 0 && (
+              <>
+                <div className="dropdown-section-header">
+                  <span className="section-icon">📍</span> Places
+                </div>
+                {results.places.map((place, idx) => (
+                  <div
+                    key={`place-${idx}-${place.lat}-${place.lon}`}
+                    className="dropdown-item place-item"
+                    onClick={() => handleSelectPlace(place)}
+                    role="option"
+                  >
+                    <span className="item-icon">{getCategoryIcon(place.category)}</span>
+                    <div className="item-content">
+                      <div className="item-name">{place.name}</div>
+                      <div className="item-detail">{place.category}</div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+        {showDropdown && !hasResults && inputText.length >= 2 && !loading && (
+          <div className="search-dropdown" role="listbox">
+            <div className="dropdown-empty">
+              No results found for "{inputText}"
+            </div>
           </div>
         )}
       </div>
@@ -135,3 +248,4 @@ function SearchBar({ placeholder, type, value, onChange, stops = [] }) {
 }
 
 export default SearchBar;
+
