@@ -45,8 +45,15 @@ function FitToRoute({ startLocation, endLocation, routes, selectedRoute }) {
     if (routes && selectedRoute !== null && routes.routes[selectedRoute]) {
       const route = routes.routes[selectedRoute];
       for (const leg of route.legs) {
-        if (leg.fromCoords) points.push([leg.fromCoords.lat, leg.fromCoords.lon]);
-        if (leg.toCoords) points.push([leg.toCoords.lat, leg.toCoords.lon]);
+        // Include detailed geometry points for accurate bounds
+        if (leg.geometry && leg.geometry.length > 0) {
+          for (const pt of leg.geometry) {
+            points.push([pt[0], pt[1]]);
+          }
+        } else {
+          if (leg.fromCoords) points.push([leg.fromCoords.lat, leg.fromCoords.lon]);
+          if (leg.toCoords) points.push([leg.toCoords.lat, leg.toCoords.lon]);
+        }
       }
     }
 
@@ -127,7 +134,20 @@ function MapView({ userLocation: propUserLocation, startLocation, endLocation, r
       const from = leg.fromCoords;
       const to = leg.toCoords;
 
-      if (from && to && (from.lat !== to.lat || from.lon !== to.lon)) {
+      // Use detailed geometry if available (road/rail-following), otherwise fallback to straight line
+      if (leg.geometry && leg.geometry.length >= 2) {
+        const style = legStyles[leg.type] || legStyles.walk;
+        routeOverlays.push(
+          <Polyline
+            key={`leg-${selectedRoute}-${i}`}
+            positions={leg.geometry}
+            color={style.color}
+            weight={style.weight}
+            opacity={style.opacity}
+            dashArray={style.dashArray}
+          />
+        );
+      } else if (from && to && (from.lat !== to.lat || from.lon !== to.lon)) {
         const style = legStyles[leg.type] || legStyles.walk;
         routeOverlays.push(
           <Polyline

@@ -3,24 +3,50 @@
 -- Drop foreign key constraints first
 ALTER TABLE IF EXISTS national_rail DROP CONSTRAINT IF EXISTS fk_atco;
 ALTER TABLE IF EXISTS bus_schedule_points DROP CONSTRAINT IF EXISTS bus_schedule_points_atco_code_fkey;
-ALTER TABLE IF EXISTS schedule_points DROP CONSTRAINT IF EXISTS fk_atco_stops;
 
 -- Convert atco_code to text in all relevant tables
 ALTER TABLE stops ALTER COLUMN atco_code TYPE text;
 ALTER TABLE national_rail ALTER COLUMN atco_code TYPE text;
-ALTER TABLE IF EXISTS bus_schedule_points ALTER COLUMN atco_code TYPE text;
-ALTER TABLE IF EXISTS schedule_points ALTER COLUMN atco_code TYPE text;
+
+-- Only alter tables/columns that actually exist
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'bus_schedule_points' AND column_name = 'atco_code'
+  ) THEN
+    EXECUTE 'ALTER TABLE bus_schedule_points ALTER COLUMN atco_code TYPE text';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'schedule_points' AND column_name = 'atco_code'
+  ) THEN
+    EXECUTE 'ALTER TABLE schedule_points DROP CONSTRAINT IF EXISTS fk_atco_stops';
+    EXECUTE 'ALTER TABLE schedule_points ALTER COLUMN atco_code TYPE text';
+  END IF;
+END $$;
 
 -- Recreate foreign key constraints
 ALTER TABLE national_rail
   ADD CONSTRAINT fk_atco FOREIGN KEY (atco_code) REFERENCES stops(atco_code);
 
-ALTER TABLE IF EXISTS bus_schedule_points
-  ADD CONSTRAINT bus_schedule_points_atco_code_fkey
-  FOREIGN KEY (atco_code) REFERENCES stops(atco_code);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'bus_schedule_points' AND column_name = 'atco_code'
+  ) THEN
+    EXECUTE 'ALTER TABLE bus_schedule_points ADD CONSTRAINT bus_schedule_points_atco_code_fkey FOREIGN KEY (atco_code) REFERENCES stops(atco_code)';
+  END IF;
 
-ALTER TABLE IF EXISTS schedule_points
-  ADD CONSTRAINT fk_atco_stops FOREIGN KEY (atco_code) REFERENCES stops(atco_code);
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'schedule_points' AND column_name = 'atco_code'
+  ) THEN
+    EXECUTE 'ALTER TABLE schedule_points ADD CONSTRAINT fk_atco_stops FOREIGN KEY (atco_code) REFERENCES stops(atco_code)';
+  END IF;
+END $$;
 
 -- Insert major transit hubs (StopAreas)
 INSERT INTO stops (atco_code, common_name, coordinates, stop_type)
