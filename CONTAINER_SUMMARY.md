@@ -19,7 +19,7 @@ chmod +x scripts/*.sh
 ```
 
 Then access:
-- **Frontend**: http://localhost:5080
+- **Frontend**: http://localhost:5001
 - **Backend Health**: http://localhost:5000/api/health
 - **Database**: localhost:5050
 
@@ -28,13 +28,13 @@ Then access:
 ## Complete System Architecture
 
 ```
-USER'S BROWSER (Port 3000)
+USER'S BROWSER (Port 5001)
          ↓
     ┌────────────────────────┐
     │  Frontend Container    │
     │  (group1-frontend)     │
     │  React App             │
-    │  Port 3000             │
+    │  Port 5001             │
     └────────────┬───────────┘
                  │ HTTP Requests
                  ↓ (group1-net network)
@@ -61,7 +61,7 @@ USER'S BROWSER (Port 3000)
 ### Frontend Container (group1-frontend)
 - **Base Image**: Node.js 18 Alpine
 - **Purpose**: Serves the React web application
-- **Exposed Port**: 5080 (maps from internal 3000)
+- **Exposed Port**: 5001 (maps from internal 3000)
 - **Build Process**: 
   1. Installs Node dependencies
   2. Builds optimized React bundle
@@ -201,7 +201,7 @@ Backend → Database: postgresql://postgres@group1db:5432/travel_routes
 
 When accessing from your computer (outside containers):
 ```
-You → Frontend: http://localhost:3000
+You → Frontend: http://localhost:5001
 You → Backend: http://localhost:5000/api/health
 You → Database: localhost:5050
 ```

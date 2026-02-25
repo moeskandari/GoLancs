@@ -8,12 +8,13 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: group1
-      POSTGRES_DB: travel_routes
+      POSTGRES_DB: group1db
     ports:
       - "5050:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/db_backup.sql:/docker-entrypoint-initdb.d/init.sql
+      - /tmp/group1db_backup.sql:/docker-entrypoint-initdb.d/01_restore.sql
+      - /tmp/post_restore.sql:/docker-entrypoint-initdb.d/02_post_restore.sql
     networks:
       - group1-net
     healthcheck:
@@ -33,7 +34,7 @@ services:
       NODE_ENV: production
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: travel_routes
+      DB_NAME: group1db
       DB_USER: postgres
       DB_PASSWORD: group1
     ports:
@@ -52,14 +53,14 @@ services:
       dockerfile: Dockerfile
     container_name: group1-frontend
     ports:
-      - "5080:3000"
+      - "5001:3000"
     depends_on:
       - backend
     networks:
       - group1-net
     restart: unless-stopped
     environment:
-      REACT_APP_API_URL: http://localhost:5000
+      REACT_APP_API_URL: http://backend:5000
 
 volumes:
   postgres_data:

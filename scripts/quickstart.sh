@@ -2,6 +2,13 @@
 
 # Quick Start Guide - Lancaster Travel Routes with Podman
 # This script demonstrates how to quickly get the application running
+# 
+# For lab machines that need to be restarted regularly:
+#   Use: ./scripts/lab_restart.sh
+#   This handles backup, rebuild, and restore automatically
+#
+# For first-time setup or custom configuration:
+#   Use this script to choose your preferred method
 
 echo "=========================================="
 echo "Lancaster Travel Routes - Quick Start"
@@ -17,8 +24,32 @@ if ! command -v podman &> /dev/null; then
 fi
 
 echo "✓ Podman is installed"
+echo ""
 
-# Option selection
+# Check if this is a lab machine restart
+echo "Is this a lab machine restart after shutdown?"
+echo ""
+read -p "Enter (y/n): " is_restart
+
+if [[ $is_restart == "y" || $is_restart == "Y" ]]; then
+    echo ""
+    echo "Using Lab Restart Script..."
+    echo "This will:"
+    echo "  1. Backup any existing database"
+    echo "  2. Clean up old containers"
+    echo "  3. Pull latest base images"
+    echo "  4. Rebuild application containers"
+    echo "  5. Restore database from backup"
+    echo "  6. Start all services"
+    echo ""
+    read -p "Continue? (y/n): " confirm
+    if [[ $confirm == "y" || $confirm == "Y" ]]; then
+        exec ./scripts/lab_restart.sh
+    fi
+    exit 0
+fi
+
+# Option selection for fresh start
 echo ""
 echo "Choose your setup method:"
 echo ""
@@ -62,6 +93,9 @@ case $choice in
         echo "  View logs:     podman-compose logs -f"
         echo "  Stop all:      podman-compose down"
         echo "  View status:   podman-compose ps"
+        echo ""
+        echo "Lab machine restart:"
+        echo "  Use: ./scripts/lab_restart.sh"
         ;;
         
     2)
@@ -88,6 +122,9 @@ case $choice in
         echo "  View logs:     podman logs -f group1-backend"
         echo "  Stop all:      ./scripts/cleanup_containers.sh"
         echo "  View status:   podman ps"
+        echo ""
+        echo "Lab machine restart:"
+        echo "  Use: ./scripts/lab_restart.sh"
         ;;
         
     3)
@@ -103,7 +140,7 @@ case $choice in
           --name group1db \
           --network group1-net \
           -e POSTGRES_PASSWORD=group1 \
-          -e POSTGRES_DB=travel_routes \
+          -e POSTGRES_DB=group1db \
           -p 5050:5432 \
           -v group1_postgres_data:/var/lib/postgresql/data \
           postgres:16-alpine
@@ -124,7 +161,7 @@ case $choice in
           -e NODE_ENV=production \
           -e DB_HOST=group1db \
           -e DB_PORT=5432 \
-          -e DB_NAME=travel_routes \
+          -e DB_NAME=group1db \
           -e DB_USER=postgres \
           -e DB_PASSWORD=group1 \
           -p 5000:5000 \
@@ -157,6 +194,9 @@ case $choice in
         echo "  Stop all:"
         echo "    podman stop group1-frontend group1-backend group1db"
         echo "    podman rm group1-frontend group1-backend group1db"
+        echo ""
+        echo "Lab machine restart:"
+        echo "  Use: ./scripts/lab_restart.sh"
         ;;
         
     *)
@@ -169,3 +209,4 @@ echo ""
 echo "=========================================="
 echo "Setup complete! Happy developing! 🚀"
 echo "=========================================="
+

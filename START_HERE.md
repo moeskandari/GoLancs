@@ -8,7 +8,7 @@ A **production-ready, fully containerized** Lancaster Travel Routes application 
 🎯 3 Containers Running Together:
    ├─ PostgreSQL Database (group1db) - Port 5050
    ├─ Node.js Backend (group1-backend) - Port 5000
-   └─ React Frontend (group1-frontend) - Port 5080
+   └─ React Frontend (group1-frontend) - Port 5001
 ```
 
 ---
@@ -32,7 +32,7 @@ podman-compose up -d
 ./scripts/build_containers.sh && ./scripts/run_all_containers.sh
 ```
 
-Then open: **http://localhost:5080** ✨
+Then open: **http://localhost:5001** ✨
 
 ---
 
@@ -40,7 +40,7 @@ Then open: **http://localhost:5080** ✨
 
 ```
 Running Containers:
-├─ group1-frontend (React UI)       → http://localhost:5080
+├─ group1-frontend (React UI)       → http://localhost:5001
 ├─ group1-backend (API Server)      → http://localhost:5000
 └─ group1db (PostgreSQL Database)   → localhost:5050
 
@@ -54,7 +54,7 @@ All Connected Via:
 
 | Container | Type | Port | Purpose | Built From |
 |-----------|------|------|---------|-----------|
-| group1-frontend | Frontend | 5080 | React web UI | frontend/Dockerfile |
+| group1-frontend | Frontend | 5001 | React web UI | frontend/Dockerfile |
 | group1-backend | Backend | 5000 | REST API | backend/Dockerfile |
 | group1db | Database | 5050 | PostgreSQL | postgres:16-alpine |
 
@@ -106,14 +106,14 @@ backend/.env.container          - Backend config template
 ┌─────────────────────────────────────────┐
 │         Your Computer (Host)            │
 │                                         │
-│  You → http://localhost:3000            │
+│  You → http://localhost:5001            │
 │           ↓                             │
 │      ┌─────────────────────────┐       │
 │      │  group1-net Network     │       │
 │      │  (Bridge)               │       │
 │      │                         │       │
 │      │ ┌─────────────────────┐│       │
-│      │ │ Frontend (3000)     ││       │
+│      │ │ Frontend (5001)     ││       │
 │      │ │ (Requests)          ││       │
 │      │ └────────┬────────────┘│       │
 │      │          │             │       │
@@ -202,7 +202,7 @@ backend/.env.container          - Backend config template
 
 ### Right Now (5 min)
 1. `./scripts/quickstart.sh` OR `podman-compose up -d`
-2. Open http://localhost:3000
+2. Open http://localhost:5001
 3. See it working!
 
 ### Today (15 min)
@@ -246,7 +246,7 @@ Port: 5432
 
 ### Frontend Container (group1-frontend)
 - ✅ Runs React application
-- ✅ Serves on localhost:3000
+- ✅ Serves on localhost:5001
 - ✅ Calls backend API at localhost:5000
 - ✅ Shows map, search bars, compass
 
@@ -271,7 +271,7 @@ Port: 5432
 After starting, verify:
 
 - [ ] `podman ps` shows 3 running containers
-- [ ] http://localhost:3000 loads in browser
+- [ ] http://localhost:5001 loads in browser
 - [ ] http://localhost:5000/api/health returns `{"status":"ok",...}`
 - [ ] No console errors in browser
 - [ ] Map displays with search bars
@@ -392,7 +392,7 @@ Or:
 podman-compose up -d
 ```
 
-Then visit: **http://localhost:3000**
+Then visit: **http://localhost:5001**
 
 ---
 

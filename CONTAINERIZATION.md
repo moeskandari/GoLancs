@@ -15,10 +15,10 @@ The application consists of three main services running in containers:
    - Connects to PostgreSQL database
    - Serves API endpoints
 
-3. **Frontend React App** (`group1-frontend`) - Port 5080
+3. **Frontend React App** (`group1-frontend`) - Port 5001
    - React single-page application
    - Static files served by Node.js
-   - (Internal: 3000, External: 5080)
+   - (Internal: 3000, External: 5001)
 
 All containers communicate via a Docker bridge network (`group1-net`).
 
@@ -27,7 +27,7 @@ All containers communicate via a Docker bridge network (`group1-net`).
 - Podman (1.9 or higher)
 - Podman Compose (optional, for docker-compose usage)
 - Sufficient disk space (~2GB for images and data)
-- Ports 3000, 5000, 5050 available
+- Ports 5001, 5000, 5050 available
 
 ### Install Podman (if needed)
 
@@ -46,7 +46,7 @@ brew install podman
 ## Port Configuration
 
 The application requires the following ports:
-- **5080** for Frontend (maps to internal 3000)
+- **5001** for Frontend (maps to internal 3000)
 - **5000** for Backend
 - **5050** for Database (maps to internal PostgreSQL 5432)
 
@@ -208,7 +208,7 @@ podman run -dt \
 
 Once containers are running, access the application at:
 
-- **Frontend**: http://localhost:3000
+- **Frontend**: http://localhost:5001
 - **Backend Health**: http://localhost:5000/api/health
 - **Database**: localhost:5050 (from local machine)
 
@@ -264,7 +264,7 @@ The backend container accepts these environment variables:
 All containers communicate through the `group1-net` bridge network:
 
 ```
-Frontend (3000)
+Frontend (5001)
     ↓
 Backend (5000) ← [group1-net] → PostgreSQL (5432)
 ```
@@ -401,7 +401,7 @@ sudo systemctl start group1-app.service
 
 1. Build images: `./scripts/build_containers.sh`
 2. Start containers: `./scripts/run_all_containers.sh`
-3. Access frontend: http://localhost:3000
+3. Access frontend: http://localhost:5001
 4. Check backend: http://localhost:5000/api/health
 5. Connect to database: `podman exec -it group1db psql -U postgres`
 

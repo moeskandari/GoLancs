@@ -28,7 +28,7 @@ podman run -dt \
   --name ${PROJECT_NAME}db \
   --network ${PROJECT_NAME}-net \
   -e POSTGRES_PASSWORD=group1 \
-  -e POSTGRES_DB=travel_routes \
+  -e POSTGRES_DB=group1db \
   -p 5050:5432 \
   -v ${PROJECT_NAME}_postgres_data:/var/lib/postgresql/data \
   postgres:16-alpine
@@ -46,6 +46,13 @@ else
   echo "No backup file found, starting with fresh database"
 fi
 
+echo "Applying bus schema updates..."
+podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < ./postgres/bus_schema.sql
+
+echo "Rebuilding stops and bus schedules..."
+python3 ./postgres/import_naptan.py
+python3 ./postgres/import_bus_schedules.py
+
 # Start Backend
 echo ""
 echo "Starting Backend container..."
@@ -59,7 +66,7 @@ podman run -dt \
   -e NODE_ENV=production \
   -e DB_HOST=${PROJECT_NAME}db \
   -e DB_PORT=5432 \
-  -e DB_NAME=travel_routes \
+  -e DB_NAME=group1db \
   -e DB_USER=postgres \
   -e DB_PASSWORD=group1 \
   -p 5000:5000 \
@@ -78,7 +85,7 @@ podman run -dt \
   --name ${PROJECT_NAME}-frontend \
   --network ${PROJECT_NAME}-net \
   -e REACT_APP_API_URL=http://localhost:5000 \
-  -p 3000:3000 \
+  -p 5001:3000 \
   ${PROJECT_NAME}-frontend:latest
 
 echo ""
