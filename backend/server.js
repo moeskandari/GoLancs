@@ -1442,14 +1442,44 @@ async function getTrainJourneyWaypoints(trainUid, startTiploc, endTiploc) {
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /**
+ * Persistent in-memory cache for Valhalla walk geometry.
+ * Key: "fromLat,fromLon:toLat,toLon" (rounded to 4dp ~11m)
+ * Value: array of [lat, lon] points, or null if request failed.
+ * Entries expire after 1 hour.
+ */
+const valhallaGeoCache = new Map();
+const VALHALLA_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+function getValhallaCacheKey(fromLat, fromLon, toLat, toLon) {
+  return `${fromLat.toFixed(4)},${fromLon.toFixed(4)}:${toLat.toFixed(4)},${toLon.toFixed(4)}`;
+}
+
+function getCachedGeometry(key) {
+  const entry = valhallaGeoCache.get(key);
+  if (entry && Date.now() - entry.time < VALHALLA_CACHE_TTL) return entry.geometry;
+  if (entry) valhallaGeoCache.delete(key);
+  return undefined; // undefined = not cached, null = cached failure
+}
+
+function setCachedGeometry(key, geometry) {
+  valhallaGeoCache.set(key, { geometry, time: Date.now() });
+  // Prune cache if too large
+  if (valhallaGeoCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of valhallaGeoCache) {
+      if (now - v.time > VALHALLA_CACHE_TTL) valhallaGeoCache.delete(k);
+    }
+  }
+}
+
+/**
  * Enrich route legs with geometry from stop waypoints and routing services.
- * Adds a 'geometry' property (array of [lat, lon]) to each leg.
- * Uses intermediate bus stops / rail calling points to create a multi-point polyline
- * that closely follows the actual route.
- * Uses Valhalla for walking/driving geometry with deduplication and rate limiting.
+ * - Train legs: use railway graph (local, fast)
+ * - Bus legs: use intermediate stop coordinates (local, fast)  
+ * - Walk legs: use Valhalla pedestrian routing (cached + deduplicated)
  */
 async function enrichLegsWithGeometry(allRoutes) {
-  // --- Phase 1: Train and bus waypoint-based geometry (no external API needed for trains) ---
+  // --- Phase 1: Train track geometry + bus stop waypoints (all local, no API calls) ---
   const localGeometryPromises = [];
 
   for (const route of allRoutes) {
@@ -1459,7 +1489,6 @@ async function enrichLegsWithGeometry(allRoutes) {
           (async () => {
             const waypoints = await getTrainJourneyWaypoints(leg.trainUid, leg.startTiploc, leg.endTiploc);
             if (waypoints && waypoints.length >= 2) {
-              // Try railway graph pathfinding for track-following geometry
               const trackPath = findRailTrackPath(
                 waypoints[0].lat, waypoints[0].lon,
                 waypoints[waypoints.length - 1].lat, waypoints[waypoints.length - 1].lon
@@ -1467,7 +1496,6 @@ async function enrichLegsWithGeometry(allRoutes) {
               if (trackPath && trackPath.length >= 2) {
                 leg.geometry = trackPath;
               } else {
-                // Fallback: chain track segments between consecutive calling points
                 const segments = [];
                 for (let i = 0; i < waypoints.length - 1; i++) {
                   const seg = findRailTrackPath(
@@ -1486,11 +1514,7 @@ async function enrichLegsWithGeometry(allRoutes) {
                     }
                   }
                 }
-                if (segments.length >= 2) {
-                  leg.geometry = segments;
-                } else {
-                  leg.geometry = waypoints.map(w => [w.lat, w.lon]);
-                }
+                leg.geometry = segments.length >= 2 ? segments : waypoints.map(w => [w.lat, w.lon]);
               }
             }
           })()
@@ -1500,9 +1524,6 @@ async function enrichLegsWithGeometry(allRoutes) {
           (async () => {
             const waypoints = await getBusJourneyWaypoints(leg.journeyId, leg.boardAtco, leg.alightAtco);
             if (waypoints && waypoints.length >= 2) {
-              // Store bus waypoints for potential Valhalla enhancement later
-              leg._busWaypoints = waypoints;
-              // Set stop-coordinate fallback immediately
               leg.geometry = waypoints.map(w => [w.lat, w.lon]);
             }
           })()
@@ -1513,95 +1534,66 @@ async function enrichLegsWithGeometry(allRoutes) {
 
   await Promise.allSettled(localGeometryPromises);
 
-  // --- Phase 2: Valhalla API requests for walk and bus geometry (rate-limited + deduplicated) ---
-  // Build a unique set of geometry requests to avoid duplicate API calls
-  const valhallaCache = new Map(); // key → Promise<geometry>
-  const valhallaQueue = []; // { key, fromLat, fromLon, toLat, toLon, costing, legs[] }
+  // --- Phase 2: Valhalla walk geometry only (cached + deduplicated + batched) ---
+  const walkRequests = new Map(); // dedup key → { fromLat, fromLon, toLat, toLon, legs[] }
 
   for (const route of allRoutes) {
     for (const leg of route.legs) {
       if (leg.type === 'walk' && leg.fromCoords && leg.toCoords) {
-        // Round to 4 decimal places (~11m) for dedup key
-        const key = `walk:${leg.fromCoords.lat.toFixed(4)},${leg.fromCoords.lon.toFixed(4)}:${leg.toCoords.lat.toFixed(4)},${leg.toCoords.lon.toFixed(4)}`;
-        if (!valhallaCache.has(key)) {
-          const entry = {
-            key, costing: 'pedestrian',
+        const key = getValhallaCacheKey(leg.fromCoords.lat, leg.fromCoords.lon, leg.toCoords.lat, leg.toCoords.lon);
+
+        // Check persistent cache first
+        const cached = getCachedGeometry(key);
+        if (cached !== undefined) {
+          if (cached && cached.length >= 2) {
+            const geoClone = cached.map(p => [...p]);
+            geoClone[0] = [leg.fromCoords.lat, leg.fromCoords.lon];
+            geoClone[geoClone.length - 1] = [leg.toCoords.lat, leg.toCoords.lon];
+            leg.geometry = geoClone;
+          }
+          continue; // Skip — already resolved from cache
+        }
+
+        // Queue for API fetch (deduplicated)
+        if (!walkRequests.has(key)) {
+          walkRequests.set(key, {
             fromLat: leg.fromCoords.lat, fromLon: leg.fromCoords.lon,
             toLat: leg.toCoords.lat, toLon: leg.toCoords.lon,
             legs: [leg]
-          };
-          valhallaCache.set(key, entry);
-          valhallaQueue.push(entry);
+          });
         } else {
-          valhallaCache.get(key).legs.push(leg);
-        }
-      } else if (leg.type === 'bus' && leg._busWaypoints && leg._busWaypoints.length >= 2) {
-        const wp = leg._busWaypoints;
-        const key = `bus:${wp[0].lat.toFixed(4)},${wp[0].lon.toFixed(4)}:${wp[wp.length-1].lat.toFixed(4)},${wp[wp.length-1].lon.toFixed(4)}`;
-        if (!valhallaCache.has(key)) {
-          const entry = {
-            key, costing: 'auto',
-            fromLat: wp[0].lat, fromLon: wp[0].lon,
-            toLat: wp[wp.length-1].lat, toLon: wp[wp.length-1].lon,
-            legs: [leg]
-          };
-          valhallaCache.set(key, entry);
-          valhallaQueue.push(entry);
-        } else {
-          valhallaCache.get(key).legs.push(leg);
+          walkRequests.get(key).legs.push(leg);
         }
       }
     }
   }
 
-  console.log(`Valhalla queue: ${valhallaQueue.length} unique geometry requests (${valhallaQueue.filter(e => e.costing === 'pedestrian').length} walk, ${valhallaQueue.filter(e => e.costing === 'auto').length} bus)`);
+  const walkQueue = [...walkRequests.entries()];
+  if (walkQueue.length > 0) {
+    console.log(`Valhalla walk queue: ${walkQueue.length} unique requests`);
 
-  // Process Valhalla requests in small batches to balance speed vs rate limits
-  const BATCH_SIZE = 2;
-  for (let batchStart = 0; batchStart < valhallaQueue.length; batchStart += BATCH_SIZE) {
-    const batch = valhallaQueue.slice(batchStart, batchStart + BATCH_SIZE);
+    // Process in batches of 3 with retry
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < walkQueue.length; i += BATCH_SIZE) {
+      const batch = walkQueue.slice(i, i + BATCH_SIZE);
 
-    await Promise.allSettled(batch.map(async (entry) => {
-      const geometry = await fetchValhallaGeometry(entry.fromLat, entry.fromLon, entry.toLat, entry.toLon, entry.costing);
-
-      if (geometry && geometry.length >= 2) {
-        for (const leg of entry.legs) {
-          const geoClone = geometry.map(p => [...p]);
-          if (leg.type === 'walk') {
-            geoClone[0] = [leg.fromCoords.lat, leg.fromCoords.lon];
-            geoClone[geoClone.length - 1] = [leg.toCoords.lat, leg.toCoords.lon];
-          }
-          leg.geometry = geoClone;
-        }
-        console.log(`${entry.costing} geometry: ${geometry.length} pts → ${entry.legs.length} legs`);
-      } else if (entry.costing === 'pedestrian') {
-        // Walk fallback: try OSRM
-        const osrmGeometry = await fetchOSRMGeometry(
-          [{ lat: entry.fromLat, lon: entry.fromLon },
-           { lat: entry.toLat, lon: entry.toLon }],
-          'foot'
+      await Promise.allSettled(batch.map(async ([key, entry]) => {
+        const geometry = await fetchValhallaGeometry(
+          entry.fromLat, entry.fromLon, entry.toLat, entry.toLon, 'pedestrian'
         );
-        if (osrmGeometry && osrmGeometry.length >= 2) {
+
+        // Cache the result (even null = failed)
+        setCachedGeometry(key, geometry);
+
+        if (geometry && geometry.length >= 2) {
           for (const leg of entry.legs) {
-            const geoClone = osrmGeometry.map(p => [...p]);
+            const geoClone = geometry.map(p => [...p]);
             geoClone[0] = [leg.fromCoords.lat, leg.fromCoords.lon];
             geoClone[geoClone.length - 1] = [leg.toCoords.lat, leg.toCoords.lon];
             leg.geometry = geoClone;
           }
         }
-      }
-    }));
-
-    // Small delay between batches
-    if (batchStart + BATCH_SIZE < valhallaQueue.length) {
-      await delay(100);
-    }
-  }
-
-  // Clean up temporary properties
-  for (const route of allRoutes) {
-    for (const leg of route.legs) {
-      delete leg._busWaypoints;
+      }));
     }
   }
 }
@@ -1609,6 +1601,9 @@ async function enrichLegsWithGeometry(allRoutes) {
 app.get('/api/plan', async (req, res) => {
   try {
     const { start, end, time, day, sort } = req.query;
+    const _t0 = Date.now();
+    const _timers = {};
+    const _mark = (label) => { _timers[label] = Date.now() - _t0; };
 
     if (!start || !end) {
       return res.status(400).json({ error: 'start and end ATCO codes required' });
@@ -1632,13 +1627,15 @@ app.get('/api/plan', async (req, res) => {
     }
 
     const directDistance = haversineDistance(startStop.lat, startStop.lon, endStop.lat, endStop.lon);
+    _mark('init');
 
-    // === Strategy 1: Direct bus ===
-    const directBus = await findDirectBusJourneys(start, end, departureTime, dayIndex, 5);
-
-    // === Strategy 2: Find nearby rail stations for both start and end ===
-    const startRailStations = await findNearbyRailStations(start, 5.0);
-    const endRailStations = await findNearbyRailStations(end, 5.0);
+    // === Strategies 1 & 2: Run in parallel (independent DB queries) ===
+    const [directBus, startRailStations, endRailStations] = await Promise.all([
+      findDirectBusJourneys(start, end, departureTime, dayIndex, 5),
+      findNearbyRailStations(start, 5.0),
+      findNearbyRailStations(end, 5.0)
+    ]);
+    _mark('directBus+nearbyRail');
 
     // Also check if start/end IS a rail station
     const startIsRail = start.startsWith('9100');
@@ -1647,14 +1644,13 @@ app.get('/api/plan', async (req, res) => {
     let startTiplocs = startRailStations.map(s => s.tiploc_code);
     let endTiplocs = endRailStations.map(s => s.tiploc_code);
 
-    if (startIsRail) {
-      const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [start]);
-      if (r.rows.length > 0) startTiplocs = [r.rows[0].tiploc_code, ...startTiplocs];
-    }
-    if (endIsRail) {
-      const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [end]);
-      if (r.rows.length > 0) endTiplocs = [r.rows[0].tiploc_code, ...endTiplocs];
-    }
+    // Resolve rail TIPLOC codes in parallel
+    const [startRailResult, endRailResult] = await Promise.all([
+      startIsRail ? pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [start]) : null,
+      endIsRail ? pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [end]) : null
+    ]);
+    if (startRailResult?.rows.length > 0) startTiplocs = [startRailResult.rows[0].tiploc_code, ...startTiplocs];
+    if (endRailResult?.rows.length > 0) endTiplocs = [endRailResult.rows[0].tiploc_code, ...endTiplocs];
 
     // === Strategy 3: Direct train (if both near rail stations) ===
     let directTrain = [];
@@ -1664,6 +1660,8 @@ app.get('/api/plan', async (req, res) => {
       directTrain = await findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
 
+    _mark('directTrain');
+
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
     if (startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
@@ -1671,6 +1669,8 @@ app.get('/api/plan', async (req, res) => {
       const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
       trainConnections = await findTrainTrainConnections(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
+
+    _mark('trainConnections');
 
     // === Strategy 5: Bus → Train → Walk/Bus (and reverse) ===
     let multiModal = [];
@@ -1983,6 +1983,8 @@ app.get('/api/plan', async (req, res) => {
       }
     }
 
+    _mark('multiModal');
+
     // === Strategy 6: Bus → Bus transfer ===
     let busTransfers = [];
     if (directBus.length === 0) {
@@ -2249,11 +2251,15 @@ app.get('/api/plan', async (req, res) => {
       });
     }
 
+    _mark('busTransfers');
+
     // === Enrich all legs with coordinates for map polylines ===
     await enrichLegsWithCoordinates(allRoutes, startStop, endStop);
+    _mark('enrichCoords');
 
     // === Fetch road/rail-following geometry for each leg ===
     await enrichLegsWithGeometry(allRoutes);
+    _mark('enrichGeometry');
 
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance
@@ -2291,6 +2297,9 @@ app.get('/api/plan', async (req, res) => {
     } else {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime));
     }
+
+    _mark('done');
+    console.log(`[PERF] /api/plan total=${_timers.done}ms |`, Object.entries(_timers).map(([k,v]) => `${k}=${v}ms`).join(' '));
 
     res.json({
       start: {
