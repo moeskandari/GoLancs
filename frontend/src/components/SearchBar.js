@@ -172,6 +172,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
           className={`search-input ${isSelected ? 'selected' : ''}`}
           autoComplete="off"
           role="combobox"
+          aria-controls="search-listbox"
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
           aria-label={placeholder}
@@ -188,7 +189,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
           </button>
         )}
         {showDropdown && hasResults && (
-          <div className="search-dropdown" role="listbox">
+          <div className="search-dropdown" role="listbox" id="search-listbox">
             {results.stops.length > 0 && (
               <>
                 <div className="dropdown-section-header">
@@ -200,6 +201,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
                     className="dropdown-item stop-item"
                     onClick={() => handleSelectStop(stop)}
                     role="option"
+                    aria-selected="false"
                   >
                     <span className="item-icon">{getStopIcon(stop.stop_type)}</span>
                     <div className="item-content">
@@ -223,6 +225,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
                     className="dropdown-item place-item"
                     onClick={() => handleSelectPlace(place)}
                     role="option"
+                    aria-selected="false"
                   >
                     <span className="item-icon">{getCategoryIcon(place.category)}</span>
                     <div className="item-content">
@@ -236,7 +239,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
           </div>
         )}
         {showDropdown && !hasResults && inputText.length >= 2 && !loading && (
-          <div className="search-dropdown" role="listbox">
+          <div className="search-dropdown" role="listbox" id="search-listbox">
             <div className="dropdown-empty">
               No results found for "{inputText}"
             </div>
