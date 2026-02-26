@@ -172,7 +172,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
           className={`search-input ${isSelected ? 'selected' : ''}`}
           autoComplete="off"
           role="combobox"
-          aria-controls="search-listbox"
+          aria-controls={`search-listbox-${type}`}
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
           aria-label={placeholder}
@@ -189,7 +189,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
           </button>
         )}
         {showDropdown && hasResults && (
-          <div className="search-dropdown" role="listbox" id="search-listbox">
+          <div className="search-dropdown" role="listbox" id={`search-listbox-${type}`}>
             {results.stops.length > 0 && (
               <>
                 <div className="dropdown-section-header">
@@ -239,7 +239,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
           </div>
         )}
         {showDropdown && !hasResults && inputText.length >= 2 && !loading && (
-          <div className="search-dropdown" role="listbox" id="search-listbox">
+          <div className="search-dropdown" role="listbox" id={`search-listbox-${type}`}>
             <div className="dropdown-empty">
               No results found for "{inputText}"
             </div>
