@@ -241,6 +241,49 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// ─── Reverse geocode: turn lat/lon into a human-readable address ───
+app.get('/api/reverse-geocode', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.json({ name: 'My Location' });
+    }
+
+    const https = require('https');
+    const url = `https://nominatim.openstreetmap.org/reverse?` +
+      `lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}` +
+      `&format=json&addressdetails=1&zoom=18`;
+
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+      }, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch (e) { reject(e); }
+        });
+        response.on('error', reject);
+      }).on('error', reject);
+    });
+
+    if (data && data.address) {
+      const a = data.address;
+      // Build a concise name: road + suburb/village or town
+      const road = a.road || a.pedestrian || a.footway || a.path || '';
+      const area = a.suburb || a.village || a.hamlet || a.neighbourhood || a.town || a.city || '';
+      const name = [road, area].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'My Location';
+      return res.json({ name, fullName: data.display_name });
+    }
+
+    res.json({ name: 'My Location' });
+  } catch (err) {
+    console.error('Reverse geocode error:', err.message);
+    res.json({ name: 'My Location' });
+  }
+});
+
 // ─── Search: Combined stop + place search for the frontend ───
 app.get('/api/search', async (req, res) => {
   try {
@@ -2065,9 +2108,9 @@ app.get('/api/plan', async (req, res) => {
       const sLat = parseFloat(startLat);
       const sLon = parseFloat(startLon);
       startPlaceCoords = { lat: sLat, lon: sLon };
-      const degDelta = 1.5 / 111.0; // 1.5km search radius
+      const degDelta = 3.0 / 111.0; // 3km search radius for bus stops
 
-      // Find nearest bus stop with routes
+      // Find nearest bus stop with routes (priority)
       const busNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s
@@ -2076,16 +2119,32 @@ app.get('/api/plan', async (req, res) => {
           AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
       `, [sLon, sLat, degDelta]);
 
-      // Also check rail stations (wider radius)
+      // Also check rail stations (same radius)
       const railNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [sLon, sLat, degDelta * 3]);
+      `, [sLon, sLat, degDelta]);
 
-      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
-        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon))
+      const busWithDist = busNear.rows.map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
       })).sort((a, b) => a.dist - b.dist);
+
+      const railWithDist = railNear.rows.map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'rail'
+      })).sort((a, b) => a.dist - b.dist);
+
+      // Prefer bus stops: only consider rail if the nearest bus stop is >500m away
+      // and rail is genuinely closer than the nearest bus stop
+      let allNear;
+      if (busWithDist.length > 0 && (busWithDist[0].dist <= 0.5 || railWithDist.length === 0 || busWithDist[0].dist <= railWithDist[0].dist)) {
+        allNear = busWithDist;
+      } else if (railWithDist.length > 0 && (busWithDist.length === 0 || railWithDist[0].dist < busWithDist[0].dist)) {
+        // Rail is closer and nearest bus is >500m — include both, rail first
+        allNear = [...railWithDist, ...busWithDist];
+      } else {
+        allNear = [...busWithDist, ...railWithDist].sort((a, b) => a.dist - b.dist);
+      }
 
       if (allNear.length === 0) {
         return res.status(404).json({ error: 'No stops found near the start location. Try a location closer to a bus stop or rail station.' });
@@ -2112,7 +2171,7 @@ app.get('/api/plan', async (req, res) => {
       const eLat = parseFloat(endLat);
       const eLon = parseFloat(endLon);
       endPlaceCoords = { lat: eLat, lon: eLon };
-      const degDelta = 1.5 / 111.0;
+      const degDelta = 3.0 / 111.0; // 3km search radius
 
       const busNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
@@ -2126,11 +2185,25 @@ app.get('/api/plan', async (req, res) => {
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [eLon, eLat, degDelta * 3]);
+      `, [eLon, eLat, degDelta]);
 
-      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
-        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon))
+      const busWithDist = busNear.rows.map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
       })).sort((a, b) => a.dist - b.dist);
+
+      const railWithDist = railNear.rows.map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'rail'
+      })).sort((a, b) => a.dist - b.dist);
+
+      // Prefer bus stops: only consider rail if nearest bus is >500m away and rail is closer
+      let allNear;
+      if (busWithDist.length > 0 && (busWithDist[0].dist <= 0.5 || railWithDist.length === 0 || busWithDist[0].dist <= railWithDist[0].dist)) {
+        allNear = busWithDist;
+      } else if (railWithDist.length > 0 && (busWithDist.length === 0 || railWithDist[0].dist < busWithDist[0].dist)) {
+        allNear = [...railWithDist, ...busWithDist];
+      } else {
+        allNear = [...busWithDist, ...railWithDist].sort((a, b) => a.dist - b.dist);
+      }
 
       if (allNear.length === 0) {
         return res.status(404).json({ error: 'No stops found near the destination. Try a location closer to a bus stop or rail station.' });
@@ -2198,6 +2271,41 @@ app.get('/api/plan', async (req, res) => {
     if (startRailResult?.rows.length > 0) startTiplocs = [startRailResult.rows[0].tiploc_code, ...startTiplocs];
     if (endRailResult?.rows.length > 0) endTiplocs = [endRailResult.rows[0].tiploc_code, ...endTiplocs];
 
+    // When start or end IS a rail station, find nearby bus stops so bus searches can work
+    // (buses don't stop at rail station ATCO codes like 9100PRST)
+    let busEndCodes = [resolvedEnd]; // ATCO codes to use as bus destination
+    let busStartCodes = [resolvedStart]; // ATCO codes to use as bus origin
+    if (endIsRail) {
+      const nearbyBusStops = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [parseFloat(endStop.lon), parseFloat(endStop.lat)]);
+      const endBusStops = nearbyBusStops.rows.map(r => ({
+        ...r, dist: haversineDistance(parseFloat(endStop.lat), parseFloat(endStop.lon), parseFloat(r.lat), parseFloat(r.lon))
+      })).filter(r => r.dist <= 1.0).sort((a, b) => a.dist - b.dist).slice(0, 5);
+      if (endBusStops.length > 0) {
+        busEndCodes = endBusStops.map(s => s.atco_code);
+      }
+    }
+    if (startIsRail) {
+      const nearbyBusStops = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [parseFloat(startStop.lon), parseFloat(startStop.lat)]);
+      const startBusStops = nearbyBusStops.rows.map(r => ({
+        ...r, dist: haversineDistance(parseFloat(startStop.lat), parseFloat(startStop.lon), parseFloat(r.lat), parseFloat(r.lon))
+      })).filter(r => r.dist <= 1.0).sort((a, b) => a.dist - b.dist).slice(0, 5);
+      if (startBusStops.length > 0) {
+        busStartCodes = startBusStops.map(s => s.atco_code);
+      }
+    }
+
     // === Strategy 3: Direct train (if both near rail stations) ===
     let directTrain = [];
     if (startTiplocs.length > 0 && endTiplocs.length > 0) {
@@ -2207,6 +2315,39 @@ app.get('/api/plan', async (req, res) => {
     }
 
     _mark('directTrain');
+
+    // === Strategy 2b: Direct bus to/from bus stops near rail stations ===
+    // When start or end is a rail station, also search for bus routes to/from nearby bus stops
+    let extraDirectBus = [];
+    if (endIsRail && busEndCodes.length > 0) {
+      for (const busEndCode of busEndCodes) {
+        const extra = await findDirectBusJourneys(resolvedStart, busEndCode, departureTime, dayIndex, 3);
+        extraDirectBus.push(...extra);
+      }
+    }
+    if (startIsRail && busStartCodes.length > 0) {
+      for (const busStartCode of busStartCodes) {
+        const extra = await findDirectBusJourneys(busStartCode, resolvedEnd, departureTime, dayIndex, 3);
+        extraDirectBus.push(...extra);
+      }
+    }
+    // Also search expanded codes for start (bus) -> end near rail
+    if (endIsRail && busEndCodes.length > 0 && startIsRail && busStartCodes.length > 0) {
+      for (const busStartCode of busStartCodes) {
+        for (const busEndCode of busEndCodes) {
+          const extra = await findDirectBusJourneys(busStartCode, busEndCode, departureTime, dayIndex, 3);
+          extraDirectBus.push(...extra);
+        }
+      }
+    }
+    // Deduplicate extra bus results
+    const seenBusJourneys = new Set(directBus.map(b => b.journeyId));
+    for (const bus of extraDirectBus) {
+      if (!seenBusJourneys.has(bus.journeyId)) {
+        seenBusJourneys.add(bus.journeyId);
+        directBus.push(bus);
+      }
+    }
 
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
@@ -2224,13 +2365,13 @@ app.get('/api/plan', async (req, res) => {
     // 5a: If start is walkable to rail, use walk+train strategies (already covered by Strategy 3/4)
     // 5b: Bus → Train (find rail stations reachable by bus from the start)
     {
-      const busReachableFromStart = await findBusReachableRailStations(start, dayIndex, departureTime, 5);
+      const busReachableFromStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 5);
 
       // Merge endTiplocs with any rail stations walkable from end
       let targetTiplocs = [...endTiplocs];
       // If end IS a rail station, ensure its TIPLOC is included
       if (endIsRail) {
-        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [end]);
+        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedEnd]);
         if (r.rows.length > 0 && !targetTiplocs.includes(r.rows[0].tiploc_code)) {
           targetTiplocs.unshift(r.rows[0].tiploc_code);
         }
@@ -2238,10 +2379,10 @@ app.get('/api/plan', async (req, res) => {
 
       for (const station of busReachableFromStart) {
         // Skip if this station is the end destination itself (already handled by direct train)
-        if (station.atco_code === end) continue;
+        if (station.atco_code === resolvedEnd) continue;
 
         // Find the actual bus journey from origin to the bus stop near this rail station
-        const busLegs = await findDirectBusJourneys(start, station.bus_stop_atco, departureTime, dayIndex, 3);
+        const busLegs = await findDirectBusJourneys(resolvedStart, station.bus_stop_atco, departureTime, dayIndex, 3);
 
         for (const bus of busLegs) {
           // Calculate walk time from bus stop to rail station (short walk, ~300m max)
@@ -2341,11 +2482,11 @@ app.get('/api/plan', async (req, res) => {
 
     // 5c: Train → Bus (find rail stations near the end that connect to the destination by bus)
     {
-      const busReachableFromEnd = await findBusReachableRailStations(end, dayIndex, '00:00:00', 5);
+      const busReachableFromEnd = await findBusReachableRailStations(resolvedEnd, dayIndex, '00:00:00', 5);
 
       let sourceTiplocs = [...startTiplocs];
       if (startIsRail) {
-        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [start]);
+        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedStart]);
         if (r.rows.length > 0 && !sourceTiplocs.includes(r.rows[0].tiploc_code)) {
           sourceTiplocs.unshift(r.rows[0].tiploc_code);
         }
@@ -2354,7 +2495,7 @@ app.get('/api/plan', async (req, res) => {
       // Also try bus-reachable stations from start as source TIPLOCs
       // (in case start isn't within walking distance of a station)
       if (sourceTiplocs.length === 0) {
-        const busReachableStart = await findBusReachableRailStations(start, dayIndex, departureTime, 3);
+        const busReachableStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 3);
         // For train→bus, we can still use bus→train→bus but that gets complex.
         // Instead just use walk-reachable start stations.
         // (bus→train→bus is handled by combining 5b with 5c results)
@@ -2376,7 +2517,15 @@ app.get('/api/plan', async (req, res) => {
             const busAfter = minutesToTime(arrivalMins) + ':00';
 
             // Find bus from near the rail station to destination
-            const busLegs = await findDirectBusJourneys(endStation.bus_stop_atco, end, busAfter, dayIndex, 2);
+            // If destination is a rail station, also try bus stops near it
+            let busLegs = await findDirectBusJourneys(endStation.bus_stop_atco, resolvedEnd, busAfter, dayIndex, 2);
+            if (busLegs.length === 0 && endIsRail && busEndCodes.length > 0) {
+              for (const busEndCode of busEndCodes) {
+                const extra = await findDirectBusJourneys(endStation.bus_stop_atco, busEndCode, busAfter, dayIndex, 2);
+                busLegs.push(...extra);
+                if (busLegs.length >= 2) break;
+              }
+            }
 
             for (const bus of busLegs) {
               const legs = [];
@@ -2427,7 +2576,14 @@ app.get('/api/plan', async (req, res) => {
           const arrivalMins = timeToMinutes(train.alightTime) + endStation.walk_minutes;
           const busAfter = minutesToTime(arrivalMins) + ':00';
           
-          const busLegs = await findDirectBusJourneys(endStation.atco_code, end, busAfter, dayIndex, 2);
+          let busLegs = await findDirectBusJourneys(endStation.atco_code, resolvedEnd, busAfter, dayIndex, 2);
+          if (busLegs.length === 0 && endIsRail && busEndCodes.length > 0) {
+            for (const busEndCode of busEndCodes) {
+              const extra = await findDirectBusJourneys(endStation.atco_code, busEndCode, busAfter, dayIndex, 2);
+              busLegs.push(...extra);
+              if (busLegs.length >= 2) break;
+            }
+          }
           
           for (const bus of busLegs) {
             multiModal.push({
@@ -2460,7 +2616,7 @@ app.get('/api/plan', async (req, res) => {
 
         const nearStart = await findNearbyBusStops(startStation.atco_code, 1.0);
         for (const nearStop of nearStart.slice(0, 3)) {
-          const busLegs = await findDirectBusJourneys(start, nearStop.atco_code, departureTime, dayIndex, 2);
+          const busLegs = await findDirectBusJourneys(resolvedStart, nearStop.atco_code, departureTime, dayIndex, 2);
           
           for (const bus of busLegs) {
             const arrivalMins = timeToMinutes(bus.alightTime) + 3;
@@ -2534,8 +2690,21 @@ app.get('/api/plan', async (req, res) => {
     // === Strategy 6: Bus → Bus transfer ===
     let busTransfers = [];
     if (directBus.length === 0) {
-      const startCodes = await expandStopCode(start);
-      const endCodes = await expandStopCode(end);
+      let startCodes = await expandStopCode(resolvedStart);
+      let endCodes = await expandStopCode(resolvedEnd);
+      // When start/end is a rail station, include nearby bus stops in the transfer search
+      if (startIsRail && busStartCodes.length > 0) {
+        for (const code of busStartCodes) {
+          const expanded = await expandStopCode(code);
+          startCodes = [...new Set([...startCodes, ...expanded])];
+        }
+      }
+      if (endIsRail && busEndCodes.length > 0) {
+        for (const code of busEndCodes) {
+          const expanded = await expandStopCode(code);
+          endCodes = [...new Set([...endCodes, ...expanded])];
+        }
+      }
       const sPlaceholders = startCodes.map((_, i) => `$${i + 1}`).join(',');
       const ePlaceholders = endCodes.map((_, i) => `$${startCodes.length + i + 1}`).join(',');
       const dayPos = dayIndex + 1;
@@ -2631,14 +2800,67 @@ app.get('/api/plan', async (req, res) => {
     for (const bus of directBus) {
       const depMins = timeToMinutes(bus.boardTime);
       const arrMins = timeToMinutes(bus.alightTime);
+      const legs = [bus];
+      let totalDuration = arrMins - depMins;
+
+      // If bus doesn't stop at the actual start/end (e.g. stops at bus stop near rail station),
+      // add walk legs
+      const busAlightIsEnd = bus.alightAtco === resolvedEnd;
+      const busBoardIsStart = bus.boardAtco === resolvedStart;
+      
+      if (!busBoardIsStart && startIsRail) {
+        // Add walk from rail station to bus stop
+        const busStopCoords = await pool.query(
+          'SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1', [bus.boardAtco]
+        );
+        if (busStopCoords.rows[0]) {
+          const walkDist = haversineDistance(parseFloat(startStop.lat), parseFloat(startStop.lon),
+            parseFloat(busStopCoords.rows[0].lat), parseFloat(busStopCoords.rows[0].lon));
+          const walkMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          if (walkMins > 1) {
+            legs.unshift({
+              type: 'walk',
+              fromName: startStop.common_name,
+              toName: bus.boardName,
+              duration: walkMins,
+              distance_km: Math.round(walkDist * 1000) / 1000
+            });
+            totalDuration += walkMins;
+          }
+        }
+      }
+
+      if (!busAlightIsEnd && endIsRail) {
+        // Add walk from bus stop to rail station
+        const busStopCoords = await pool.query(
+          'SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1', [bus.alightAtco]
+        );
+        if (busStopCoords.rows[0]) {
+          const walkDist = haversineDistance(parseFloat(busStopCoords.rows[0].lat), parseFloat(busStopCoords.rows[0].lon),
+            parseFloat(endStop.lat), parseFloat(endStop.lon));
+          const walkMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          if (walkMins > 1) {
+            legs.push({
+              type: 'walk',
+              fromName: bus.alightName,
+              toName: endStop.common_name,
+              duration: walkMins,
+              distance_km: Math.round(walkDist * 1000) / 1000
+            });
+            totalDuration += walkMins;
+          }
+        }
+      }
+
+      const modes = [...new Set(legs.map(l => l.type))];
       allRoutes.push({
         id: `bus-direct-${bus.journeyId}`,
-        summary: `Bus ${bus.routeNumber} direct`,
-        modes: ['bus'],
+        summary: `Bus ${bus.routeNumber}${busAlightIsEnd ? ' direct' : ''}`,
+        modes: modes,
         departureTime: bus.boardTime,
-        arrivalTime: bus.alightTime,
-        durationMinutes: arrMins - depMins,
-        legs: [bus]
+        arrivalTime: minutesToTime(depMins + totalDuration) + ':00',
+        durationMinutes: totalDuration,
+        legs: legs
       });
     }
 
@@ -2828,9 +3050,20 @@ app.get('/api/plan', async (req, res) => {
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance
     // - Remove routes arriving later than the last sensible option
+    // - Remove routes where any single walk leg exceeds 30 minutes (unless it's the only route type)
     const reasonableMinMinutes = Math.max(directDistance * 2, 15); // ~30 km/h avg transit
     const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
-    const filteredRoutes = allRoutes.filter(r => r.durationMinutes <= maxReasonableDuration && r.durationMinutes > 0);
+    const maxWalkLegMinutes = 30; // cap individual walk legs at 30 minutes
+    const filteredRoutes = allRoutes.filter(r => {
+      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) return false;
+      // Filter out routes with excessively long walk legs (unless walk-only)
+      if (r.id !== 'walk-only') {
+        const walkLegs = r.legs.filter(l => l.type === 'walk');
+        const maxWalk = Math.max(...walkLegs.map(l => l.duration || 0), 0);
+        if (maxWalk > maxWalkLegMinutes) return false;
+      }
+      return true;
+    });
 
     // Deduplicate routes by their actual transport legs (same times + route = same journey)
     const uniqueRoutes = [];
