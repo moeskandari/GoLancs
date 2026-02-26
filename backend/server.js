@@ -1585,7 +1585,7 @@ async function fetchOSRMGeometry(waypoints, profile = 'driving') {
 
     return new Promise((resolve) => {
       const https = require('https');
-      https.get(url, { timeout: 3000 }, (response) => {
+      https.get(url, { timeout: 5000 }, (response) => {
         let data = '';
         response.on('data', chunk => data += chunk);
         response.on('end', () => {
@@ -1607,6 +1607,104 @@ async function fetchOSRMGeometry(waypoints, profile = 'driving') {
   } catch {
     return null;
   }
+}
+
+/**
+ * Fetch road-following geometry from Valhalla for a bus route with multiple waypoints.
+ * Uses 'auto' costing (closest to bus behaviour — follows main roads).
+ * Waypoints: array of { lat, lon } objects (bus stop positions in order).
+ * Returns array of [lat, lon] pairs forming the full road-snapped route, or null.
+ * 
+ * For routes with many stops, we sample key waypoints to stay within API limits
+ * and still produce an accurate road-following route.
+ */
+async function fetchValhallaBusGeometry(waypoints) {
+  if (!waypoints || waypoints.length < 2) return null;
+
+  // Valhalla can handle ~20 locations per request comfortably.
+  // For longer routes, sample intermediate stops while keeping first and last.
+  let routeWaypoints = waypoints;
+  if (waypoints.length > 20) {
+    const step = Math.ceil((waypoints.length - 2) / 18);
+    routeWaypoints = [waypoints[0]];
+    for (let i = 1; i < waypoints.length - 1; i += step) {
+      routeWaypoints.push(waypoints[i]);
+    }
+    routeWaypoints.push(waypoints[waypoints.length - 1]);
+  }
+
+  const locations = routeWaypoints.map((w, i) => ({
+    lat: w.lat,
+    lon: w.lon,
+    type: i === 0 || i === routeWaypoints.length - 1 ? 'break' : 'via'
+  }));
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const requestBody = JSON.stringify({
+        locations: locations,
+        costing: 'auto',
+        directions_options: { units: 'kilometers' }
+      });
+
+      const result = await new Promise((resolve) => {
+        const https = require('https');
+        const options = {
+          hostname: 'valhalla1.openstreetmap.de',
+          path: '/route',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(requestBody)
+          },
+          timeout: 10000
+        };
+
+        const req = https.request(options, (response) => {
+          let data = '';
+          response.on('data', chunk => data += chunk);
+          response.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.trip && parsed.trip.legs) {
+                // Combine geometry from all legs into a single polyline
+                const allPoints = [];
+                for (const leg of parsed.trip.legs) {
+                  if (leg.shape) {
+                    const points = decodeValhallaPolyline(leg.shape);
+                    if (allPoints.length > 0 && points.length > 0) {
+                      points.shift(); // Remove duplicate junction point
+                    }
+                    allPoints.push(...points);
+                  }
+                }
+                resolve(allPoints.length >= 2 ? allPoints : null);
+              } else {
+                resolve(null);
+              }
+            } catch {
+              resolve('retry');
+            }
+          });
+        });
+
+        req.on('error', () => resolve(null));
+        req.on('timeout', function() { this.destroy(); resolve(null); });
+        req.write(requestBody);
+        req.end();
+      });
+
+      if (result === 'retry' && attempt === 0) {
+        await delay(500);
+        continue;
+      }
+      if (result === 'retry') return null;
+      return result;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -1659,6 +1757,13 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
  */
 const valhallaGeoCache = new Map();
 const VALHALLA_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Persistent in-memory cache for Valhalla bus route geometry.
+ * Key: "journeyId:boardAtco:alightAtco"
+ * Value: array of [lat, lon] points, or null if request failed.
+ */
+const busGeoCache = new Map();
 
 function getValhallaCacheKey(fromLat, fromLon, toLat, toLon) {
   return `${fromLat.toFixed(4)},${fromLon.toFixed(4)}:${toLat.toFixed(4)},${toLon.toFixed(4)}`;
@@ -1738,11 +1843,11 @@ function mergeConsecutiveWalkLegs(allRoutes) {
 /**
  * Enrich route legs with geometry from stop waypoints and routing services.
  * - Train legs: use railway graph (local, fast)
- * - Bus legs: use intermediate stop coordinates (local, fast)  
+ * - Bus legs: get stop waypoints (local), then route via Valhalla auto costing for road-following lines
  * - Walk legs: use Valhalla pedestrian routing (cached + deduplicated)
  */
 async function enrichLegsWithGeometry(allRoutes) {
-  // --- Phase 1: Train track geometry + bus stop waypoints (all local, no API calls) ---
+  // --- Phase 1: Train track geometry + bus stop waypoints (all local DB queries) ---
   const localGeometryPromises = [];
 
   for (const route of allRoutes) {
@@ -1783,11 +1888,13 @@ async function enrichLegsWithGeometry(allRoutes) {
           })()
         );
       } else if (leg.type === 'bus' && leg.journeyId && leg.boardAtco && leg.alightAtco) {
+        // Fetch stop waypoints from DB (local, fast) — store on leg for Phase 2
         localGeometryPromises.push(
           (async () => {
             const waypoints = await getBusJourneyWaypoints(leg.journeyId, leg.boardAtco, leg.alightAtco);
             if (waypoints && waypoints.length >= 2) {
-              leg.geometry = waypoints.map(w => [w.lat, w.lon]);
+              leg._busWaypoints = waypoints; // temporary, used in Phase 2
+              leg.geometry = waypoints.map(w => [w.lat, w.lon]); // straight-line fallback
             }
           })()
         );
@@ -1797,7 +1904,78 @@ async function enrichLegsWithGeometry(allRoutes) {
 
   await Promise.allSettled(localGeometryPromises);
 
-  // --- Phase 2: Valhalla walk geometry only (cached + deduplicated + batched) ---
+  // --- Phase 2a: Bus road-following geometry via Valhalla (cached + batched) ---
+  const busRequests = []; // { leg, waypoints, cacheKey }
+
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      if (leg.type === 'bus' && leg._busWaypoints && leg._busWaypoints.length >= 2) {
+        const cacheKey = `bus:${leg.journeyId}:${leg.boardAtco}:${leg.alightAtco}`;
+
+        // Check cache
+        const cached = busGeoCache.get(cacheKey);
+        if (cached && Date.now() - cached.time < VALHALLA_CACHE_TTL) {
+          if (cached.geometry && cached.geometry.length >= 2) {
+            leg.geometry = cached.geometry;
+          }
+          delete leg._busWaypoints;
+          continue;
+        }
+
+        busRequests.push({ leg, waypoints: leg._busWaypoints, cacheKey });
+      }
+    }
+  }
+
+  if (busRequests.length > 0) {
+    console.log(`Valhalla bus route queue: ${busRequests.length} unique requests`);
+
+    // Process bus route geometry in batches of 2 (larger payloads than walk)
+    const BUS_BATCH = 2;
+    for (let i = 0; i < busRequests.length; i += BUS_BATCH) {
+      const batch = busRequests.slice(i, i + BUS_BATCH);
+
+      await Promise.allSettled(batch.map(async ({ leg, waypoints, cacheKey }) => {
+        // Try Valhalla first for best quality road-following geometry
+        let geometry = await fetchValhallaBusGeometry(waypoints);
+
+        // Fallback to OSRM if Valhalla fails
+        if (!geometry || geometry.length < 2) {
+          geometry = await fetchOSRMGeometry(waypoints, 'driving');
+        }
+
+        // Cache result
+        busGeoCache.set(cacheKey, { geometry, time: Date.now() });
+        if (busGeoCache.size > 300) {
+          const now = Date.now();
+          for (const [k, v] of busGeoCache) {
+            if (now - v.time > VALHALLA_CACHE_TTL) busGeoCache.delete(k);
+          }
+        }
+
+        if (geometry && geometry.length >= 2) {
+          leg.geometry = geometry;
+        }
+        // else: keeps the straight-line stop waypoints as fallback
+
+        delete leg._busWaypoints;
+      }));
+
+      // Small delay between batches to respect rate limits
+      if (i + BUS_BATCH < busRequests.length) {
+        await delay(200);
+      }
+    }
+  }
+
+  // Clean up any remaining temporary waypoints
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      delete leg._busWaypoints;
+    }
+  }
+
+  // --- Phase 2b: Valhalla walk geometry (cached + deduplicated + batched) ---
   const walkRequests = new Map(); // dedup key → { fromLat, fromLon, toLat, toLon, legs[] }
 
   for (const route of allRoutes) {
