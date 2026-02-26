@@ -1666,124 +1666,134 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Fetch road-following geometry from Valhalla for a bus route with multiple waypoints.
- * Uses 'bus' costing with heading constraints to ensure correct direction of travel.
+ * Fetch road-following geometry from Valhalla for a bus route.
+ * Uses a HYBRID approach:
+ * - Groups consecutive close stops (<2km apart) into multi-waypoint requests
+ * - Routes each group as a single Valhalla request with heading constraints
+ * This balances accuracy (correct roads) with performance (fewer API calls).
+ *
  * Waypoints: array of { lat, lon } objects (bus stop positions in order).
  * Returns array of [lat, lon] pairs forming the full road-snapped route, or null.
- *
- * For routes with many stops, we sample key waypoints to stay within API limits
- * and still produce an accurate road-following route.
  */
 async function fetchValhallaBusGeometry(waypoints) {
   if (!waypoints || waypoints.length < 2) return null;
 
-  // Valhalla handles up to ~50 locations per request.
-  // For longer routes, sample intermediate stops while keeping first and last.
-  let routeWaypoints = waypoints;
-  if (waypoints.length > 50) {
-    const step = Math.ceil((waypoints.length - 2) / 48);
-    routeWaypoints = [waypoints[0]];
-    for (let i = 1; i < waypoints.length - 1; i += step) {
-      routeWaypoints.push(waypoints[i]);
+  // Split waypoints into groups where each consecutive pair is <2km apart.
+  // When there's a gap >2km, start a new group — this forces a clean segment
+  // boundary so Valhalla can't take a shortcut via the wrong road.
+  const GAP_THRESHOLD_KM = 2.0;
+  const groups = []; // each group is an array of waypoints
+  let currentGroup = [waypoints[0]];
+
+  for (let i = 1; i < waypoints.length; i++) {
+    const prev = waypoints[i - 1];
+    const curr = waypoints[i];
+    const dist = haversineDistance(prev.lat, prev.lon, curr.lat, curr.lon);
+
+    if (dist > GAP_THRESHOLD_KM) {
+      // Big gap — close current group and start a new one at curr
+      currentGroup.push(curr); // include curr as end of this group
+      groups.push(currentGroup);
+      currentGroup = [curr]; // start new group from curr
+    } else {
+      currentGroup.push(curr);
     }
-    routeWaypoints.push(waypoints[waypoints.length - 1]);
+  }
+  if (currentGroup.length >= 2) {
+    groups.push(currentGroup);
+  } else if (groups.length > 0 && currentGroup.length === 1) {
+    // Lone trailing point — append to last group
+    groups[groups.length - 1].push(currentGroup[0]);
   }
 
-  // Build locations with heading info so Valhalla knows direction of travel.
-  // This prevents routing the wrong way on one-way streets or approaching
-  // stops from the wrong side of the road.
-  const locations = routeWaypoints.map((w, i) => {
-    const loc = {
-      lat: w.lat,
-      lon: w.lon,
-      type: i === 0 || i === routeWaypoints.length - 1 ? 'break' : 'via'
-    };
+  // Route each group as a single Valhalla multi-waypoint request
+  const allPoints = [];
+  const GROUP_BATCH = 3; // process up to 3 groups in parallel
 
-    // Calculate heading from this stop toward the next stop.
-    // For the last stop, use heading from the previous stop.
-    if (i < routeWaypoints.length - 1) {
-      const next = routeWaypoints[i + 1];
-      loc.heading = Math.round(calculateBearing(w.lat, w.lon, next.lat, next.lon));
-    } else {
-      const prev = routeWaypoints[i - 1];
-      loc.heading = Math.round(calculateBearing(prev.lat, prev.lon, w.lat, w.lon));
-    }
-    loc.heading_tolerance = 60; // degrees of tolerance
+  for (let gb = 0; gb < groups.length; gb += GROUP_BATCH) {
+    const batch = groups.slice(gb, gb + GROUP_BATCH);
 
-    return loc;
-  });
+    const results = await Promise.allSettled(batch.map(async (group) => {
+      // Build locations with heading constraints
+      const locations = group.map((w, i) => {
+        const loc = {
+          lat: w.lat, lon: w.lon,
+          type: i === 0 || i === group.length - 1 ? 'break' : 'via'
+        };
+        if (i < group.length - 1) {
+          loc.heading = Math.round(calculateBearing(w.lat, w.lon, group[i + 1].lat, group[i + 1].lon));
+        } else {
+          loc.heading = Math.round(calculateBearing(group[i - 1].lat, group[i - 1].lon, w.lat, w.lon));
+        }
+        loc.heading_tolerance = 60;
+        return loc;
+      });
 
-  // Try bus costing first (respects bus lanes, transit routes), fall back to auto
-  const costings = ['bus', 'auto'];
-  for (const costing of costings) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
+      // Try bus costing, fall back to auto
+      for (const costing of ['bus', 'auto']) {
         const requestBody = JSON.stringify({
-          locations: locations,
-          costing: costing,
+          locations,
+          costing,
           directions_options: { units: 'kilometers' }
         });
 
-      const result = await new Promise((resolve) => {
-        const https = require('https');
-        const options = {
-          hostname: 'valhalla1.openstreetmap.de',
-          path: '/route',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(requestBody)
-          },
-          timeout: 10000
-        };
-
-        const req = https.request(options, (response) => {
-          let data = '';
-          response.on('data', chunk => data += chunk);
-          response.on('end', () => {
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.trip && parsed.trip.legs) {
-                // Combine geometry from all legs into a single polyline
-                const allPoints = [];
-                for (const leg of parsed.trip.legs) {
-                  if (leg.shape) {
-                    const points = decodeValhallaPolyline(leg.shape);
-                    if (allPoints.length > 0 && points.length > 0) {
-                      points.shift(); // Remove duplicate junction point
+        const geo = await new Promise((resolve) => {
+          const https = require('https');
+          const req = https.request({
+            hostname: 'valhalla1.openstreetmap.de',
+            path: '/route',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(requestBody)
+            },
+            timeout: 10000
+          }, (response) => {
+            let data = '';
+            response.on('data', chunk => data += chunk);
+            response.on('end', () => {
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.trip && parsed.trip.legs) {
+                  const pts = [];
+                  for (const leg of parsed.trip.legs) {
+                    if (leg.shape) {
+                      const decoded = decodeValhallaPolyline(leg.shape);
+                      if (pts.length > 0 && decoded.length > 0) decoded.shift();
+                      pts.push(...decoded);
                     }
-                    allPoints.push(...points);
                   }
-                }
-                resolve(allPoints.length >= 2 ? allPoints : null);
-              } else {
-                resolve(null);
-              }
-            } catch {
-              resolve('retry');
-            }
+                  resolve(pts.length >= 2 ? pts : null);
+                } else { resolve(null); }
+              } catch { resolve(null); }
+            });
           });
+          req.on('error', () => resolve(null));
+          req.on('timeout', function() { this.destroy(); resolve(null); });
+          req.write(requestBody);
+          req.end();
         });
 
-        req.on('error', () => resolve(null));
-        req.on('timeout', function() { this.destroy(); resolve(null); });
-        req.write(requestBody);
-        req.end();
-      });
-
-      if (result === 'retry' && attempt === 0) {
-        await delay(500);
-        continue;
+        if (geo && geo.length >= 2) return geo;
       }
-      if (result === 'retry') break; // try next costing
-      if (result) return result; // success
-      break; // null result, try next costing
-    } catch {
-      break; // try next costing
+      return null; // both costings failed
+    }));
+
+    // Stitch group results in order
+    for (const result of results) {
+      const geo = result.status === 'fulfilled' ? result.value : null;
+      if (geo && geo.length >= 2) {
+        if (allPoints.length > 0) geo.shift(); // remove duplicate junction
+        allPoints.push(...geo);
+      }
     }
-  } // end attempts
-  } // end costings
-  return null;
+
+    if (gb + GROUP_BATCH < groups.length) {
+      await delay(100);
+    }
+  }
+
+  return allPoints.length >= 2 ? allPoints : null;
 }
 
 /**
