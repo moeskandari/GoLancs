@@ -241,6 +241,49 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// ─── Reverse geocode: turn lat/lon into a human-readable address ───
+app.get('/api/reverse-geocode', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.json({ name: 'My Location' });
+    }
+
+    const https = require('https');
+    const url = `https://nominatim.openstreetmap.org/reverse?` +
+      `lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}` +
+      `&format=json&addressdetails=1&zoom=18`;
+
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+      }, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch (e) { reject(e); }
+        });
+        response.on('error', reject);
+      }).on('error', reject);
+    });
+
+    if (data && data.address) {
+      const a = data.address;
+      // Build a concise name: road + suburb/village or town
+      const road = a.road || a.pedestrian || a.footway || a.path || '';
+      const area = a.suburb || a.village || a.hamlet || a.neighbourhood || a.town || a.city || '';
+      const name = [road, area].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'My Location';
+      return res.json({ name, fullName: data.display_name });
+    }
+
+    res.json({ name: 'My Location' });
+  } catch (err) {
+    console.error('Reverse geocode error:', err.message);
+    res.json({ name: 'My Location' });
+  }
+});
+
 // ─── Search: Combined stop + place search for the frontend ───
 app.get('/api/search', async (req, res) => {
   try {

@@ -40,12 +40,48 @@ function App() {
   const [sortBy, setSortBy] = useState('duration');
   const [departureTime, setDepartureTime] = useState('');
 
-  // Get user's location on mount
+  // Continuously track user's live GPS location
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude])
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserLocation({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
+          timestamp: pos.timestamp
+        });
+      },
+      (err) => console.warn('Geolocation error:', err.message),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  // Set the start location to the user's current GPS position
+  const useMyLocation = useCallback(async () => {
+    if (!userLocation) return;
+    // Immediately set coords so route planning can work
+    const loc = {
+      type: 'place',
+      name: 'My Location',
+      common_name: 'My Location',
+      lat: userLocation.lat,
+      lon: userLocation.lon,
+      isUserLocation: true
+    };
+    setStartStop(loc);
+    // Reverse-geocode for a human-readable name in the background
+    try {
+      const res = await fetch(`${API_URL}/api/reverse-geocode?lat=${userLocation.lat}&lon=${userLocation.lon}`);
+      const data = await res.json();
+      if (data.name && data.name !== 'My Location') {
+        setStartStop(prev => prev?.isUserLocation ? { ...prev, name: `📍 ${data.name}`, common_name: `📍 ${data.name}` } : prev);
+      }
+    } catch (e) { /* keep 'My Location' */ }
+  }, [userLocation]);
 
   // Swap start and end stops
   const swapStops = () => {
@@ -170,6 +206,8 @@ function App() {
               type="start"
               value={startStop}
               onChange={setStartStop}
+              onUseMyLocation={useMyLocation}
+              hasUserLocation={!!userLocation}
             />
             <SearchBar
               placeholder="Where are you going?"
@@ -219,6 +257,7 @@ function App() {
         endLocation={endStop}
         routes={routes}
         selectedRoute={selectedRoute}
+        onLocateMe={useMyLocation}
       />
 
       {routes && (

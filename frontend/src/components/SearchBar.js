@@ -3,7 +3,7 @@ import './SearchBar.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-function SearchBar({ placeholder, type, value, onChange }) {
+function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUserLocation }) {
   const [inputText, setInputText] = useState('');
   const [results, setResults] = useState({ stops: [], places: [] });
   const [showDropdown, setShowDropdown] = useState(false);
@@ -122,8 +122,16 @@ function SearchBar({ placeholder, type, value, onChange }) {
     onChange?.(null);
   };
 
+  const handleUseLocation = () => {
+    onUseMyLocation?.();
+    setShowDropdown(false);
+  };
+
   const handleFocus = () => {
-    if (inputText.length >= 2 && !isSelected) {
+    // Show dropdown with "Use My Location" even when input is empty
+    if (onUseMyLocation && hasUserLocation && !isSelected && inputText.length < 2) {
+      setShowDropdown(true);
+    } else if (inputText.length >= 2 && !isSelected) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => searchLocations(inputText), 100);
     }
@@ -188,8 +196,26 @@ function SearchBar({ placeholder, type, value, onChange }) {
             ✕
           </button>
         )}
-        {showDropdown && hasResults && (
+        {showDropdown && (hasResults || (onUseMyLocation && hasUserLocation)) && (
           <div className="search-dropdown" role="listbox" id={`search-listbox-${type}`}>
+            {onUseMyLocation && hasUserLocation && (
+              <div
+                className="dropdown-item my-location-item"
+                onClick={handleUseLocation}
+                role="option"
+                aria-selected="false"
+              >
+                <span className="item-icon my-location-icon-circle">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+                  </svg>
+                </span>
+                <div className="item-content">
+                  <div className="item-name my-location-text">Use my current location</div>
+                </div>
+              </div>
+            )}
             {results.stops.length > 0 && (
               <>
                 <div className="dropdown-section-header">
@@ -238,7 +264,7 @@ function SearchBar({ placeholder, type, value, onChange }) {
             )}
           </div>
         )}
-        {showDropdown && !hasResults && inputText.length >= 2 && !loading && (
+        {showDropdown && !hasResults && !(onUseMyLocation && hasUserLocation) && inputText.length >= 2 && !loading && (
           <div className="search-dropdown" role="listbox" id={`search-listbox-${type}`}>
             <div className="dropdown-empty">
               No results found for "{inputText}"
