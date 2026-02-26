@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
@@ -325,31 +325,17 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           </Marker>
         )}
 
-        {/* User live location — pulsing blue dot + accuracy circle */}
+        {/* User live location — pulsing blue dot */}
         {userLocation && (
-          <>
-            <Circle
-              center={[userLocation.lat, userLocation.lon]}
-              radius={userLocation.accuracy || 30}
-              pathOptions={{
-                color: 'rgba(0, 122, 255, 0.25)',
-                fillColor: 'rgba(0, 122, 255, 0.08)',
-                fillOpacity: 0.8,
-                weight: 1
-              }}
-            />
-            <Marker
-              position={[userLocation.lat, userLocation.lon]}
-              icon={userDotIcon(userLocation.heading)}
-              zIndexOffset={1000}
-            >
-              <Popup>
-                <strong>📍 You are here</strong><br/>
-                Accuracy: ±{Math.round(userLocation.accuracy || 0)}m
-                {userLocation.speed > 0 && <><br/>Speed: {Math.round(userLocation.speed * 3.6)} km/h</>}
-              </Popup>
-            </Marker>
-          </>
+          <Marker
+            position={[userLocation.lat, userLocation.lon]}
+            icon={userDotIcon(userLocation.heading)}
+            zIndexOffset={1000}
+          >
+            <Popup>
+              <strong>📍 You are here</strong>
+            </Popup>
+          </Marker>
         )}
 
         <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />

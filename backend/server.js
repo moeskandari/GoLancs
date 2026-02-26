@@ -1930,9 +1930,9 @@ app.get('/api/plan', async (req, res) => {
       const sLat = parseFloat(startLat);
       const sLon = parseFloat(startLon);
       startPlaceCoords = { lat: sLat, lon: sLon };
-      const degDelta = 1.5 / 111.0; // 1.5km search radius
+      const degDelta = 3.0 / 111.0; // 3km search radius for bus stops
 
-      // Find nearest bus stop with routes
+      // Find nearest bus stop with routes (priority)
       const busNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s
@@ -1941,16 +1941,32 @@ app.get('/api/plan', async (req, res) => {
           AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
       `, [sLon, sLat, degDelta]);
 
-      // Also check rail stations (wider radius)
+      // Also check rail stations (same radius)
       const railNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [sLon, sLat, degDelta * 3]);
+      `, [sLon, sLat, degDelta]);
 
-      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
-        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon))
+      const busWithDist = busNear.rows.map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
       })).sort((a, b) => a.dist - b.dist);
+
+      const railWithDist = railNear.rows.map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'rail'
+      })).sort((a, b) => a.dist - b.dist);
+
+      // Prefer bus stops: only consider rail if the nearest bus stop is >500m away
+      // and rail is genuinely closer than the nearest bus stop
+      let allNear;
+      if (busWithDist.length > 0 && (busWithDist[0].dist <= 0.5 || railWithDist.length === 0 || busWithDist[0].dist <= railWithDist[0].dist)) {
+        allNear = busWithDist;
+      } else if (railWithDist.length > 0 && (busWithDist.length === 0 || railWithDist[0].dist < busWithDist[0].dist)) {
+        // Rail is closer and nearest bus is >500m — include both, rail first
+        allNear = [...railWithDist, ...busWithDist];
+      } else {
+        allNear = [...busWithDist, ...railWithDist].sort((a, b) => a.dist - b.dist);
+      }
 
       if (allNear.length === 0) {
         return res.status(404).json({ error: 'No stops found near the start location. Try a location closer to a bus stop or rail station.' });
@@ -1977,7 +1993,7 @@ app.get('/api/plan', async (req, res) => {
       const eLat = parseFloat(endLat);
       const eLon = parseFloat(endLon);
       endPlaceCoords = { lat: eLat, lon: eLon };
-      const degDelta = 1.5 / 111.0;
+      const degDelta = 3.0 / 111.0; // 3km search radius
 
       const busNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
@@ -1991,11 +2007,25 @@ app.get('/api/plan', async (req, res) => {
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [eLon, eLat, degDelta * 3]);
+      `, [eLon, eLat, degDelta]);
 
-      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
-        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon))
+      const busWithDist = busNear.rows.map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
       })).sort((a, b) => a.dist - b.dist);
+
+      const railWithDist = railNear.rows.map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'rail'
+      })).sort((a, b) => a.dist - b.dist);
+
+      // Prefer bus stops: only consider rail if nearest bus is >500m away and rail is closer
+      let allNear;
+      if (busWithDist.length > 0 && (busWithDist[0].dist <= 0.5 || railWithDist.length === 0 || busWithDist[0].dist <= railWithDist[0].dist)) {
+        allNear = busWithDist;
+      } else if (railWithDist.length > 0 && (busWithDist.length === 0 || railWithDist[0].dist < busWithDist[0].dist)) {
+        allNear = [...railWithDist, ...busWithDist];
+      } else {
+        allNear = [...busWithDist, ...railWithDist].sort((a, b) => a.dist - b.dist);
+      }
 
       if (allNear.length === 0) {
         return res.status(404).json({ error: 'No stops found near the destination. Try a location closer to a bus stop or rail station.' });
