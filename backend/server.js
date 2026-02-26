@@ -1653,22 +1653,35 @@ async function fetchOSRMGeometry(waypoints, profile = 'driving') {
 }
 
 /**
+ * Calculate bearing (compass heading) in degrees from point A to point B.
+ * Returns 0-360 where 0=North, 90=East, 180=South, 270=West.
+ */
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = Math.PI / 180;
+  const dLon = (lon2 - lon1) * toRad;
+  const y = Math.sin(dLon) * Math.cos(lat2 * toRad);
+  const x = Math.cos(lat1 * toRad) * Math.sin(lat2 * toRad) -
+            Math.sin(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+/**
  * Fetch road-following geometry from Valhalla for a bus route with multiple waypoints.
- * Uses 'auto' costing (closest to bus behaviour — follows main roads).
+ * Uses 'bus' costing with heading constraints to ensure correct direction of travel.
  * Waypoints: array of { lat, lon } objects (bus stop positions in order).
  * Returns array of [lat, lon] pairs forming the full road-snapped route, or null.
- * 
+ *
  * For routes with many stops, we sample key waypoints to stay within API limits
  * and still produce an accurate road-following route.
  */
 async function fetchValhallaBusGeometry(waypoints) {
   if (!waypoints || waypoints.length < 2) return null;
 
-  // Valhalla can handle ~20 locations per request comfortably.
+  // Valhalla handles up to ~50 locations per request.
   // For longer routes, sample intermediate stops while keeping first and last.
   let routeWaypoints = waypoints;
-  if (waypoints.length > 20) {
-    const step = Math.ceil((waypoints.length - 2) / 18);
+  if (waypoints.length > 50) {
+    const step = Math.ceil((waypoints.length - 2) / 48);
     routeWaypoints = [waypoints[0]];
     for (let i = 1; i < waypoints.length - 1; i += step) {
       routeWaypoints.push(waypoints[i]);
@@ -1676,19 +1689,40 @@ async function fetchValhallaBusGeometry(waypoints) {
     routeWaypoints.push(waypoints[waypoints.length - 1]);
   }
 
-  const locations = routeWaypoints.map((w, i) => ({
-    lat: w.lat,
-    lon: w.lon,
-    type: i === 0 || i === routeWaypoints.length - 1 ? 'break' : 'via'
-  }));
+  // Build locations with heading info so Valhalla knows direction of travel.
+  // This prevents routing the wrong way on one-way streets or approaching
+  // stops from the wrong side of the road.
+  const locations = routeWaypoints.map((w, i) => {
+    const loc = {
+      lat: w.lat,
+      lon: w.lon,
+      type: i === 0 || i === routeWaypoints.length - 1 ? 'break' : 'via'
+    };
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const requestBody = JSON.stringify({
-        locations: locations,
-        costing: 'auto',
-        directions_options: { units: 'kilometers' }
-      });
+    // Calculate heading from this stop toward the next stop.
+    // For the last stop, use heading from the previous stop.
+    if (i < routeWaypoints.length - 1) {
+      const next = routeWaypoints[i + 1];
+      loc.heading = Math.round(calculateBearing(w.lat, w.lon, next.lat, next.lon));
+    } else {
+      const prev = routeWaypoints[i - 1];
+      loc.heading = Math.round(calculateBearing(prev.lat, prev.lon, w.lat, w.lon));
+    }
+    loc.heading_tolerance = 60; // degrees of tolerance
+
+    return loc;
+  });
+
+  // Try bus costing first (respects bus lanes, transit routes), fall back to auto
+  const costings = ['bus', 'auto'];
+  for (const costing of costings) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const requestBody = JSON.stringify({
+          locations: locations,
+          costing: costing,
+          directions_options: { units: 'kilometers' }
+        });
 
       const result = await new Promise((resolve) => {
         const https = require('https');
@@ -1741,12 +1775,14 @@ async function fetchValhallaBusGeometry(waypoints) {
         await delay(500);
         continue;
       }
-      if (result === 'retry') return null;
-      return result;
+      if (result === 'retry') break; // try next costing
+      if (result) return result; // success
+      break; // null result, try next costing
     } catch {
-      return null;
+      break; // try next costing
     }
-  }
+  } // end attempts
+  } // end costings
   return null;
 }
 
