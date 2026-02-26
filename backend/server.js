@@ -3189,3 +3189,14 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+// Export pure utility functions for unit testing
+module.exports._test = {
+  haversineDistance,
+  calculateBearing,
+  decodeValhallaPolyline,
+  timeToMinutes,
+  minutesToTime,
+  getDayIndex,
+  mergeConsecutiveWalkLegs,
+};
