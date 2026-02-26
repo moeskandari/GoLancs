@@ -26,11 +26,10 @@ describe('Route Planning Endpoints', () => {
     });
   });
 
-  describe('POST /api/plan', () => {
+  describe('GET /api/plan', () => {
     it('should require origin and destination', async () => {
       const res = await request(app)
-        .post('/api/plan')
-        .send({});
+        .get('/api/plan');
       // Should return 400 for missing params or 500 for DB issues
       expect([400, 500]).toContain(res.statusCode);
     });
@@ -50,7 +49,10 @@ describe('Route Planning Endpoints', () => {
       // May fail without DB but should respond properly
       expect([200, 500]).toContain(res.statusCode);
       if (res.statusCode === 200) {
-        expect(Array.isArray(res.body)).toBe(true);
+        expect(res.body).toHaveProperty('stops');
+        expect(res.body).toHaveProperty('places');
+        expect(Array.isArray(res.body.stops)).toBe(true);
+        expect(Array.isArray(res.body.places)).toBe(true);
       }
     });
   });
