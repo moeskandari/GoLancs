@@ -66,11 +66,12 @@ function getWeatherRecommendation(currentWeather, destWeather) {
     tips.push('🥶 It feels below freezing — dress in warm layers.');
     tips.push('Minimise time waiting outdoors where possible.');
   } else if (isNice) {
-    mode = 'walk';
-    tips.push('☀️ Beautiful weather for walking — enjoy the fresh air!');
-    tips.push('Consider walking shorter distances instead of waiting for transport.');
+    mode = 'bus';
+    tips.push('☀️ Great weather today — a bus is a comfortable way to travel.');
+    tips.push('Short on time? The bus will get you there reliably.');
   } else {
-    tips.push('Conditions are fair — all transport modes are fine.');
+    mode = 'bus';
+    tips.push('Conditions are fair — bus or train are both good options.');
   }
 
   // Extra tips for destination
@@ -163,13 +164,11 @@ function WeatherCard({ title, weather, loading }) {
 }
 
 const modeIcons = {
-  walk: '🚶',
   bus: '🚌',
   train: '🚂',
 };
 
 const modeLabels = {
-  walk: 'Walking',
   bus: 'Bus',
   train: 'Train',
 };
