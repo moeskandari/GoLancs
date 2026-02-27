@@ -40,6 +40,31 @@
   font-weight: 500;
 }
 
+.pin-btn {
+  /* match other control buttons for alignment */
+  padding: 10px 15px;
+  border-radius: 15px;
+  --pin-size: 24px; /* same icon size as other controls */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.pin-btn svg {
+  width: var(--pin-size);
+  height: var(--pin-size);
+  display: block;
+}
+
+.pin-btn[draggable] {
+  cursor: grab;
+}
+
+.pin-btn[draggable]:active {
+  cursor: grabbing;
+}
+
 @media (max-width: 768px) {
   .bottom-controls {
     bottom: 20px;

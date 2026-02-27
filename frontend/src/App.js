@@ -172,6 +172,50 @@ function App() {
     };
   }, []);
 
+  // Fetch weather for current location whenever userLocation changes
+  useEffect(() => {
+    if (!userLocation) return;
+    let cancelled = false;
+    const fetchWeather = async () => {
+      setWeatherLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/weather?lat=${userLocation.lat}&lon=${userLocation.lon}`);
+        if (res.ok && !cancelled) {
+          setCurrentWeather(await res.json());
+        }
+      } catch (e) {
+        console.warn('Failed to fetch current weather:', e.message);
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    };
+    fetchWeather();
+    // Refresh weather every 10 minutes
+    const interval = setInterval(fetchWeather, 10 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [userLocation?.lat, userLocation?.lon]);
+
+  // Fetch weather for destination whenever endStop changes
+  useEffect(() => {
+    if (!endStop?.lat || !endStop?.lon) { setDestWeather(null); return; }
+    let cancelled = false;
+    const fetchDestWeather = async () => {
+      setDestWeatherLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/weather?lat=${endStop.lat}&lon=${endStop.lon}`);
+        if (res.ok && !cancelled) {
+          setDestWeather(await res.json());
+        }
+      } catch (e) {
+        console.warn('Failed to fetch destination weather:', e.message);
+      } finally {
+        if (!cancelled) setDestWeatherLoading(false);
+      }
+    };
+    fetchDestWeather();
+    return () => { cancelled = true; };
+  }, [endStop?.lat, endStop?.lon]);
+
   // Set the start location to the user's current GPS position
   const useMyLocation = useCallback(async () => {
     if (!userLocation) return;
@@ -300,6 +344,39 @@ function App() {
     setSortBy(newSort);
   };
 
+  // Handle pin drop from BottomControls -> MapView drag/drop
+  const handlePinDrop = async (latlng) => {
+    if (!latlng) return;
+    try {
+      const res = await fetch(`${API_URL}/api/reverse?lat=${encodeURIComponent(latlng.lat)}&lon=${encodeURIComponent(latlng.lng)}`);
+      const data = await res.json();
+      const name = (data && data.name) ? data.name : 'Pinned location';
+      const place = {
+        type: 'place',
+        name,
+        common_name: name,
+        lat: latlng.lat,
+        lon: latlng.lng,
+        fullName: data && data.display_name ? data.display_name : undefined
+      };
+      setEndStop(place);
+      setRoutes(null);
+      setSelectedRoute(null);
+    } catch (err) {
+      console.error('Reverse geocode failed:', err);
+      const place = {
+        type: 'place',
+        name: 'Pinned location',
+        common_name: 'Pinned location',
+        lat: latlng.lat,
+        lon: latlng.lng
+      };
+      setEndStop(place);
+      setRoutes(null);
+      setSelectedRoute(null);
+    }
+  };
+
   // Re-fetch when sort changes (if we already have routes)
   useEffect(() => {
     if (routes && startStop && endStop) {
@@ -369,8 +446,14 @@ function App() {
         endLocation={endStop}
         routes={routes}
         selectedRoute={selectedRoute}
+        onPinDrop={handlePinDrop}
         onLocateMe={useMyLocation}
+        currentWeather={currentWeather}
+        weatherLoading={weatherLoading}
+        onWeatherClick={() => setWeatherSidebarOpen(true)}
       />
+
+      
 
       {routes && (
         <RouteResults

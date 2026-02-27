@@ -41,6 +41,21 @@
   z-index: 2;
 }
 
+.user-location-icon.leaflet-div-icon {
+  background: transparent !important;
+}
+
+.pin-drop-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.pin-drop-icon .pin-emoji {
+  font-size: 24px;
+  line-height: 24px;
+  text-align: center;
+}
+
 .user-dot-pulse {
   position: absolute;
   width: 24px;
