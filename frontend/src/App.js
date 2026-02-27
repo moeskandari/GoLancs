@@ -255,8 +255,7 @@ function App() {
         onPinDrop={handlePinDrop}
       />
 
-      {/* Debug visual: large red circle to verify build updates */}
-      <div className="debug-red-circle" aria-hidden="true" />
+      
 
       {routes && (
         <RouteResults
