@@ -2,7 +2,7 @@ import React from 'react';
 import './WeatherIcon.css';
 
 /**
- * Maps OpenWeatherMap icon codes to emoji weather symbols.
+ * Maps weather icon codes (derived from WMO codes via Open-Meteo) to emoji symbols.
  */
 const weatherEmojis = {
   '01d': '☀️', '01n': '🌙',
