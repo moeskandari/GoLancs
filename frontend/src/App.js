@@ -4,6 +4,7 @@ import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
 import SearchBar from './components/SearchBar';
 import RouteResults from './components/RouteResults';
+import WeatherSidebar from './components/WeatherSidebar';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
@@ -39,6 +40,13 @@ function App() {
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [sortBy, setSortBy] = useState('duration');
   const [departureTime, setDepartureTime] = useState('');
+
+  // Weather state
+  const [currentWeather, setCurrentWeather] = useState(null);
+  const [destWeather, setDestWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [destWeatherLoading, setDestWeatherLoading] = useState(false);
+  const [weatherSidebarOpen, setWeatherSidebarOpen] = useState(false);
 
   // Continuously track user's live GPS location
   // Falls back through: high-accuracy GPS → low-accuracy → IP geolocation
@@ -139,6 +147,50 @@ function App() {
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
     };
   }, []);
+
+  // Fetch weather for current location whenever userLocation changes
+  useEffect(() => {
+    if (!userLocation) return;
+    let cancelled = false;
+    const fetchWeather = async () => {
+      setWeatherLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/weather?lat=${userLocation.lat}&lon=${userLocation.lon}`);
+        if (res.ok && !cancelled) {
+          setCurrentWeather(await res.json());
+        }
+      } catch (e) {
+        console.warn('Failed to fetch current weather:', e.message);
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    };
+    fetchWeather();
+    // Refresh weather every 10 minutes
+    const interval = setInterval(fetchWeather, 10 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [userLocation?.lat, userLocation?.lon]);
+
+  // Fetch weather for destination whenever endStop changes
+  useEffect(() => {
+    if (!endStop?.lat || !endStop?.lon) { setDestWeather(null); return; }
+    let cancelled = false;
+    const fetchDestWeather = async () => {
+      setDestWeatherLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/weather?lat=${endStop.lat}&lon=${endStop.lon}`);
+        if (res.ok && !cancelled) {
+          setDestWeather(await res.json());
+        }
+      } catch (e) {
+        console.warn('Failed to fetch destination weather:', e.message);
+      } finally {
+        if (!cancelled) setDestWeatherLoading(false);
+      }
+    };
+    fetchDestWeather();
+    return () => { cancelled = true; };
+  }, [endStop?.lat, endStop?.lon]);
 
   // Set the start location to the user's current GPS position
   const useMyLocation = useCallback(async () => {
@@ -338,6 +390,9 @@ function App() {
         routes={routes}
         selectedRoute={selectedRoute}
         onLocateMe={useMyLocation}
+        currentWeather={currentWeather}
+        weatherLoading={weatherLoading}
+        onWeatherClick={() => setWeatherSidebarOpen(true)}
       />
 
       {routes && (
@@ -351,6 +406,16 @@ function App() {
       )}
 
       <BottomControls />
+
+      <WeatherSidebar
+        isOpen={weatherSidebarOpen}
+        onClose={() => setWeatherSidebarOpen(false)}
+        currentWeather={currentWeather}
+        destWeather={destWeather}
+        loadingCurrent={weatherLoading}
+        loadingDest={destWeatherLoading}
+        hasDestination={!!(endStop?.lat && endStop?.lon)}
+      />
     </div>
   );
 }

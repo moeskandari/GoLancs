@@ -3203,6 +3203,48 @@ app.get('/api/plan', async (req, res) => {
   }
 });
 
+// ─── Weather endpoint (OpenWeatherMap) ───────────────────────────────
+app.get('/api/weather', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'lat and lon query parameters are required' });
+    }
+
+    const apiKey = process.env.OPENWEATHER_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Weather API key not configured' });
+    }
+
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&appid=${apiKey}&units=metric`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || 'Weather API error' });
+    }
+
+    res.json({
+      temp: Math.round(data.main.temp),
+      feels_like: Math.round(data.main.feels_like),
+      humidity: data.main.humidity,
+      wind_speed: Math.round(data.wind.speed * 3.6), // m/s → km/h
+      wind_gust: data.wind.gust ? Math.round(data.wind.gust * 3.6) : null,
+      description: data.weather[0].description,
+      icon: data.weather[0].icon,
+      main: data.weather[0].main,
+      visibility: data.visibility ? Math.round(data.visibility / 1000) : null, // metres → km
+      rain_1h: data.rain?.['1h'] || 0,
+      snow_1h: data.snow?.['1h'] || 0,
+      clouds: data.clouds?.all || 0,
+      location_name: data.name
+    });
+  } catch (err) {
+    console.error('Weather API error:', err);
+    res.status(500).json({ error: 'Failed to fetch weather data' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
