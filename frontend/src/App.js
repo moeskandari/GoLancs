@@ -7,6 +7,7 @@ import RouteResults from './components/RouteResults';
 import SignIn from './components/SignIn';
 import SignUp from './components/SignUp';
 import Profile from './components/Profile';
+import FilterPage from './components/FilterPage';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
@@ -71,6 +72,20 @@ function App() {
   const handleSwitchToSignUp = () => setAuthView('signup');
   const handleSwitchToSignIn = () => setAuthView('signin');
   const handleProfileBack = () => setAuthView(null);
+
+  // ---------- Filter page UI state (front-end only) ----------
+  const [showFilterPage, setShowFilterPage] = useState(false);
+  const [activeFilters, setActiveFilters] = useState(null);
+
+  const handleFilterClick = () => setShowFilterPage(true);
+  const handleFilterBack = () => setShowFilterPage(false);
+
+  const handleFilterSubmit = (filters) => {
+    // Store the selected filters – will be sent to backend later.
+    setActiveFilters(filters);
+    setShowFilterPage(false);
+    console.log('Filters applied:', filters);
+  };
 
   // Continuously track user's live GPS location
   // Falls back through: high-accuracy GPS → low-accuracy → IP geolocation
@@ -382,7 +397,16 @@ function App() {
         />
       )}
 
-      <BottomControls onAccountClick={handleAccountClick} />
+      <BottomControls onFilterClick={handleFilterClick} onAccountClick={handleAccountClick} />
+
+      {/* ----- Filter page (front-end only) ----- */}
+      {showFilterPage && (
+        <FilterPage
+          initialFilters={activeFilters}
+          onBack={handleFilterBack}
+          onSubmit={handleFilterSubmit}
+        />
+      )}
 
       {/* ----- Auth overlays (front-end only) ----- */}
       {authView === 'signin' && (
