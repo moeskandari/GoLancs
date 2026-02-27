@@ -1,7 +1,13 @@
 import React from 'react';
 import './BottomControls.css';
 
-function BottomControls() {
+/**
+ * BottomControls – persistent control bar at the bottom of the map.
+ *
+ * Props:
+ *   onAccountClick – callback fired when the Account button is pressed
+ */
+function BottomControls({ onAccountClick }) {
   return (
     <div className="bottom-controls">
       <button className="control-btn" title="Filter Options">
@@ -27,7 +33,12 @@ function BottomControls() {
         <span>My Location</span>
       </button>
       
-      <button className="control-btn" title="Account">
+      <button
+        className="control-btn"
+        title="Account"
+        onClick={onAccountClick}
+        aria-label="Open account menu"
+      >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="8" r="4" strokeWidth="2"/>
           <path d="M4 20c0-4 4-6 8-6s8 2 8 6" strokeWidth="2"/>

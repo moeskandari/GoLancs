@@ -1,0 +1,264 @@
+/* ===================================================================
+   Auth overlay & card styles (SignIn / SignUp / Profile)
+   Shared across all authentication-related components.
+   =================================================================== */
+
+/* ---------- Overlay (covers the entire viewport) ---------- */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Semi-transparent backdrop behind the card */
+.auth-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Card ---------- */
+.auth-card {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  animation: auth-slide-in 0.25s ease-out;
+}
+
+@keyframes auth-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Close (✕) button in the top-right corner */
+.auth-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.auth-close-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* ---------- Title ---------- */
+.auth-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #222;
+  text-align: center;
+  margin: 0 0 12px;
+}
+
+/* ---------- Form ---------- */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: -4px;
+}
+
+.auth-input {
+  padding: 12px 14px;
+  border: 1.5px solid #d0d0d0;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #333;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-input::placeholder {
+  color: #aaa;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.15);
+  background: #fff;
+}
+
+/* ---------- Submit button ---------- */
+.auth-submit-btn {
+  margin-top: 8px;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #2196F3;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.15s;
+}
+
+.auth-submit-btn:hover {
+  background: #1b7ed1;
+  transform: translateY(-1px);
+}
+
+.auth-submit-btn:active {
+  transform: translateY(0);
+}
+
+/* ---------- Link-style buttons ---------- */
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: #2196F3;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-link-btn:hover {
+  color: #1565c0;
+  text-decoration: underline;
+}
+
+.auth-link-btn.inline {
+  display: inline;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ---------- Helper text ---------- */
+.auth-switch-text,
+.auth-terms-text {
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* ===================================================================
+   Profile page (full-screen replacement of the map view)
+   =================================================================== */
+.profile-page {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.profile-back-btn:hover {
+  background: #e3f2fd;
+  transform: translateX(-2px);
+}
+
+.profile-content {
+  margin-top: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 400px;
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #e3f2fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.profile-placeholder-text {
+  font-size: 14px;
+  color: #888;
+}
+
+/* ---------- Responsive adjustments ---------- */
+@media (max-width: 480px) {
+  .auth-card {
+    width: 94%;
+    padding: 28px 20px 22px;
+  }
+
+  .auth-title {
+    font-size: 20px;
+  }
+
+  .auth-input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .auth-submit-btn {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .profile-content {
+    margin-top: 70px;
+    padding: 0 20px;
+  }
+}
