@@ -2017,12 +2017,21 @@ async function enrichLegsWithGeometry(allRoutes) {
   }
 
   if (busRequests.length > 0) {
-    console.log(`Valhalla bus route queue: ${busRequests.length} unique requests`);
+    // Prioritize shorter bus segments for road-following geometry (more visual impact).
+    // For very long segments (>15 waypoints), the stop-to-stop straight lines
+    // are already a good approximation, so skip Valhalla to save time.
+    const shortBusRequests = busRequests.filter(r => r.waypoints.length <= 15);
+    const longBusRequests = busRequests.filter(r => r.waypoints.length > 15);
+    // Clean up long requests (keep straight-line fallback)
+    for (const { leg } of longBusRequests) { delete leg._busWaypoints; }
 
-    // Process bus route geometry in batches of 2 (larger payloads than walk)
-    const BUS_BATCH = 2;
-    for (let i = 0; i < busRequests.length; i += BUS_BATCH) {
-      const batch = busRequests.slice(i, i + BUS_BATCH);
+    if (shortBusRequests.length > 0) {
+      console.log(`Valhalla bus route queue: ${shortBusRequests.length} requests (${longBusRequests.length} skipped, >15 stops)`);
+
+    // Process bus route geometry in batches of 4 with minimal delay
+    const BUS_BATCH = 4;
+    for (let i = 0; i < shortBusRequests.length; i += BUS_BATCH) {
+      const batch = shortBusRequests.slice(i, i + BUS_BATCH);
 
       await Promise.allSettled(batch.map(async ({ leg, waypoints, cacheKey }) => {
         // Try Valhalla first for best quality road-following geometry
@@ -2051,10 +2060,11 @@ async function enrichLegsWithGeometry(allRoutes) {
       }));
 
       // Small delay between batches to respect rate limits
-      if (i + BUS_BATCH < busRequests.length) {
-        await delay(200);
+      if (i + BUS_BATCH < shortBusRequests.length) {
+        await delay(80);
       }
     }
+    } // end if shortBusRequests.length > 0
   }
 
   // Clean up any remaining temporary waypoints
@@ -2102,8 +2112,8 @@ async function enrichLegsWithGeometry(allRoutes) {
   if (walkQueue.length > 0) {
     console.log(`Valhalla walk queue: ${walkQueue.length} unique requests`);
 
-    // Process in batches of 3 with retry
-    const BATCH_SIZE = 3;
+    // Process in batches of 5 with retry
+    const BATCH_SIZE = 5;
     for (let i = 0; i < walkQueue.length; i += BATCH_SIZE) {
       const batch = walkQueue.slice(i, i + BATCH_SIZE);
 
@@ -2413,6 +2423,21 @@ app.get('/api/plan', async (req, res) => {
     {
       const busReachableFromStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 5);
 
+      // Pre-fetch coordinates for all bus-reachable stations in one query
+      const stationAtcoCodes = busReachableFromStart.flatMap(s => [s.bus_stop_atco, s.atco_code]);
+      const stationCoordsMap = {};
+      if (stationAtcoCodes.length > 0) {
+        const uniqueCodes = [...new Set(stationAtcoCodes)];
+        const placeholders = uniqueCodes.map((_, i) => `$${i + 1}`).join(',');
+        const coordsResult = await pool.query(
+          `SELECT atco_code, coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code IN (${placeholders})`,
+          uniqueCodes
+        );
+        for (const row of coordsResult.rows) {
+          stationCoordsMap[row.atco_code] = { lat: parseFloat(row.lat), lon: parseFloat(row.lon) };
+        }
+      }
+
       // Merge endTiplocs with any rail stations walkable from end
       let targetTiplocs = [...endTiplocs];
       // If end IS a rail station, ensure its TIPLOC is included
@@ -2426,23 +2451,21 @@ app.get('/api/plan', async (req, res) => {
       for (const station of busReachableFromStart) {
         // Skip if this station is the end destination itself (already handled by direct train)
         if (station.atco_code === resolvedEnd) continue;
+        // Cap total multi-modal results to avoid excessive searching
+        if (multiModal.length >= 10) break;
 
         // Find the actual bus journey from origin to the bus stop near this rail station
         const busLegs = await findDirectBusJourneys(resolvedStart, station.bus_stop_atco, departureTime, dayIndex, 3);
 
         for (const bus of busLegs) {
-          // Calculate walk time from bus stop to rail station (short walk, ~300m max)
-          const busStopInfo = await pool.query(
-            `SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1`, [station.bus_stop_atco]
-          );
-          const railStopInfo = await pool.query(
-            `SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1`, [station.atco_code]
-          );
+          // Use pre-fetched coordinates for walk time calculation
+          const busStopCoords = stationCoordsMap[station.bus_stop_atco];
+          const railStopCoords = stationCoordsMap[station.atco_code];
           let walkToStationMins = 2; // default short walk
-          if (busStopInfo.rows[0] && railStopInfo.rows[0]) {
+          if (busStopCoords && railStopCoords) {
             const walkDist = haversineDistance(
-              busStopInfo.rows[0].lat, busStopInfo.rows[0].lon,
-              railStopInfo.rows[0].lat, railStopInfo.rows[0].lon
+              busStopCoords.lat, busStopCoords.lon,
+              railStopCoords.lat, railStopCoords.lon
             );
             walkToStationMins = Math.max(1, Math.ceil(walkDist / 0.08));
           }
@@ -2550,6 +2573,8 @@ app.get('/api/plan', async (req, res) => {
       if (sourceTiplocs.length > 0) {
         for (const endStation of busReachableFromEnd) {
           if (endStation.atco_code === start) continue;
+          // Cap total multi-modal results to avoid excessive searching
+          if (multiModal.length >= 10) break;
 
           // Find trains from start area to this rail station
           const walkToStart = startRailStations.length > 0 && !startIsRail ? startRailStations[0].walk_minutes : 0;
@@ -2608,7 +2633,7 @@ app.get('/api/plan', async (req, res) => {
     }
 
     // 5d: Walk-based multi-modal (original logic for walkable rail stations)
-    if (startRailStations.length > 0 || endRailStations.length > 0) {
+    if ((startRailStations.length > 0 || endRailStations.length > 0) && multiModal.length < 10) {
       // Try: walk to rail station, train, then bus from end station
       for (const endStation of endRailStations.slice(0, 2)) {
         if (startTiplocs.length === 0) continue;
@@ -3067,13 +3092,9 @@ app.get('/api/plan', async (req, res) => {
 
     _mark('busTransfers');
 
-    // === Enrich all legs with coordinates for map polylines ===
+    // === Enrich all legs with coordinates for map polylines (fast, DB-only) ===
     await enrichLegsWithCoordinates(allRoutes, startStop, endStop);
     _mark('enrichCoords');
-
-    // === Fetch road/rail-following geometry for each leg ===
-    await enrichLegsWithGeometry(allRoutes);
-    _mark('enrichGeometry');
 
     // === Prepend/append walk legs for place-based (coordinate) searches ===
     if (startWalkLeg || endWalkLeg) {
@@ -3089,8 +3110,6 @@ app.get('/api/plan', async (req, res) => {
       }
       // Merge any consecutive walk legs (e.g. place→bus stop + bus stop→rail station → place→rail station)
       mergeConsecutiveWalkLegs(allRoutes);
-      // Enrich the merged/new walk legs with Valhalla geometry
-      await enrichLegsWithGeometry(allRoutes);
     }
 
     // Filter out unreasonable routes:
@@ -3132,7 +3151,7 @@ app.get('/api/plan', async (req, res) => {
       }
     }
 
-    // Sort results
+    // Sort results BEFORE geometry enrichment (sort is cheap, geometry is expensive)
     if (sortBy === 'arrival') {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.arrivalTime) - timeToMinutes(b.arrivalTime));
     } else if (sortBy === 'duration') {
@@ -3141,8 +3160,17 @@ app.get('/api/plan', async (req, res) => {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime));
     }
 
+    // === Limit to top routes BEFORE expensive geometry fetching ===
+    const MAX_ROUTES_WITH_GEOMETRY = 8;
+    const topRoutes = uniqueRoutes.slice(0, MAX_ROUTES_WITH_GEOMETRY);
+    _mark('filterSort');
+
+    // === Fetch road/rail-following geometry ONLY for the top routes ===
+    await enrichLegsWithGeometry(topRoutes);
+    _mark('enrichGeometry');
+
     _mark('done');
-    console.log(`[PERF] /api/plan total=${_timers.done}ms |`, Object.entries(_timers).map(([k,v]) => `${k}=${v}ms`).join(' '));
+    console.log(`[PERF] /api/plan total=${_timers.done}ms | candidates=${allRoutes.length} filtered=${uniqueRoutes.length} displayed=${topRoutes.length} |`, Object.entries(_timers).map(([k,v]) => `${k}=${v}ms`).join(' '));
 
     res.json({
       start: {
@@ -3161,7 +3189,7 @@ app.get('/api/plan', async (req, res) => {
       departureTime: departureTime,
       dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][dayIndex],
       sortedBy: sortBy,
-      routes: uniqueRoutes,
+      routes: topRoutes,
       totalRoutes: uniqueRoutes.length,
       nearbyRailStations: {
         start: startRailStations,
