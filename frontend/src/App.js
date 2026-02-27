@@ -320,6 +320,39 @@ function App() {
     setSortBy(newSort);
   };
 
+  // Handle pin drop from BottomControls -> MapView drag/drop
+  const handlePinDrop = async (latlng) => {
+    if (!latlng) return;
+    try {
+      const res = await fetch(`${API_URL}/api/reverse?lat=${encodeURIComponent(latlng.lat)}&lon=${encodeURIComponent(latlng.lng)}`);
+      const data = await res.json();
+      const name = (data && data.name) ? data.name : 'Pinned location';
+      const place = {
+        type: 'place',
+        name,
+        common_name: name,
+        lat: latlng.lat,
+        lon: latlng.lng,
+        fullName: data && data.display_name ? data.display_name : undefined
+      };
+      setEndStop(place);
+      setRoutes(null);
+      setSelectedRoute(null);
+    } catch (err) {
+      console.error('Reverse geocode failed:', err);
+      const place = {
+        type: 'place',
+        name: 'Pinned location',
+        common_name: 'Pinned location',
+        lat: latlng.lat,
+        lon: latlng.lng
+      };
+      setEndStop(place);
+      setRoutes(null);
+      setSelectedRoute(null);
+    }
+  };
+
   // Re-fetch when sort changes (if we already have routes)
   useEffect(() => {
     if (routes && startStop && endStop) {
@@ -389,11 +422,14 @@ function App() {
         endLocation={endStop}
         routes={routes}
         selectedRoute={selectedRoute}
+        onPinDrop={handlePinDrop}
         onLocateMe={useMyLocation}
         currentWeather={currentWeather}
         weatherLoading={weatherLoading}
         onWeatherClick={() => setWeatherSidebarOpen(true)}
       />
+
+      
 
       {routes && (
         <RouteResults

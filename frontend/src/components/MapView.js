@@ -69,6 +69,53 @@ function FitToRoute({ startLocation, endLocation, routes, selectedRoute }) {
   return null;
 }
 
+// Component to handle drag/drop of a pin onto the map container
+function DragDropHandler({ onDrop, onDrag }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+
+    const handleDragOver = (ev) => {
+      ev.preventDefault();
+      try {
+        const latlng = map.mouseEventToLatLng(ev);
+        if (onDrag) onDrag(latlng);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const handleDrop = (ev) => {
+      ev.preventDefault();
+      try {
+        const hasPin = ev.dataTransfer && (ev.dataTransfer.getData('text/pin') || ev.dataTransfer.getData('text'));
+        const latlng = map.mouseEventToLatLng(ev);
+        if (hasPin && onDrop) onDrop(latlng);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const handleDragLeave = () => {
+      if (onDrag) onDrag(null);
+    };
+
+    container.addEventListener('dragover', handleDragOver);
+    container.addEventListener('drop', handleDrop);
+    container.addEventListener('dragleave', handleDragLeave);
+
+    return () => {
+      container.removeEventListener('dragover', handleDragOver);
+      container.removeEventListener('drop', handleDrop);
+      container.removeEventListener('dragleave', handleDragLeave);
+    };
+  }, [map, onDrop, onDrag]);
+
+  return null;
+}
+
 // Color and style settings for each transport mode
 const legStyles = {
   walk: { color: '#4CAF50', weight: 4, opacity: 0.8, dashArray: '8, 12' },
@@ -151,6 +198,7 @@ function PanToUser({ userLocation, active }) {
 
 function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, currentWeather, weatherLoading, onWeatherClick }) {
   const [panToUser, setPanToUser] = useState(false);
+  const [dragLatLng, setDragLatLng] = useState(null);
 
   const defaultCenter = [53.96, -2.8];
 
@@ -298,6 +346,12 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           selectedRoute={selectedRoute}
         />
 
+        {/* Drag/drop handler for pin-drop destination selection */}
+        <DragDropHandler onDrop={(latlng) => {
+          setDragLatLng(null);
+          if (onPinDrop) onPinDrop(latlng);
+        }} onDrag={(latlng) => setDragLatLng(latlng)} />
+
         {/* Start marker (green) */}
         {startLatLng && (
           <Marker 
@@ -337,6 +391,14 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
               <strong>📍 You are here</strong>
             </Popup>
           </Marker>
+        )}
+
+        {/* Temporary pin while dragging */}
+        {dragLatLng && (
+          <Marker
+            position={[dragLatLng.lat, dragLatLng.lng]}
+            icon={L.divIcon({ html: '<div class="pin-emoji">📌</div>', className: 'pin-drop-icon', iconSize: [28, 40], iconAnchor: [14, 40] })}
+          />
         )}
 
         <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
