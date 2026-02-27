@@ -7,6 +7,7 @@ import RouteResults from './components/RouteResults';
 import SignIn from './components/SignIn';
 import SignUp from './components/SignUp';
 import Profile from './components/Profile';
+import WeatherSidebar from './components/WeatherSidebar';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
@@ -42,6 +43,13 @@ function App() {
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [sortBy, setSortBy] = useState('duration');
   const [departureTime, setDepartureTime] = useState('');
+
+  // ---------- Weather state ----------
+  const [currentWeather, setCurrentWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [destWeather, setDestWeather] = useState(null);
+  const [destWeatherLoading, setDestWeatherLoading] = useState(false);
+  const [weatherSidebarOpen, setWeatherSidebarOpen] = useState(false);
 
   // ---------- Authentication / profile UI state (front-end only) ----------
   // authView: null (map visible), 'signin', 'signup', 'profile'
@@ -466,6 +474,17 @@ function App() {
       )}
 
       <BottomControls onAccountClick={handleAccountClick} />
+
+      {/* ----- Weather sidebar ----- */}
+      <WeatherSidebar
+        isOpen={weatherSidebarOpen}
+        onClose={() => setWeatherSidebarOpen(false)}
+        currentWeather={currentWeather}
+        destWeather={destWeather}
+        loadingCurrent={weatherLoading}
+        loadingDest={destWeatherLoading}
+        hasDestination={!!endStop?.lat}
+      />
 
       {/* ----- Auth overlays (front-end only) ----- */}
       {authView === 'signin' && (
