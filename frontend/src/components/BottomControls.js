@@ -57,7 +57,12 @@ function BottomControls() {
         <span>My Location</span>
       </button>
       
-      <button className="control-btn" title="Account">
+      <button
+        className="control-btn"
+        title="Account"
+        onClick={onAccountClick}
+        aria-label="Open account menu"
+      >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="8" r="4" strokeWidth="2"/>
           <path d="M4 20c0-4 4-6 8-6s8 2 8 6" strokeWidth="2"/>

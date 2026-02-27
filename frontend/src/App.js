@@ -4,7 +4,9 @@ import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
 import SearchBar from './components/SearchBar';
 import RouteResults from './components/RouteResults';
-import WeatherSidebar from './components/WeatherSidebar';
+import SignIn from './components/SignIn';
+import SignUp from './components/SignUp';
+import Profile from './components/Profile';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
@@ -41,12 +43,34 @@ function App() {
   const [sortBy, setSortBy] = useState('duration');
   const [departureTime, setDepartureTime] = useState('');
 
-  // Weather state
-  const [currentWeather, setCurrentWeather] = useState(null);
-  const [destWeather, setDestWeather] = useState(null);
-  const [weatherLoading, setWeatherLoading] = useState(false);
-  const [destWeatherLoading, setDestWeatherLoading] = useState(false);
-  const [weatherSidebarOpen, setWeatherSidebarOpen] = useState(false);
+  // ---------- Authentication / profile UI state (front-end only) ----------
+  // authView: null (map visible), 'signin', 'signup', 'profile'
+  const [authView, setAuthView] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Handlers for the auth flow
+  const handleAccountClick = () => {
+    setAuthView(isLoggedIn ? 'profile' : 'signin');
+  };
+
+  const handleSignIn = (/* { email, password } */) => {
+    // Placeholder – will validate against backend later.
+    // For now, treat every submission as a successful sign-in.
+    setIsLoggedIn(true);
+    setAuthView('profile');
+  };
+
+  const handleCreateAccount = (/* { firstName, lastName, email, password, retypePassword } */) => {
+    // Placeholder – will send data to backend later.
+    // For now, treat every submission as a successful sign-up & auto-login.
+    setIsLoggedIn(true);
+    setAuthView('profile');
+  };
+
+  const handleAuthClose = () => setAuthView(null);
+  const handleSwitchToSignUp = () => setAuthView('signup');
+  const handleSwitchToSignIn = () => setAuthView('signin');
+  const handleProfileBack = () => setAuthView(null);
 
   // Continuously track user's live GPS location
   // Falls back through: high-accuracy GPS → low-accuracy → IP geolocation
@@ -441,17 +465,26 @@ function App() {
         />
       )}
 
-      <BottomControls />
+      <BottomControls onAccountClick={handleAccountClick} />
 
-      <WeatherSidebar
-        isOpen={weatherSidebarOpen}
-        onClose={() => setWeatherSidebarOpen(false)}
-        currentWeather={currentWeather}
-        destWeather={destWeather}
-        loadingCurrent={weatherLoading}
-        loadingDest={destWeatherLoading}
-        hasDestination={!!(endStop?.lat && endStop?.lon)}
-      />
+      {/* ----- Auth overlays (front-end only) ----- */}
+      {authView === 'signin' && (
+        <SignIn
+          onClose={handleAuthClose}
+          onSignIn={handleSignIn}
+          onSwitchToSignUp={handleSwitchToSignUp}
+        />
+      )}
+      {authView === 'signup' && (
+        <SignUp
+          onClose={handleAuthClose}
+          onCreateAccount={handleCreateAccount}
+          onSwitchToSignIn={handleSwitchToSignIn}
+        />
+      )}
+      {authView === 'profile' && (
+        <Profile onBack={handleProfileBack} />
+      )}
     </div>
   );
 }
