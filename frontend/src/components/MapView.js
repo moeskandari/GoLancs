@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
+import WeatherIcon from './WeatherIcon';
 
 // Component to handle map bounds
 function MapBounds() {
@@ -195,7 +196,7 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop }) {
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, currentWeather, weatherLoading, onWeatherClick }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -407,6 +408,7 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
         {routeOverlays}
       </MapContainer>
       <Compass />
+      <WeatherIcon weather={currentWeather} loading={weatherLoading} onClick={onWeatherClick} />
     </div>
   );
 }

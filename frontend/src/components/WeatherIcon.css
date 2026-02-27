@@ -1,0 +1,71 @@
+.weather-icon-container {
+  position: absolute;
+  top: 110px;
+  right: 20px;
+  z-index: 1000;
+  cursor: pointer;
+}
+
+.weather-icon-btn {
+  width: 56px;
+  height: 56px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  gap: 1px;
+}
+
+.weather-icon-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.weather-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.weather-emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.weather-temp {
+  font-size: 11px;
+  font-weight: 700;
+  color: #333;
+  line-height: 1;
+}
+
+.weather-loading .weather-emoji {
+  animation: weather-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes weather-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (max-width: 768px) {
+  .weather-icon-container {
+    top: 80px;
+    right: 10px;
+  }
+
+  .weather-icon-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .weather-emoji {
+    font-size: 18px;
+  }
+
+  .weather-temp {
+    font-size: 10px;
+  }
+}

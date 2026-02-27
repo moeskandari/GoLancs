@@ -3277,6 +3277,92 @@ app.get('/api/plan', async (req, res) => {
   }
 });
 
+// ─── Weather endpoint (Open-Meteo — free, no API key required) ──────
+/**
+ * Map WMO weather codes to { main, description, iconBase } so the frontend
+ * receives the same shape it used with OpenWeatherMap.
+ * Reference: https://open-meteo.com/en/docs#weathervariables
+ */
+const wmoCodeMap = {
+  0:  { main: 'Clear',        description: 'clear sky',            iconBase: '01' },
+  1:  { main: 'Clear',        description: 'mainly clear',         iconBase: '01' },
+  2:  { main: 'Clouds',       description: 'partly cloudy',        iconBase: '02' },
+  3:  { main: 'Clouds',       description: 'overcast',             iconBase: '04' },
+  45: { main: 'Fog',          description: 'fog',                  iconBase: '50' },
+  48: { main: 'Fog',          description: 'depositing rime fog',  iconBase: '50' },
+  51: { main: 'Drizzle',      description: 'light drizzle',        iconBase: '09' },
+  53: { main: 'Drizzle',      description: 'moderate drizzle',     iconBase: '09' },
+  55: { main: 'Drizzle',      description: 'dense drizzle',        iconBase: '09' },
+  56: { main: 'Drizzle',      description: 'light freezing drizzle', iconBase: '09' },
+  57: { main: 'Drizzle',      description: 'dense freezing drizzle', iconBase: '09' },
+  61: { main: 'Rain',         description: 'slight rain',          iconBase: '10' },
+  63: { main: 'Rain',         description: 'moderate rain',        iconBase: '10' },
+  65: { main: 'Rain',         description: 'heavy rain',           iconBase: '10' },
+  66: { main: 'Rain',         description: 'light freezing rain',  iconBase: '10' },
+  67: { main: 'Rain',         description: 'heavy freezing rain',  iconBase: '10' },
+  71: { main: 'Snow',         description: 'slight snow fall',     iconBase: '13' },
+  73: { main: 'Snow',         description: 'moderate snow fall',   iconBase: '13' },
+  75: { main: 'Snow',         description: 'heavy snow fall',      iconBase: '13' },
+  77: { main: 'Snow',         description: 'snow grains',          iconBase: '13' },
+  80: { main: 'Rain',         description: 'slight rain showers',  iconBase: '09' },
+  81: { main: 'Rain',         description: 'moderate rain showers',iconBase: '09' },
+  82: { main: 'Rain',         description: 'violent rain showers', iconBase: '09' },
+  85: { main: 'Snow',         description: 'slight snow showers',  iconBase: '13' },
+  86: { main: 'Snow',         description: 'heavy snow showers',   iconBase: '13' },
+  95: { main: 'Thunderstorm', description: 'thunderstorm',         iconBase: '11' },
+  96: { main: 'Thunderstorm', description: 'thunderstorm with slight hail', iconBase: '11' },
+  99: { main: 'Thunderstorm', description: 'thunderstorm with heavy hail',  iconBase: '11' },
+};
+
+app.get('/api/weather', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'lat and lon query parameters are required' });
+    }
+
+    const params = [
+      `latitude=${encodeURIComponent(lat)}`,
+      `longitude=${encodeURIComponent(lon)}`,
+      'current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,visibility',
+      'wind_speed_unit=kmh',
+      'timezone=auto'
+    ].join('&');
+
+    const url = `https://api.open-meteo.com/v1/forecast?${params}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      return res.status(response.status || 500).json({ error: data.reason || 'Weather API error' });
+    }
+
+    const c = data.current;
+    const code = c.weather_code;
+    const wmo = wmoCodeMap[code] || { main: 'Clouds', description: 'unknown', iconBase: '03' };
+    const daySuffix = c.is_day ? 'd' : 'n';
+
+    res.json({
+      temp: Math.round(c.temperature_2m),
+      feels_like: Math.round(c.apparent_temperature),
+      humidity: Math.round(c.relative_humidity_2m),
+      wind_speed: Math.round(c.wind_speed_10m),       // already km/h
+      wind_gust: c.wind_gusts_10m ? Math.round(c.wind_gusts_10m) : null,
+      description: wmo.description,
+      icon: wmo.iconBase + daySuffix,                  // e.g. '01d', '10n'
+      main: wmo.main,                                  // e.g. 'Rain', 'Clear'
+      visibility: c.visibility != null ? Math.round(c.visibility / 1000) : null, // m → km
+      rain_1h: c.rain || 0,                            // mm in last interval
+      snow_1h: c.snowfall || 0,                        // cm → treated as mm equivalent
+      clouds: c.cloud_cover || 0,
+      location_name: null                              // Open-Meteo doesn't provide a place name
+    });
+  } catch (err) {
+    console.error('Weather API error:', err);
+    res.status(500).json({ error: 'Failed to fetch weather data' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
