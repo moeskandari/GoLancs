@@ -241,6 +241,40 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// ─── Reverse geocode: Lat/Lon -> human-readable name via Nominatim ───
+app.get('/api/reverse', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) return res.status(400).json({ error: 'lat and lon required' });
+
+    const https = require('https');
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&format=json&addressdetails=1`;
+
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' } }, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch (e) { reject(e); }
+        });
+        response.on('error', reject);
+      }).on('error', reject);
+    });
+
+    if (!data) return res.json({ name: null, display_name: null });
+
+    // Provide a concise name and full display name
+    const display = data.display_name || null;
+    const name = display ? display.split(',').slice(0, 3).join(',') : null;
+
+    res.json({ name, display_name: display, lat: parseFloat(lat), lon: parseFloat(lon), category: data.type || null });
+  } catch (err) {
+    console.error('Reverse geocode error:', err.message);
+    res.status(500).json({ error: 'Reverse geocode failed' });
+  }
+});
+
 // ─── Search: Combined stop + place search for the frontend ───
 app.get('/api/search', async (req, res) => {
   try {
