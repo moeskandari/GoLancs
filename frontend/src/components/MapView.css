@@ -9,25 +9,36 @@
   height: 100%;
 }
 
-
-
 .leaflet-control-attribution {
   font-size: 10px;
   background: rgba(255, 255, 255, 0.8);
 }
-.user-location-icon {
+
+/* ── User live-location pulsing blue dot (Apple Maps style) ── */
+.user-location-marker {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  width: 30px !important;
-  height: 30px !important;
+}
+
+.user-location-dot {
+  position: relative;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.leaflet-marker-icon.user-location-icon::before {
-  display: none !important;
+.user-dot-core {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #007AFF;
+  border: 2.5px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  z-index: 2;
 }
 
 .user-location-icon.leaflet-div-icon {
@@ -43,4 +54,90 @@
   font-size: 24px;
   line-height: 24px;
   text-align: center;
+}
+
+.user-dot-pulse {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 122, 255, 0.25);
+  border-radius: 50%;
+  z-index: 1;
+  animation: user-pulse 2s ease-out infinite;
+}
+
+@keyframes user-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Heading direction arrow */
+.user-heading-arrow {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform-origin: bottom center;
+  margin-left: -6px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 14px solid #007AFF;
+  z-index: 3;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* ── Locate-me button (bottom-right of map) ── */
+.locate-me-btn-wrapper {
+  position: absolute;
+  bottom: 100px;
+  right: 16px;
+  z-index: 1000;
+}
+
+.locate-me-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: #007AFF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.locate-me-btn:hover {
+  background: #f0f7ff;
+  transform: scale(1.08);
+}
+
+.locate-me-btn:active {
+  transform: scale(0.95);
+  background: #e0eeff;
+}
+
+@media (max-width: 768px) {
+  .locate-me-btn-wrapper {
+    bottom: 80px;
+    right: 12px;
+  }
+
+  .locate-me-btn {
+    width: 40px;
+    height: 40px;
+  }
 }

@@ -144,25 +144,60 @@ const changeoverIcon = (label) => L.divIcon({
   iconAnchor: [11, 11]
 });
 
-function MapView({ userLocation: propUserLocation, startLocation, endLocation, routes, selectedRoute, onPinDrop }) {
-  const [userLocation, setUserLocation] = useState(propUserLocation);
-  const [dragLatLng, setDragLatLng] = useState(null);
+// Pulsing blue dot icon for user's live location (Apple Maps style)
+const userDotIcon = (heading) => {
+  const hasHeading = heading !== null && heading !== undefined && !isNaN(heading);
+  const headingArrow = hasHeading
+    ? `<div class="user-heading-arrow" style="transform: rotate(${heading}deg);"></div>`
+    : '';
+  return L.divIcon({
+    html: `<div class="user-location-dot">${headingArrow}<div class="user-dot-core"></div><div class="user-dot-pulse"></div></div>`,
+    className: 'user-location-marker',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+};
 
+// Button to centre the map on the user's location
+function LocateMeButton({ onLocate }) {
+  const map = useMap();
+  return (
+    <div className="locate-me-btn-wrapper">
+      <button
+        className="locate-me-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          onLocate?.();
+          // Pan map to user's location marker if available
+          const centre = map.getCenter();
+          if (centre) map.setZoom(15);
+        }}
+        title="Use my location as start"
+        aria-label="Use my current location"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// Component that smoothly pans to user's location when activated
+function PanToUser({ userLocation, active }) {
+  const map = useMap();
   useEffect(() => {
-    if (propUserLocation) {
-      setUserLocation(propUserLocation);
-      return;
+    if (active && userLocation) {
+      map.flyTo([userLocation.lat, userLocation.lon], Math.max(map.getZoom(), 15), { duration: 0.8 });
     }
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-        },
-        () => {}
-      );
-    }
-  }, [propUserLocation]);
+  }, [active, userLocation, map]);
+  return null;
+}
+
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop }) {
+  const [panToUser, setPanToUser] = useState(false);
+  const [dragLatLng, setDragLatLng] = useState(null);
 
   const defaultCenter = [53.96, -2.8];
 
@@ -344,9 +379,17 @@ function MapView({ userLocation: propUserLocation, startLocation, endLocation, r
           </Marker>
         )}
 
-        {/* User location */}
+        {/* User live location — pulsing blue dot */}
         {userLocation && (
-          <Marker position={userLocation} icon={L.divIcon({html: '📍', className: 'user-location-icon'})} />
+          <Marker
+            position={[userLocation.lat, userLocation.lon]}
+            icon={userDotIcon(userLocation.heading)}
+            zIndexOffset={1000}
+          >
+            <Popup>
+              <strong>📍 You are here</strong>
+            </Popup>
+          </Marker>
         )}
 
         {/* Temporary pin while dragging */}
@@ -356,6 +399,9 @@ function MapView({ userLocation: propUserLocation, startLocation, endLocation, r
             icon={L.divIcon({ html: '<div class="pin-emoji">📌</div>', className: 'pin-drop-icon', iconSize: [28, 40], iconAnchor: [14, 40] })}
           />
         )}
+
+        <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
+        <PanToUser userLocation={userLocation} active={panToUser} />
 
         {/* Route polylines and changeover markers */}
         {routeOverlays}

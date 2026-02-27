@@ -40,12 +40,128 @@ function App() {
   const [sortBy, setSortBy] = useState('duration');
   const [departureTime, setDepartureTime] = useState('');
 
-  // Get user's location on mount
+  // Continuously track user's live GPS location
+  // Falls back through: high-accuracy GPS → low-accuracy → IP geolocation
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude])
+    let watchId = null;
+    let cancelled = false;
+
+    const setLoc = (lat, lon, accuracy, heading, speed) => {
+      if (cancelled) return;
+      setUserLocation({
+        lat, lon,
+        accuracy: accuracy || null,
+        heading: heading || null,
+        speed: speed || null,
+        timestamp: Date.now()
+      });
+    };
+
+    // Last resort: IP-based geolocation (works without HTTPS / secure context)
+    const ipFallback = async () => {
+      try {
+        // Try multiple free IP geolocation services
+        const res = await fetch('https://ipapi.co/json/');
+        if (!res.ok) throw new Error('ipapi failed');
+        const data = await res.json();
+        if (data.latitude && data.longitude) {
+          console.log('Using IP-based geolocation');
+          setLoc(data.latitude, data.longitude, 5000);
+        }
+      } catch {
+        try {
+          const res = await fetch('https://ip-api.com/json/?fields=lat,lon');
+          const data = await res.json();
+          if (data.lat && data.lon) {
+            console.log('Using IP-based geolocation (fallback 2)');
+            setLoc(data.lat, data.lon, 5000);
+          }
+        } catch (e) {
+          console.warn('All geolocation methods failed:', e.message);
+        }
+      }
+    };
+
+    if (!navigator.geolocation) {
+      // No browser geolocation at all — go straight to IP
+      ipFallback();
+      return;
+    }
+
+    // Check if we're in a secure context (HTTPS or localhost)
+    const isSecure = window.isSecureContext;
+
+    if (!isSecure) {
+      // Geolocation API is blocked on non-secure origins (HTTP + non-localhost)
+      console.warn('Geolocation blocked: not a secure context. Using IP geolocation.');
+      ipFallback();
+      return;
+    }
+
+    const onSuccess = (pos) => {
+      setLoc(
+        pos.coords.latitude, pos.coords.longitude,
+        pos.coords.accuracy, pos.coords.heading, pos.coords.speed
+      );
+    };
+
+    let fallbackStarted = false;
+    const startFallback = () => {
+      if (fallbackStarted) return;
+      fallbackStarted = true;
+      console.log('High-accuracy geolocation failed, falling back to low accuracy');
+      watchId = navigator.geolocation.watchPosition(
+        onSuccess,
+        (err) => {
+          console.warn('Geolocation fallback error:', err.message);
+          // All browser geolocation failed — try IP
+          ipFallback();
+        },
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 30000 }
+      );
+    };
+
+    // Start with high accuracy (GPS)
+    watchId = navigator.geolocation.watchPosition(
+      onSuccess,
+      (err) => {
+        console.warn('Geolocation high-accuracy error:', err.message);
+        if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+          navigator.geolocation.clearWatch(watchId);
+          startFallback();
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
     );
+
+    return () => {
+      cancelled = true;
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
+
+  // Set the start location to the user's current GPS position
+  const useMyLocation = useCallback(async () => {
+    if (!userLocation) return;
+    // Immediately set coords so route planning can work
+    const loc = {
+      type: 'place',
+      name: 'My Location',
+      common_name: 'My Location',
+      lat: userLocation.lat,
+      lon: userLocation.lon,
+      isUserLocation: true
+    };
+    setStartStop(loc);
+    // Reverse-geocode for a human-readable name in the background
+    try {
+      const res = await fetch(`${API_URL}/api/reverse-geocode?lat=${userLocation.lat}&lon=${userLocation.lon}`);
+      const data = await res.json();
+      if (data.name && data.name !== 'My Location') {
+        setStartStop(prev => prev?.isUserLocation ? { ...prev, name: `📍 ${data.name}`, common_name: `📍 ${data.name}` } : prev);
+      }
+    } catch (e) { /* keep 'My Location' */ }
+  }, [userLocation]);
 
   // Swap start and end stops
   const swapStops = () => {
@@ -203,6 +319,8 @@ function App() {
               type="start"
               value={startStop}
               onChange={setStartStop}
+              onUseMyLocation={useMyLocation}
+              hasUserLocation={!!userLocation}
             />
             <SearchBar
               placeholder="Where are you going?"
@@ -253,6 +371,7 @@ function App() {
         routes={routes}
         selectedRoute={selectedRoute}
         onPinDrop={handlePinDrop}
+        onLocateMe={useMyLocation}
       />
 
       

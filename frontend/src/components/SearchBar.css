@@ -176,6 +176,28 @@
   color: #999;
 }
 
+/* ── "Use my current location" dropdown item ── */
+.my-location-item {
+  border-bottom: 2px solid #e8f0fe !important;
+}
+
+.my-location-item:hover {
+  background: #e8f4fd !important;
+}
+
+.my-location-icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.my-location-text {
+  color: #007AFF;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .search-input {
     padding: 12px 36px 12px 16px;

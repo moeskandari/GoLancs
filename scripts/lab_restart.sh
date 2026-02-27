@@ -77,9 +77,14 @@ echo ""
 # Step 6: Copy backup and migration scripts to /tmp for docker-compose mounting
 echo "Step 6: Preparing database restore files..."
 if [ -f "$BACKUP_FILE" ]; then
-  cp "$BACKUP_FILE" /tmp/group1db_backup.sql
+  # pg_dumpall dumps the entire cluster (roles, template DBs, all databases).
+  # The docker entrypoint already creates the 'group1db' database and 'postgres' role,
+  # so we extract ONLY the group1db content to avoid conflicts.
+  # This filters out: DROP/CREATE DATABASE, DROP/CREATE ROLE, \restrict/\unrestrict
+  awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
+    "$BACKUP_FILE" > /tmp/group1db_backup.sql
   chmod 644 /tmp/group1db_backup.sql
-  echo "  ✓ Backup file prepared ($(du -h /tmp/group1db_backup.sql | cut -f1))"
+  echo "  ✓ Backup file prepared and filtered ($(du -h /tmp/group1db_backup.sql | cut -f1))"
 else
   echo "  ⚠ No backup file found - will start with empty database"
 fi

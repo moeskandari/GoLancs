@@ -241,17 +241,24 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
-// ─── Reverse geocode: Lat/Lon -> human-readable name via Nominatim ───
-app.get('/api/reverse', async (req, res) => {
+// ─── Reverse geocode: turn lat/lon into a human-readable address ───
+// Supports both /api/reverse-geocode (new) and /api/reverse (legacy drop-pin)
+async function handleReverseGeocode(req, res) {
   try {
     const { lat, lon } = req.query;
-    if (!lat || !lon) return res.status(400).json({ error: 'lat and lon required' });
+    if (!lat || !lon) {
+      return res.json({ name: 'My Location' });
+    }
 
     const https = require('https');
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&format=json&addressdetails=1`;
+    const url = `https://nominatim.openstreetmap.org/reverse?` +
+      `lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}` +
+      `&format=json&addressdetails=1&zoom=18`;
 
     const data = await new Promise((resolve, reject) => {
-      https.get(url, { headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' } }, (response) => {
+      https.get(url, {
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+      }, (response) => {
         let body = '';
         response.on('data', chunk => body += chunk);
         response.on('end', () => {
@@ -262,16 +269,23 @@ app.get('/api/reverse', async (req, res) => {
       }).on('error', reject);
     });
 
-    if (!data) return res.json({ name: null, display_name: null });
+    if (data && data.address) {
+      const a = data.address;
+      // Build a concise name: road + suburb/village or town
+      const road = a.road || a.pedestrian || a.footway || a.path || '';
+      const area = a.suburb || a.village || a.hamlet || a.neighbourhood || a.town || a.city || '';
+      const name = [road, area].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'My Location';
+      return res.json({ name, display_name: data.display_name, fullName: data.display_name, lat: parseFloat(lat), lon: parseFloat(lon) });
+    }
 
-    // Provide a concise name and full display name
-    const display = data.display_name || null;
-    const name = display ? display.split(',').slice(0, 3).join(',') : null;
-
-    res.json({ name, display_name: display, lat: parseFloat(lat), lon: parseFloat(lon), category: data.type || null });
+    res.json({ name: 'My Location' });
   } catch (err) {
     console.error('Reverse geocode error:', err.message);
-    res.status(500).json({ error: 'Reverse geocode failed' });
+    res.json({ name: 'My Location' });
+  }
+}
+app.get('/api/reverse-geocode', handleReverseGeocode);
+app.get('/api/reverse', handleReverseGeocode);
   }
 });
 
@@ -1619,7 +1633,7 @@ async function fetchOSRMGeometry(waypoints, profile = 'driving') {
 
     return new Promise((resolve) => {
       const https = require('https');
-      https.get(url, { timeout: 3000 }, (response) => {
+      https.get(url, { timeout: 5000 }, (response) => {
         let data = '';
         response.on('data', chunk => data += chunk);
         response.on('end', () => {
@@ -1641,6 +1655,150 @@ async function fetchOSRMGeometry(waypoints, profile = 'driving') {
   } catch {
     return null;
   }
+}
+
+/**
+ * Calculate bearing (compass heading) in degrees from point A to point B.
+ * Returns 0-360 where 0=North, 90=East, 180=South, 270=West.
+ */
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = Math.PI / 180;
+  const dLon = (lon2 - lon1) * toRad;
+  const y = Math.sin(dLon) * Math.cos(lat2 * toRad);
+  const x = Math.cos(lat1 * toRad) * Math.sin(lat2 * toRad) -
+            Math.sin(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+/**
+ * Fetch road-following geometry from Valhalla for a bus route.
+ * Uses a HYBRID approach:
+ * - Groups consecutive close stops (<2km apart) into multi-waypoint requests
+ * - Routes each group as a single Valhalla request with heading constraints
+ * This balances accuracy (correct roads) with performance (fewer API calls).
+ *
+ * Waypoints: array of { lat, lon } objects (bus stop positions in order).
+ * Returns array of [lat, lon] pairs forming the full road-snapped route, or null.
+ */
+async function fetchValhallaBusGeometry(waypoints) {
+  if (!waypoints || waypoints.length < 2) return null;
+
+  // Split waypoints into groups where each consecutive pair is <2km apart.
+  // When there's a gap >2km, start a new group — this forces a clean segment
+  // boundary so Valhalla can't take a shortcut via the wrong road.
+  const GAP_THRESHOLD_KM = 2.0;
+  const groups = []; // each group is an array of waypoints
+  let currentGroup = [waypoints[0]];
+
+  for (let i = 1; i < waypoints.length; i++) {
+    const prev = waypoints[i - 1];
+    const curr = waypoints[i];
+    const dist = haversineDistance(prev.lat, prev.lon, curr.lat, curr.lon);
+
+    if (dist > GAP_THRESHOLD_KM) {
+      // Big gap — close current group and start a new one at curr
+      currentGroup.push(curr); // include curr as end of this group
+      groups.push(currentGroup);
+      currentGroup = [curr]; // start new group from curr
+    } else {
+      currentGroup.push(curr);
+    }
+  }
+  if (currentGroup.length >= 2) {
+    groups.push(currentGroup);
+  } else if (groups.length > 0 && currentGroup.length === 1) {
+    // Lone trailing point — append to last group
+    groups[groups.length - 1].push(currentGroup[0]);
+  }
+
+  // Route each group as a single Valhalla multi-waypoint request
+  const allPoints = [];
+  const GROUP_BATCH = 3; // process up to 3 groups in parallel
+
+  for (let gb = 0; gb < groups.length; gb += GROUP_BATCH) {
+    const batch = groups.slice(gb, gb + GROUP_BATCH);
+
+    const results = await Promise.allSettled(batch.map(async (group) => {
+      // Build locations with heading constraints
+      const locations = group.map((w, i) => {
+        const loc = {
+          lat: w.lat, lon: w.lon,
+          type: i === 0 || i === group.length - 1 ? 'break' : 'via'
+        };
+        if (i < group.length - 1) {
+          loc.heading = Math.round(calculateBearing(w.lat, w.lon, group[i + 1].lat, group[i + 1].lon));
+        } else {
+          loc.heading = Math.round(calculateBearing(group[i - 1].lat, group[i - 1].lon, w.lat, w.lon));
+        }
+        loc.heading_tolerance = 60;
+        return loc;
+      });
+
+      // Try bus costing, fall back to auto
+      for (const costing of ['bus', 'auto']) {
+        const requestBody = JSON.stringify({
+          locations,
+          costing,
+          directions_options: { units: 'kilometers' }
+        });
+
+        const geo = await new Promise((resolve) => {
+          const https = require('https');
+          const req = https.request({
+            hostname: 'valhalla1.openstreetmap.de',
+            path: '/route',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(requestBody)
+            },
+            timeout: 10000
+          }, (response) => {
+            let data = '';
+            response.on('data', chunk => data += chunk);
+            response.on('end', () => {
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.trip && parsed.trip.legs) {
+                  const pts = [];
+                  for (const leg of parsed.trip.legs) {
+                    if (leg.shape) {
+                      const decoded = decodeValhallaPolyline(leg.shape);
+                      if (pts.length > 0 && decoded.length > 0) decoded.shift();
+                      pts.push(...decoded);
+                    }
+                  }
+                  resolve(pts.length >= 2 ? pts : null);
+                } else { resolve(null); }
+              } catch { resolve(null); }
+            });
+          });
+          req.on('error', () => resolve(null));
+          req.on('timeout', function() { this.destroy(); resolve(null); });
+          req.write(requestBody);
+          req.end();
+        });
+
+        if (geo && geo.length >= 2) return geo;
+      }
+      return null; // both costings failed
+    }));
+
+    // Stitch group results in order
+    for (const result of results) {
+      const geo = result.status === 'fulfilled' ? result.value : null;
+      if (geo && geo.length >= 2) {
+        if (allPoints.length > 0) geo.shift(); // remove duplicate junction
+        allPoints.push(...geo);
+      }
+    }
+
+    if (gb + GROUP_BATCH < groups.length) {
+      await delay(100);
+    }
+  }
+
+  return allPoints.length >= 2 ? allPoints : null;
 }
 
 /**
@@ -1693,6 +1851,13 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
  */
 const valhallaGeoCache = new Map();
 const VALHALLA_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Persistent in-memory cache for Valhalla bus route geometry.
+ * Key: "journeyId:boardAtco:alightAtco"
+ * Value: array of [lat, lon] points, or null if request failed.
+ */
+const busGeoCache = new Map();
 
 function getValhallaCacheKey(fromLat, fromLon, toLat, toLon) {
   return `${fromLat.toFixed(4)},${fromLon.toFixed(4)}:${toLat.toFixed(4)},${toLon.toFixed(4)}`;
@@ -1772,11 +1937,11 @@ function mergeConsecutiveWalkLegs(allRoutes) {
 /**
  * Enrich route legs with geometry from stop waypoints and routing services.
  * - Train legs: use railway graph (local, fast)
- * - Bus legs: use intermediate stop coordinates (local, fast)  
+ * - Bus legs: get stop waypoints (local), then route via Valhalla auto costing for road-following lines
  * - Walk legs: use Valhalla pedestrian routing (cached + deduplicated)
  */
 async function enrichLegsWithGeometry(allRoutes) {
-  // --- Phase 1: Train track geometry + bus stop waypoints (all local, no API calls) ---
+  // --- Phase 1: Train track geometry + bus stop waypoints (all local DB queries) ---
   const localGeometryPromises = [];
 
   for (const route of allRoutes) {
@@ -1817,11 +1982,13 @@ async function enrichLegsWithGeometry(allRoutes) {
           })()
         );
       } else if (leg.type === 'bus' && leg.journeyId && leg.boardAtco && leg.alightAtco) {
+        // Fetch stop waypoints from DB (local, fast) — store on leg for Phase 2
         localGeometryPromises.push(
           (async () => {
             const waypoints = await getBusJourneyWaypoints(leg.journeyId, leg.boardAtco, leg.alightAtco);
             if (waypoints && waypoints.length >= 2) {
-              leg.geometry = waypoints.map(w => [w.lat, w.lon]);
+              leg._busWaypoints = waypoints; // temporary, used in Phase 2
+              leg.geometry = waypoints.map(w => [w.lat, w.lon]); // straight-line fallback
             }
           })()
         );
@@ -1831,7 +1998,88 @@ async function enrichLegsWithGeometry(allRoutes) {
 
   await Promise.allSettled(localGeometryPromises);
 
-  // --- Phase 2: Valhalla walk geometry only (cached + deduplicated + batched) ---
+  // --- Phase 2a: Bus road-following geometry via Valhalla (cached + batched) ---
+  const busRequests = []; // { leg, waypoints, cacheKey }
+
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      if (leg.type === 'bus' && leg._busWaypoints && leg._busWaypoints.length >= 2) {
+        const cacheKey = `bus:${leg.journeyId}:${leg.boardAtco}:${leg.alightAtco}`;
+
+        // Check cache
+        const cached = busGeoCache.get(cacheKey);
+        if (cached && Date.now() - cached.time < VALHALLA_CACHE_TTL) {
+          if (cached.geometry && cached.geometry.length >= 2) {
+            leg.geometry = cached.geometry;
+          }
+          delete leg._busWaypoints;
+          continue;
+        }
+
+        busRequests.push({ leg, waypoints: leg._busWaypoints, cacheKey });
+      }
+    }
+  }
+
+  if (busRequests.length > 0) {
+    // Prioritize shorter bus segments for road-following geometry (more visual impact).
+    // For very long segments (>15 waypoints), the stop-to-stop straight lines
+    // are already a good approximation, so skip Valhalla to save time.
+    const shortBusRequests = busRequests.filter(r => r.waypoints.length <= 15);
+    const longBusRequests = busRequests.filter(r => r.waypoints.length > 15);
+    // Clean up long requests (keep straight-line fallback)
+    for (const { leg } of longBusRequests) { delete leg._busWaypoints; }
+
+    if (shortBusRequests.length > 0) {
+      console.log(`Valhalla bus route queue: ${shortBusRequests.length} requests (${longBusRequests.length} skipped, >15 stops)`);
+
+    // Process bus route geometry in batches of 4 with minimal delay
+    const BUS_BATCH = 4;
+    for (let i = 0; i < shortBusRequests.length; i += BUS_BATCH) {
+      const batch = shortBusRequests.slice(i, i + BUS_BATCH);
+
+      await Promise.allSettled(batch.map(async ({ leg, waypoints, cacheKey }) => {
+        // Try Valhalla first for best quality road-following geometry
+        let geometry = await fetchValhallaBusGeometry(waypoints);
+
+        // Fallback to OSRM if Valhalla fails
+        if (!geometry || geometry.length < 2) {
+          geometry = await fetchOSRMGeometry(waypoints, 'driving');
+        }
+
+        // Cache result
+        busGeoCache.set(cacheKey, { geometry, time: Date.now() });
+        if (busGeoCache.size > 300) {
+          const now = Date.now();
+          for (const [k, v] of busGeoCache) {
+            if (now - v.time > VALHALLA_CACHE_TTL) busGeoCache.delete(k);
+          }
+        }
+
+        if (geometry && geometry.length >= 2) {
+          leg.geometry = geometry;
+        }
+        // else: keeps the straight-line stop waypoints as fallback
+
+        delete leg._busWaypoints;
+      }));
+
+      // Small delay between batches to respect rate limits
+      if (i + BUS_BATCH < shortBusRequests.length) {
+        await delay(80);
+      }
+    }
+    } // end if shortBusRequests.length > 0
+  }
+
+  // Clean up any remaining temporary waypoints
+  for (const route of allRoutes) {
+    for (const leg of route.legs) {
+      delete leg._busWaypoints;
+    }
+  }
+
+  // --- Phase 2b: Valhalla walk geometry (cached + deduplicated + batched) ---
   const walkRequests = new Map(); // dedup key → { fromLat, fromLon, toLat, toLon, legs[] }
 
   for (const route of allRoutes) {
@@ -1869,8 +2117,8 @@ async function enrichLegsWithGeometry(allRoutes) {
   if (walkQueue.length > 0) {
     console.log(`Valhalla walk queue: ${walkQueue.length} unique requests`);
 
-    // Process in batches of 3 with retry
-    const BATCH_SIZE = 3;
+    // Process in batches of 5 with retry
+    const BATCH_SIZE = 5;
     for (let i = 0; i < walkQueue.length; i += BATCH_SIZE) {
       const batch = walkQueue.slice(i, i + BATCH_SIZE);
 
@@ -1921,9 +2169,9 @@ app.get('/api/plan', async (req, res) => {
       const sLat = parseFloat(startLat);
       const sLon = parseFloat(startLon);
       startPlaceCoords = { lat: sLat, lon: sLon };
-      const degDelta = 1.5 / 111.0; // 1.5km search radius
+      const degDelta = 3.0 / 111.0; // 3km search radius for bus stops
 
-      // Find nearest bus stop with routes
+      // Find nearest bus stop with routes (priority)
       const busNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s
@@ -1932,16 +2180,32 @@ app.get('/api/plan', async (req, res) => {
           AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
       `, [sLon, sLat, degDelta]);
 
-      // Also check rail stations (wider radius)
+      // Also check rail stations (same radius)
       const railNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [sLon, sLat, degDelta * 3]);
+      `, [sLon, sLat, degDelta]);
 
-      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
-        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon))
+      const busWithDist = busNear.rows.map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
       })).sort((a, b) => a.dist - b.dist);
+
+      const railWithDist = railNear.rows.map(r => ({
+        ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'rail'
+      })).sort((a, b) => a.dist - b.dist);
+
+      // Prefer bus stops: only consider rail if the nearest bus stop is >500m away
+      // and rail is genuinely closer than the nearest bus stop
+      let allNear;
+      if (busWithDist.length > 0 && (busWithDist[0].dist <= 0.5 || railWithDist.length === 0 || busWithDist[0].dist <= railWithDist[0].dist)) {
+        allNear = busWithDist;
+      } else if (railWithDist.length > 0 && (busWithDist.length === 0 || railWithDist[0].dist < busWithDist[0].dist)) {
+        // Rail is closer and nearest bus is >500m — include both, rail first
+        allNear = [...railWithDist, ...busWithDist];
+      } else {
+        allNear = [...busWithDist, ...railWithDist].sort((a, b) => a.dist - b.dist);
+      }
 
       if (allNear.length === 0) {
         return res.status(404).json({ error: 'No stops found near the start location. Try a location closer to a bus stop or rail station.' });
@@ -1968,7 +2232,7 @@ app.get('/api/plan', async (req, res) => {
       const eLat = parseFloat(endLat);
       const eLon = parseFloat(endLon);
       endPlaceCoords = { lat: eLat, lon: eLon };
-      const degDelta = 1.5 / 111.0;
+      const degDelta = 3.0 / 111.0; // 3km search radius
 
       const busNear = await pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
@@ -1982,11 +2246,25 @@ app.get('/api/plan', async (req, res) => {
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [eLon, eLat, degDelta * 3]);
+      `, [eLon, eLat, degDelta]);
 
-      const allNear = [...busNear.rows, ...railNear.rows].map(r => ({
-        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon))
+      const busWithDist = busNear.rows.map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
       })).sort((a, b) => a.dist - b.dist);
+
+      const railWithDist = railNear.rows.map(r => ({
+        ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'rail'
+      })).sort((a, b) => a.dist - b.dist);
+
+      // Prefer bus stops: only consider rail if nearest bus is >500m away and rail is closer
+      let allNear;
+      if (busWithDist.length > 0 && (busWithDist[0].dist <= 0.5 || railWithDist.length === 0 || busWithDist[0].dist <= railWithDist[0].dist)) {
+        allNear = busWithDist;
+      } else if (railWithDist.length > 0 && (busWithDist.length === 0 || railWithDist[0].dist < busWithDist[0].dist)) {
+        allNear = [...railWithDist, ...busWithDist];
+      } else {
+        allNear = [...busWithDist, ...railWithDist].sort((a, b) => a.dist - b.dist);
+      }
 
       if (allNear.length === 0) {
         return res.status(404).json({ error: 'No stops found near the destination. Try a location closer to a bus stop or rail station.' });
@@ -2054,6 +2332,41 @@ app.get('/api/plan', async (req, res) => {
     if (startRailResult?.rows.length > 0) startTiplocs = [startRailResult.rows[0].tiploc_code, ...startTiplocs];
     if (endRailResult?.rows.length > 0) endTiplocs = [endRailResult.rows[0].tiploc_code, ...endTiplocs];
 
+    // When start or end IS a rail station, find nearby bus stops so bus searches can work
+    // (buses don't stop at rail station ATCO codes like 9100PRST)
+    let busEndCodes = [resolvedEnd]; // ATCO codes to use as bus destination
+    let busStartCodes = [resolvedStart]; // ATCO codes to use as bus origin
+    if (endIsRail) {
+      const nearbyBusStops = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [parseFloat(endStop.lon), parseFloat(endStop.lat)]);
+      const endBusStops = nearbyBusStops.rows.map(r => ({
+        ...r, dist: haversineDistance(parseFloat(endStop.lat), parseFloat(endStop.lon), parseFloat(r.lat), parseFloat(r.lon))
+      })).filter(r => r.dist <= 1.0).sort((a, b) => a.dist - b.dist).slice(0, 5);
+      if (endBusStops.length > 0) {
+        busEndCodes = endBusStops.map(s => s.atco_code);
+      }
+    }
+    if (startIsRail) {
+      const nearbyBusStops = await pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [parseFloat(startStop.lon), parseFloat(startStop.lat)]);
+      const startBusStops = nearbyBusStops.rows.map(r => ({
+        ...r, dist: haversineDistance(parseFloat(startStop.lat), parseFloat(startStop.lon), parseFloat(r.lat), parseFloat(r.lon))
+      })).filter(r => r.dist <= 1.0).sort((a, b) => a.dist - b.dist).slice(0, 5);
+      if (startBusStops.length > 0) {
+        busStartCodes = startBusStops.map(s => s.atco_code);
+      }
+    }
+
     // === Strategy 3: Direct train (if both near rail stations) ===
     let directTrain = [];
     if (startTiplocs.length > 0 && endTiplocs.length > 0) {
@@ -2063,6 +2376,39 @@ app.get('/api/plan', async (req, res) => {
     }
 
     _mark('directTrain');
+
+    // === Strategy 2b: Direct bus to/from bus stops near rail stations ===
+    // When start or end is a rail station, also search for bus routes to/from nearby bus stops
+    let extraDirectBus = [];
+    if (endIsRail && busEndCodes.length > 0) {
+      for (const busEndCode of busEndCodes) {
+        const extra = await findDirectBusJourneys(resolvedStart, busEndCode, departureTime, dayIndex, 3);
+        extraDirectBus.push(...extra);
+      }
+    }
+    if (startIsRail && busStartCodes.length > 0) {
+      for (const busStartCode of busStartCodes) {
+        const extra = await findDirectBusJourneys(busStartCode, resolvedEnd, departureTime, dayIndex, 3);
+        extraDirectBus.push(...extra);
+      }
+    }
+    // Also search expanded codes for start (bus) -> end near rail
+    if (endIsRail && busEndCodes.length > 0 && startIsRail && busStartCodes.length > 0) {
+      for (const busStartCode of busStartCodes) {
+        for (const busEndCode of busEndCodes) {
+          const extra = await findDirectBusJourneys(busStartCode, busEndCode, departureTime, dayIndex, 3);
+          extraDirectBus.push(...extra);
+        }
+      }
+    }
+    // Deduplicate extra bus results
+    const seenBusJourneys = new Set(directBus.map(b => b.journeyId));
+    for (const bus of extraDirectBus) {
+      if (!seenBusJourneys.has(bus.journeyId)) {
+        seenBusJourneys.add(bus.journeyId);
+        directBus.push(bus);
+      }
+    }
 
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
@@ -2080,13 +2426,28 @@ app.get('/api/plan', async (req, res) => {
     // 5a: If start is walkable to rail, use walk+train strategies (already covered by Strategy 3/4)
     // 5b: Bus → Train (find rail stations reachable by bus from the start)
     {
-      const busReachableFromStart = await findBusReachableRailStations(start, dayIndex, departureTime, 5);
+      const busReachableFromStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 5);
+
+      // Pre-fetch coordinates for all bus-reachable stations in one query
+      const stationAtcoCodes = busReachableFromStart.flatMap(s => [s.bus_stop_atco, s.atco_code]);
+      const stationCoordsMap = {};
+      if (stationAtcoCodes.length > 0) {
+        const uniqueCodes = [...new Set(stationAtcoCodes)];
+        const placeholders = uniqueCodes.map((_, i) => `$${i + 1}`).join(',');
+        const coordsResult = await pool.query(
+          `SELECT atco_code, coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code IN (${placeholders})`,
+          uniqueCodes
+        );
+        for (const row of coordsResult.rows) {
+          stationCoordsMap[row.atco_code] = { lat: parseFloat(row.lat), lon: parseFloat(row.lon) };
+        }
+      }
 
       // Merge endTiplocs with any rail stations walkable from end
       let targetTiplocs = [...endTiplocs];
       // If end IS a rail station, ensure its TIPLOC is included
       if (endIsRail) {
-        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [end]);
+        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedEnd]);
         if (r.rows.length > 0 && !targetTiplocs.includes(r.rows[0].tiploc_code)) {
           targetTiplocs.unshift(r.rows[0].tiploc_code);
         }
@@ -2094,24 +2455,22 @@ app.get('/api/plan', async (req, res) => {
 
       for (const station of busReachableFromStart) {
         // Skip if this station is the end destination itself (already handled by direct train)
-        if (station.atco_code === end) continue;
+        if (station.atco_code === resolvedEnd) continue;
+        // Cap total multi-modal results to avoid excessive searching
+        if (multiModal.length >= 10) break;
 
         // Find the actual bus journey from origin to the bus stop near this rail station
-        const busLegs = await findDirectBusJourneys(start, station.bus_stop_atco, departureTime, dayIndex, 3);
+        const busLegs = await findDirectBusJourneys(resolvedStart, station.bus_stop_atco, departureTime, dayIndex, 3);
 
         for (const bus of busLegs) {
-          // Calculate walk time from bus stop to rail station (short walk, ~300m max)
-          const busStopInfo = await pool.query(
-            `SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1`, [station.bus_stop_atco]
-          );
-          const railStopInfo = await pool.query(
-            `SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1`, [station.atco_code]
-          );
+          // Use pre-fetched coordinates for walk time calculation
+          const busStopCoords = stationCoordsMap[station.bus_stop_atco];
+          const railStopCoords = stationCoordsMap[station.atco_code];
           let walkToStationMins = 2; // default short walk
-          if (busStopInfo.rows[0] && railStopInfo.rows[0]) {
+          if (busStopCoords && railStopCoords) {
             const walkDist = haversineDistance(
-              busStopInfo.rows[0].lat, busStopInfo.rows[0].lon,
-              railStopInfo.rows[0].lat, railStopInfo.rows[0].lon
+              busStopCoords.lat, busStopCoords.lon,
+              railStopCoords.lat, railStopCoords.lon
             );
             walkToStationMins = Math.max(1, Math.ceil(walkDist / 0.08));
           }
@@ -2197,11 +2556,11 @@ app.get('/api/plan', async (req, res) => {
 
     // 5c: Train → Bus (find rail stations near the end that connect to the destination by bus)
     {
-      const busReachableFromEnd = await findBusReachableRailStations(end, dayIndex, '00:00:00', 5);
+      const busReachableFromEnd = await findBusReachableRailStations(resolvedEnd, dayIndex, '00:00:00', 5);
 
       let sourceTiplocs = [...startTiplocs];
       if (startIsRail) {
-        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [start]);
+        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedStart]);
         if (r.rows.length > 0 && !sourceTiplocs.includes(r.rows[0].tiploc_code)) {
           sourceTiplocs.unshift(r.rows[0].tiploc_code);
         }
@@ -2210,7 +2569,7 @@ app.get('/api/plan', async (req, res) => {
       // Also try bus-reachable stations from start as source TIPLOCs
       // (in case start isn't within walking distance of a station)
       if (sourceTiplocs.length === 0) {
-        const busReachableStart = await findBusReachableRailStations(start, dayIndex, departureTime, 3);
+        const busReachableStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 3);
         // For train→bus, we can still use bus→train→bus but that gets complex.
         // Instead just use walk-reachable start stations.
         // (bus→train→bus is handled by combining 5b with 5c results)
@@ -2219,6 +2578,8 @@ app.get('/api/plan', async (req, res) => {
       if (sourceTiplocs.length > 0) {
         for (const endStation of busReachableFromEnd) {
           if (endStation.atco_code === start) continue;
+          // Cap total multi-modal results to avoid excessive searching
+          if (multiModal.length >= 10) break;
 
           // Find trains from start area to this rail station
           const walkToStart = startRailStations.length > 0 && !startIsRail ? startRailStations[0].walk_minutes : 0;
@@ -2232,7 +2593,15 @@ app.get('/api/plan', async (req, res) => {
             const busAfter = minutesToTime(arrivalMins) + ':00';
 
             // Find bus from near the rail station to destination
-            const busLegs = await findDirectBusJourneys(endStation.bus_stop_atco, end, busAfter, dayIndex, 2);
+            // If destination is a rail station, also try bus stops near it
+            let busLegs = await findDirectBusJourneys(endStation.bus_stop_atco, resolvedEnd, busAfter, dayIndex, 2);
+            if (busLegs.length === 0 && endIsRail && busEndCodes.length > 0) {
+              for (const busEndCode of busEndCodes) {
+                const extra = await findDirectBusJourneys(endStation.bus_stop_atco, busEndCode, busAfter, dayIndex, 2);
+                busLegs.push(...extra);
+                if (busLegs.length >= 2) break;
+              }
+            }
 
             for (const bus of busLegs) {
               const legs = [];
@@ -2269,7 +2638,7 @@ app.get('/api/plan', async (req, res) => {
     }
 
     // 5d: Walk-based multi-modal (original logic for walkable rail stations)
-    if (startRailStations.length > 0 || endRailStations.length > 0) {
+    if ((startRailStations.length > 0 || endRailStations.length > 0) && multiModal.length < 10) {
       // Try: walk to rail station, train, then bus from end station
       for (const endStation of endRailStations.slice(0, 2)) {
         if (startTiplocs.length === 0) continue;
@@ -2283,7 +2652,14 @@ app.get('/api/plan', async (req, res) => {
           const arrivalMins = timeToMinutes(train.alightTime) + endStation.walk_minutes;
           const busAfter = minutesToTime(arrivalMins) + ':00';
           
-          const busLegs = await findDirectBusJourneys(endStation.atco_code, end, busAfter, dayIndex, 2);
+          let busLegs = await findDirectBusJourneys(endStation.atco_code, resolvedEnd, busAfter, dayIndex, 2);
+          if (busLegs.length === 0 && endIsRail && busEndCodes.length > 0) {
+            for (const busEndCode of busEndCodes) {
+              const extra = await findDirectBusJourneys(endStation.atco_code, busEndCode, busAfter, dayIndex, 2);
+              busLegs.push(...extra);
+              if (busLegs.length >= 2) break;
+            }
+          }
           
           for (const bus of busLegs) {
             multiModal.push({
@@ -2316,7 +2692,7 @@ app.get('/api/plan', async (req, res) => {
 
         const nearStart = await findNearbyBusStops(startStation.atco_code, 1.0);
         for (const nearStop of nearStart.slice(0, 3)) {
-          const busLegs = await findDirectBusJourneys(start, nearStop.atco_code, departureTime, dayIndex, 2);
+          const busLegs = await findDirectBusJourneys(resolvedStart, nearStop.atco_code, departureTime, dayIndex, 2);
           
           for (const bus of busLegs) {
             const arrivalMins = timeToMinutes(bus.alightTime) + 3;
@@ -2390,8 +2766,21 @@ app.get('/api/plan', async (req, res) => {
     // === Strategy 6: Bus → Bus transfer ===
     let busTransfers = [];
     if (directBus.length === 0) {
-      const startCodes = await expandStopCode(start);
-      const endCodes = await expandStopCode(end);
+      let startCodes = await expandStopCode(resolvedStart);
+      let endCodes = await expandStopCode(resolvedEnd);
+      // When start/end is a rail station, include nearby bus stops in the transfer search
+      if (startIsRail && busStartCodes.length > 0) {
+        for (const code of busStartCodes) {
+          const expanded = await expandStopCode(code);
+          startCodes = [...new Set([...startCodes, ...expanded])];
+        }
+      }
+      if (endIsRail && busEndCodes.length > 0) {
+        for (const code of busEndCodes) {
+          const expanded = await expandStopCode(code);
+          endCodes = [...new Set([...endCodes, ...expanded])];
+        }
+      }
       const sPlaceholders = startCodes.map((_, i) => `$${i + 1}`).join(',');
       const ePlaceholders = endCodes.map((_, i) => `$${startCodes.length + i + 1}`).join(',');
       const dayPos = dayIndex + 1;
@@ -2487,14 +2876,67 @@ app.get('/api/plan', async (req, res) => {
     for (const bus of directBus) {
       const depMins = timeToMinutes(bus.boardTime);
       const arrMins = timeToMinutes(bus.alightTime);
+      const legs = [bus];
+      let totalDuration = arrMins - depMins;
+
+      // If bus doesn't stop at the actual start/end (e.g. stops at bus stop near rail station),
+      // add walk legs
+      const busAlightIsEnd = bus.alightAtco === resolvedEnd;
+      const busBoardIsStart = bus.boardAtco === resolvedStart;
+      
+      if (!busBoardIsStart && startIsRail) {
+        // Add walk from rail station to bus stop
+        const busStopCoords = await pool.query(
+          'SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1', [bus.boardAtco]
+        );
+        if (busStopCoords.rows[0]) {
+          const walkDist = haversineDistance(parseFloat(startStop.lat), parseFloat(startStop.lon),
+            parseFloat(busStopCoords.rows[0].lat), parseFloat(busStopCoords.rows[0].lon));
+          const walkMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          if (walkMins > 1) {
+            legs.unshift({
+              type: 'walk',
+              fromName: startStop.common_name,
+              toName: bus.boardName,
+              duration: walkMins,
+              distance_km: Math.round(walkDist * 1000) / 1000
+            });
+            totalDuration += walkMins;
+          }
+        }
+      }
+
+      if (!busAlightIsEnd && endIsRail) {
+        // Add walk from bus stop to rail station
+        const busStopCoords = await pool.query(
+          'SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1', [bus.alightAtco]
+        );
+        if (busStopCoords.rows[0]) {
+          const walkDist = haversineDistance(parseFloat(busStopCoords.rows[0].lat), parseFloat(busStopCoords.rows[0].lon),
+            parseFloat(endStop.lat), parseFloat(endStop.lon));
+          const walkMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          if (walkMins > 1) {
+            legs.push({
+              type: 'walk',
+              fromName: bus.alightName,
+              toName: endStop.common_name,
+              duration: walkMins,
+              distance_km: Math.round(walkDist * 1000) / 1000
+            });
+            totalDuration += walkMins;
+          }
+        }
+      }
+
+      const modes = [...new Set(legs.map(l => l.type))];
       allRoutes.push({
         id: `bus-direct-${bus.journeyId}`,
-        summary: `Bus ${bus.routeNumber} direct`,
-        modes: ['bus'],
+        summary: `Bus ${bus.routeNumber}${busAlightIsEnd ? ' direct' : ''}`,
+        modes: modes,
         departureTime: bus.boardTime,
-        arrivalTime: bus.alightTime,
-        durationMinutes: arrMins - depMins,
-        legs: [bus]
+        arrivalTime: minutesToTime(depMins + totalDuration) + ':00',
+        durationMinutes: totalDuration,
+        legs: legs
       });
     }
 
@@ -2655,13 +3097,9 @@ app.get('/api/plan', async (req, res) => {
 
     _mark('busTransfers');
 
-    // === Enrich all legs with coordinates for map polylines ===
+    // === Enrich all legs with coordinates for map polylines (fast, DB-only) ===
     await enrichLegsWithCoordinates(allRoutes, startStop, endStop);
     _mark('enrichCoords');
-
-    // === Fetch road/rail-following geometry for each leg ===
-    await enrichLegsWithGeometry(allRoutes);
-    _mark('enrichGeometry');
 
     // === Prepend/append walk legs for place-based (coordinate) searches ===
     if (startWalkLeg || endWalkLeg) {
@@ -2677,16 +3115,25 @@ app.get('/api/plan', async (req, res) => {
       }
       // Merge any consecutive walk legs (e.g. place→bus stop + bus stop→rail station → place→rail station)
       mergeConsecutiveWalkLegs(allRoutes);
-      // Enrich the merged/new walk legs with Valhalla geometry
-      await enrichLegsWithGeometry(allRoutes);
     }
 
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance
     // - Remove routes arriving later than the last sensible option
+    // - Remove routes where any single walk leg exceeds 30 minutes (unless it's the only route type)
     const reasonableMinMinutes = Math.max(directDistance * 2, 15); // ~30 km/h avg transit
     const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
-    const filteredRoutes = allRoutes.filter(r => r.durationMinutes <= maxReasonableDuration && r.durationMinutes > 0);
+    const maxWalkLegMinutes = 30; // cap individual walk legs at 30 minutes
+    const filteredRoutes = allRoutes.filter(r => {
+      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) return false;
+      // Filter out routes with excessively long walk legs (unless walk-only)
+      if (r.id !== 'walk-only') {
+        const walkLegs = r.legs.filter(l => l.type === 'walk');
+        const maxWalk = Math.max(...walkLegs.map(l => l.duration || 0), 0);
+        if (maxWalk > maxWalkLegMinutes) return false;
+      }
+      return true;
+    });
 
     // Deduplicate routes by their actual transport legs (same times + route = same journey)
     const uniqueRoutes = [];
@@ -2709,7 +3156,7 @@ app.get('/api/plan', async (req, res) => {
       }
     }
 
-    // Sort results
+    // Sort results BEFORE geometry enrichment (sort is cheap, geometry is expensive)
     if (sortBy === 'arrival') {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.arrivalTime) - timeToMinutes(b.arrivalTime));
     } else if (sortBy === 'duration') {
@@ -2718,8 +3165,17 @@ app.get('/api/plan', async (req, res) => {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime));
     }
 
+    // === Limit to top routes BEFORE expensive geometry fetching ===
+    const MAX_ROUTES_WITH_GEOMETRY = 8;
+    const topRoutes = uniqueRoutes.slice(0, MAX_ROUTES_WITH_GEOMETRY);
+    _mark('filterSort');
+
+    // === Fetch road/rail-following geometry ONLY for the top routes ===
+    await enrichLegsWithGeometry(topRoutes);
+    _mark('enrichGeometry');
+
     _mark('done');
-    console.log(`[PERF] /api/plan total=${_timers.done}ms |`, Object.entries(_timers).map(([k,v]) => `${k}=${v}ms`).join(' '));
+    console.log(`[PERF] /api/plan total=${_timers.done}ms | candidates=${allRoutes.length} filtered=${uniqueRoutes.length} displayed=${topRoutes.length} |`, Object.entries(_timers).map(([k,v]) => `${k}=${v}ms`).join(' '));
 
     res.json({
       start: {
@@ -2738,7 +3194,7 @@ app.get('/api/plan', async (req, res) => {
       departureTime: departureTime,
       dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][dayIndex],
       sortedBy: sortBy,
-      routes: uniqueRoutes,
+      routes: topRoutes,
       totalRoutes: uniqueRoutes.length,
       nearbyRailStations: {
         start: startRailStations,
@@ -2766,3 +3222,14 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+// Export pure utility functions for unit testing
+module.exports._test = {
+  haversineDistance,
+  calculateBearing,
+  decodeValhallaPolyline,
+  timeToMinutes,
+  minutesToTime,
+  getDayIndex,
+  mergeConsecutiveWalkLegs,
+};
