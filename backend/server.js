@@ -3470,7 +3470,7 @@ app.get('/api/weather', async (req, res) => {
  * Known bus operator NOC codes for the Lancashire area.
  * These are used to fetch live SIRI vehicle positions from the transport API.
  */
-const BUS_OPERATOR_NOCS = ['SCNW', 'ARCT', 'BLAC'];
+const BUS_OPERATOR_NOCS = ['SCCU', 'SCNW', 'SCMY', 'ARCT', 'BLAC'];
 
 /**
  * Parse SIRI VehicleMonitoringDelivery XML into structured JSON vehicles.
