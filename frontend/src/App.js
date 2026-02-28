@@ -12,6 +12,7 @@ import WeatherSidebar from './components/WeatherSidebar';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
 const LIVE_POLL_INTERVAL = 15000; // 15 seconds for live bus tracking
+const TRAIN_POLL_INTERVAL = 30000; // 30 seconds for live train tracking
 
 // Geocode free text to coordinates via the backend Nominatim proxy
 async function geocodeText(text) {
@@ -59,9 +60,10 @@ function App() {
 
   // ---------- Live tracking state ----------
   const [liveVehicles, setLiveVehicles] = useState([]);  // live bus GPS positions (single best-match)
-  const [trackedLeg, setTrackedLeg] = useState(null); // full bus leg being tracked
+  const [trackedLeg, setTrackedLeg] = useState(null); // full bus/train leg being tracked
   const [liveTrackingActive, setLiveTrackingActive] = useState(false);
   const [railDepartures, setRailDepartures] = useState(null); // live rail departures
+  const [trackedTrainService, setTrackedTrainService] = useState(null); // live train service with calling points
   const liveIntervalRef = useRef(null);
 
   // Handlers for the auth flow
@@ -232,6 +234,34 @@ function App() {
     return () => { cancelled = true; };
   }, [endStop?.lat, endStop?.lon]);
 
+  // ─── Live train tracking: fetch departures for a station and match the specific service ───
+  const fetchLiveTrainData = useCallback(async (leg) => {
+    if (!leg || !leg.startCrs) return;
+    try {
+      const res = await fetch(`${API_URL}/api/rail/departures/${encodeURIComponent(leg.startCrs)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setRailDepartures(data);
+
+      // Find the matching service by scheduled departure time
+      const boardTimeShort = leg.boardTime
+        ? leg.boardTime.substring(0, 5) // "HH:MM"
+        : null;
+      const match = (data.services || []).find(s =>
+        s.scheduledDeparture === boardTimeShort &&
+        s.destination?.crs === leg.endCrs
+      ) || (data.services || []).find(s =>
+        s.scheduledDeparture === boardTimeShort
+      );
+
+      if (match) {
+        setTrackedTrainService(match);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch live train data:', e.message);
+    }
+  }, []);
+
   // ─── Live bus tracking: fetch positions for a route leg, pick single best match ───
   const fetchLiveVehicles = useCallback(async (leg) => {
     if (!leg || !leg.routeNumber) return;
@@ -272,7 +302,7 @@ function App() {
     }
   }, []);
 
-  // Start / stop live bus tracking (tracks a single specific bus)
+  // Start / stop live tracking (bus or train — one at a time)
   const startTracking = useCallback((leg) => {
     // Clear any existing interval
     if (liveIntervalRef.current) {
@@ -281,10 +311,19 @@ function App() {
     }
     setTrackedLeg(leg);
     setLiveTrackingActive(true);
-    // Fetch immediately, then poll
-    fetchLiveVehicles(leg);
-    liveIntervalRef.current = setInterval(() => fetchLiveVehicles(leg), LIVE_POLL_INTERVAL);
-  }, [fetchLiveVehicles]);
+    setLiveVehicles([]);
+    setTrackedTrainService(null);
+
+    if (leg.type === 'train') {
+      // Train tracking: poll departures
+      fetchLiveTrainData(leg);
+      liveIntervalRef.current = setInterval(() => fetchLiveTrainData(leg), TRAIN_POLL_INTERVAL);
+    } else {
+      // Bus tracking: poll live GPS
+      fetchLiveVehicles(leg);
+      liveIntervalRef.current = setInterval(() => fetchLiveVehicles(leg), LIVE_POLL_INTERVAL);
+    }
+  }, [fetchLiveVehicles, fetchLiveTrainData]);
 
   const stopTracking = useCallback(() => {
     if (liveIntervalRef.current) {
@@ -294,6 +333,7 @@ function App() {
     setTrackedLeg(null);
     setLiveTrackingActive(false);
     setLiveVehicles([]);
+    setTrackedTrainService(null);
   }, []);
 
   // Clean up polling on unmount
@@ -568,6 +608,7 @@ function App() {
         liveVehicles={liveVehicles}
         liveTrackingActive={liveTrackingActive}
         trackedLeg={trackedLeg}
+        trackedTrainService={trackedTrainService}
       />
 
       
@@ -579,12 +620,13 @@ function App() {
           onSelectRoute={setSelectedRoute}
           sortBy={sortBy}
           onSortChange={handleSortChange}
-          onTrackBus={startTracking}
+          onTrackLeg={startTracking}
           onStopTracking={stopTracking}
           liveTrackingActive={liveTrackingActive}
           trackedLeg={trackedLeg}
           liveVehicles={liveVehicles}
           railDepartures={railDepartures}
+          trackedTrainService={trackedTrainService}
         />
       )}
 

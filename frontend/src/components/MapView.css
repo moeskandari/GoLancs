@@ -238,6 +238,59 @@
   50% { opacity: 0.3; }
 }
 
+/* ── Live train marker ── */
+.live-train-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.live-train-marker {
+  position: relative;
+  width: 48px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-train-icon {
+  position: relative;
+  background: #1976d2;
+  border: 2.5px solid #fff;
+  border-radius: 10px;
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.45);
+  z-index: 2;
+}
+
+.live-train-label {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.live-train-pulse {
+  position: absolute;
+  width: 48px;
+  height: 36px;
+  background: rgba(25, 118, 210, 0.2);
+  border-radius: 50%;
+  z-index: 1;
+  animation: train-pulse 3s ease-out infinite;
+}
+
+@keyframes train-pulse {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  60% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
 @media (max-width: 768px) {
   .locate-me-btn-wrapper {
     bottom: 80px;
