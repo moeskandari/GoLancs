@@ -159,6 +159,26 @@ const userDotIcon = (heading) => {
   });
 };
 
+// Live bus marker icon — shows route number with bearing arrow
+const liveBusIcon = (lineName, bearing) => {
+  const rotation = bearing !== null && bearing !== undefined ? `transform: rotate(${bearing}deg);` : '';
+  const arrow = bearing !== null && bearing !== undefined
+    ? `<div class="live-bus-arrow" style="${rotation}"></div>`
+    : '';
+  return L.divIcon({
+    html: `<div class="live-bus-marker">
+      ${arrow}
+      <div class="live-bus-icon">
+        <span class="live-bus-number">${lineName || '?'}</span>
+      </div>
+      <div class="live-bus-pulse"></div>
+    </div>`,
+    className: 'live-bus-marker-wrapper',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+};
+
 // Button to centre the map on the user's location
 function LocateMeButton({ onLocate }) {
   const map = useMap();
@@ -196,7 +216,7 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick }) {
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedRoute }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -406,6 +426,49 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
 
         {/* Route polylines and changeover markers */}
         {routeOverlays}
+
+        {/* Live bus position markers */}
+        {liveTrackingActive && liveVehicles && liveVehicles.map((vehicle, idx) => (
+          <Marker
+            key={`live-bus-${vehicle.vehicleRef || idx}`}
+            position={[vehicle.latitude, vehicle.longitude]}
+            icon={liveBusIcon(vehicle.lineName, vehicle.bearing)}
+            zIndexOffset={900}
+          >
+            <Popup>
+              <div className="live-bus-popup">
+                <strong>🚌 {vehicle.lineName || 'Bus'}</strong>
+                <br/>
+                <span style={{fontSize: '12px', color: '#666'}}>
+                  {vehicle.originName} → {vehicle.destinationName}
+                </span>
+                <br/>
+                <span style={{fontSize: '11px', color: '#999'}}>
+                  Vehicle: {vehicle.vehicleId || vehicle.vehicleRef}
+                </span>
+                {vehicle.bearing !== null && (
+                  <><br/><span style={{fontSize: '11px', color: '#999'}}>
+                    Bearing: {Math.round(vehicle.bearing)}°
+                  </span></>
+                )}
+                {vehicle.recordedAt && (
+                  <><br/><span style={{fontSize: '11px', color: '#2196F3'}}>
+                    Updated: {new Date(vehicle.recordedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                  </span></>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* Live tracking indicator badge */}
+        {liveTrackingActive && trackedRoute && (
+          <div className="live-tracking-badge">
+            <span className="live-dot-indicator"></span>
+            Tracking Bus {trackedRoute}
+            <span className="live-count">{liveVehicles?.length || 0} active</span>
+          </div>
+        )}
       </MapContainer>
       <Compass />
       <WeatherIcon weather={currentWeather} loading={weatherLoading} onClick={onWeatherClick} />

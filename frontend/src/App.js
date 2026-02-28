@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import './App.css';
 import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
@@ -11,6 +11,7 @@ import WeatherSidebar from './components/WeatherSidebar';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
+const LIVE_POLL_INTERVAL = 15000; // 15 seconds for live bus tracking
 
 // Geocode free text to coordinates via the backend Nominatim proxy
 async function geocodeText(text) {
@@ -55,6 +56,13 @@ function App() {
   // authView: null (map visible), 'signin', 'signup', 'profile'
   const [authView, setAuthView] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // ---------- Live tracking state ----------
+  const [liveVehicles, setLiveVehicles] = useState([]);  // live bus GPS positions
+  const [trackedRoute, setTrackedRoute] = useState(null); // route number being tracked
+  const [liveTrackingActive, setLiveTrackingActive] = useState(false);
+  const [railDepartures, setRailDepartures] = useState(null); // live rail departures
+  const liveIntervalRef = useRef(null);
 
   // Handlers for the auth flow
   const handleAccountClick = () => {
@@ -223,6 +231,78 @@ function App() {
     fetchDestWeather();
     return () => { cancelled = true; };
   }, [endStop?.lat, endStop?.lon]);
+
+  // ─── Live bus tracking: fetch positions for a route number ───
+  const fetchLiveVehicles = useCallback(async (routeNumber) => {
+    if (!routeNumber) return;
+    try {
+      const res = await fetch(`${API_URL}/api/bus/live/route/${encodeURIComponent(routeNumber)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLiveVehicles(data.vehicles || []);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch live bus data:', e.message);
+    }
+  }, []);
+
+  // Start / stop live bus tracking
+  const startTracking = useCallback((routeNumber) => {
+    // Clear any existing interval
+    if (liveIntervalRef.current) {
+      clearInterval(liveIntervalRef.current);
+      liveIntervalRef.current = null;
+    }
+    setTrackedRoute(routeNumber);
+    setLiveTrackingActive(true);
+    // Fetch immediately, then poll
+    fetchLiveVehicles(routeNumber);
+    liveIntervalRef.current = setInterval(() => fetchLiveVehicles(routeNumber), LIVE_POLL_INTERVAL);
+  }, [fetchLiveVehicles]);
+
+  const stopTracking = useCallback(() => {
+    if (liveIntervalRef.current) {
+      clearInterval(liveIntervalRef.current);
+      liveIntervalRef.current = null;
+    }
+    setTrackedRoute(null);
+    setLiveTrackingActive(false);
+    setLiveVehicles([]);
+  }, []);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
+    };
+  }, []);
+
+  // ─── Live rail departures: fetch for stations on a selected route ───
+  const fetchRailDepartures = useCallback(async (crsCode) => {
+    if (!crsCode) return;
+    try {
+      const res = await fetch(`${API_URL}/api/rail/departures/${encodeURIComponent(crsCode)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRailDepartures(data);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch rail departures:', e.message);
+    }
+  }, []);
+
+  // Auto-fetch rail departures when a route with a train leg is selected
+  useEffect(() => {
+    if (!routes || selectedRoute === null) { setRailDepartures(null); return; }
+    const route = routes.routes[selectedRoute];
+    if (!route) return;
+    const trainLeg = route.legs.find(l => l.type === 'train');
+    if (trainLeg?.startCrs) {
+      fetchRailDepartures(trainLeg.startCrs);
+    } else {
+      setRailDepartures(null);
+    }
+  }, [routes, selectedRoute, fetchRailDepartures]);
 
   // Set the start location to the user's current GPS position
   const useMyLocation = useCallback(async () => {
@@ -459,6 +539,9 @@ function App() {
         currentWeather={currentWeather}
         weatherLoading={weatherLoading}
         onWeatherClick={() => setWeatherSidebarOpen(true)}
+        liveVehicles={liveVehicles}
+        liveTrackingActive={liveTrackingActive}
+        trackedRoute={trackedRoute}
       />
 
       
@@ -470,6 +553,12 @@ function App() {
           onSelectRoute={setSelectedRoute}
           sortBy={sortBy}
           onSortChange={handleSortChange}
+          onTrackBus={startTracking}
+          onStopTracking={stopTracking}
+          liveTrackingActive={liveTrackingActive}
+          trackedRoute={trackedRoute}
+          liveVehicles={liveVehicles}
+          railDepartures={railDepartures}
         />
       )}
 

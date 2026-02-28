@@ -35,10 +35,104 @@ function calcLegDuration(leg) {
   return null;
 }
 
+/**
+ * Find a matching live vehicle for a bus leg.
+ * Matches by line name/number and direction if available.
+ */
+function findMatchingVehicle(leg, liveVehicles) {
+  if (!liveVehicles || !liveVehicles.length || !leg.routeNumber) return null;
+  const matches = liveVehicles.filter(v =>
+    v.lineName === leg.routeNumber || v.lineRef === leg.routeNumber
+  );
+  if (matches.length === 0) return null;
+  // If we have direction info, try to match
+  if (leg.direction && matches.length > 1) {
+    const dirMatch = matches.find(v =>
+      v.directionRef?.toLowerCase() === leg.direction?.toLowerCase()
+    );
+    if (dirMatch) return dirMatch;
+  }
+  // Return the most recently recorded vehicle
+  return matches.sort((a, b) =>
+    new Date(b.recordedAt || 0) - new Date(a.recordedAt || 0)
+  )[0];
+}
+
+/**
+ * Find matching rail departure info for a train leg.
+ */
+function findMatchingDeparture(leg, railDepartures) {
+  if (!railDepartures?.services || !leg.boardTime) return null;
+  const boardTimeShort = formatTime(leg.boardTime);
+  return railDepartures.services.find(s =>
+    s.scheduledDeparture === boardTimeShort
+  );
+}
+
+/**
+ * Live status badge for a bus vehicle
+ */
+function LiveBusBadge({ vehicle }) {
+  if (!vehicle) return null;
+  const updatedAt = vehicle.recordedAt
+    ? new Date(vehicle.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+  return (
+    <div className="live-status-badge">
+      <span className="live-dot-green"></span>
+      <span className="live-status-text">
+        Live tracked
+        {updatedAt && <span className="live-updated"> · {updatedAt}</span>}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Live departure info for a rail service
+ */
+function RailLiveBadge({ departure }) {
+  if (!departure) return null;
+  const isDelayed = departure.estimatedDeparture &&
+    departure.estimatedDeparture !== 'On time' &&
+    departure.estimatedDeparture !== departure.scheduledDeparture;
+  const isCancelled = departure.cancelReason;
+
+  return (
+    <div className={`rail-live-badge ${isCancelled ? 'cancelled' : isDelayed ? 'delayed' : 'on-time'}`}>
+      {isCancelled ? (
+        <>
+          <span className="live-dot-red"></span>
+          <span className="rail-live-text">Cancelled: {departure.cancelReason}</span>
+        </>
+      ) : isDelayed ? (
+        <>
+          <span className="live-dot-amber"></span>
+          <span className="rail-live-text">
+            Expected {departure.estimatedDeparture}
+            {departure.delayReason && <span className="delay-reason"> — {departure.delayReason}</span>}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="live-dot-green"></span>
+          <span className="rail-live-text">On time</span>
+          {departure.platform && <span className="platform-badge">Plat {departure.platform}</span>}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Individual leg detail component with full info
-function LegDetail({ leg, legIndex, totalLegs }) {
+function LegDetail({ leg, legIndex, totalLegs, onTrackBus, onStopTracking, liveTrackingActive, trackedRoute, liveVehicles, railDepartures }) {
   const config = modeConfig[leg.type] || modeConfig.walk;
   const duration = calcLegDuration(leg);
+
+  // Find live data for this leg
+  const matchingVehicle = leg.type === 'bus' ? findMatchingVehicle(leg, liveVehicles) : null;
+  const matchingDeparture = leg.type === 'train' ? findMatchingDeparture(leg, railDepartures) : null;
+  const isTracking = liveTrackingActive && trackedRoute === leg.routeNumber;
 
   return (
     <div className={`leg-detail-card ${leg.type}-card`}>
@@ -79,6 +173,27 @@ function LegDetail({ leg, legIndex, totalLegs }) {
               <span className="leg-operator">{leg.operatorName || leg.operator}</span>
               {duration && <span className="leg-duration">{formatDuration(duration)}</span>}
             </div>
+            {/* Live tracking status or Track button */}
+            {isTracking ? (
+              <>
+                <LiveBusBadge vehicle={matchingVehicle} />
+                <button
+                  className="track-btn tracking"
+                  onClick={(e) => { e.stopPropagation(); onStopTracking?.(); }}
+                  aria-label="Stop tracking bus"
+                >
+                  <span className="live-dot-green"></span> Tracking · Stop
+                </button>
+              </>
+            ) : (
+              <button
+                className="track-btn"
+                onClick={(e) => { e.stopPropagation(); onTrackBus?.(leg.routeNumber); }}
+                aria-label={`Track bus ${leg.routeNumber} live`}
+              >
+                📡 Track Live
+              </button>
+            )}
             <div className="leg-stops">
               <div className="leg-stop-row">
                 <span className="stop-time">{formatTime(leg.boardTime)}</span>
@@ -104,6 +219,8 @@ function LegDetail({ leg, legIndex, totalLegs }) {
               <span className="leg-operator">{leg.operatorName}</span>
               {duration && <span className="leg-duration">{formatDuration(duration)}</span>}
             </div>
+            {/* Live rail departure info */}
+            <RailLiveBadge departure={matchingDeparture} />
             <div className="leg-stops">
               <div className="leg-stop-row">
                 <span className="stop-time">{formatTime(leg.boardTime)}</span>
@@ -172,7 +289,7 @@ function ModesSummary({ legs }) {
   );
 }
 
-function RouteCard({ route, index, isSelected, onSelect }) {
+function RouteCard({ route, index, isSelected, onSelect, onTrackBus, onStopTracking, liveTrackingActive, trackedRoute, liveVehicles, railDepartures }) {
   return (
     <div
       className={`route-card ${isSelected ? 'selected' : ''}`}
@@ -200,7 +317,18 @@ function RouteCard({ route, index, isSelected, onSelect }) {
         <div className="route-expanded">
           <div className="journey-timeline">
             {route.legs.map((leg, i) => (
-              <LegDetail key={i} leg={leg} legIndex={i} totalLegs={route.legs.length} />
+              <LegDetail
+                key={i}
+                leg={leg}
+                legIndex={i}
+                totalLegs={route.legs.length}
+                onTrackBus={onTrackBus}
+                onStopTracking={onStopTracking}
+                liveTrackingActive={liveTrackingActive}
+                trackedRoute={trackedRoute}
+                liveVehicles={liveVehicles}
+                railDepartures={railDepartures}
+              />
             ))}
           </div>
         </div>
@@ -209,7 +337,7 @@ function RouteCard({ route, index, isSelected, onSelect }) {
   );
 }
 
-function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChange }) {
+function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChange, onTrackBus, onStopTracking, liveTrackingActive, trackedRoute, liveVehicles, railDepartures }) {
   if (!routes) return null;
 
   return (
@@ -254,6 +382,12 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
               index={i}
               isSelected={selectedRoute === i}
               onSelect={onSelectRoute}
+              onTrackBus={onTrackBus}
+              onStopTracking={onStopTracking}
+              liveTrackingActive={liveTrackingActive}
+              trackedRoute={trackedRoute}
+              liveVehicles={liveVehicles}
+              railDepartures={railDepartures}
             />
           ))}
         </div>

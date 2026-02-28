@@ -3464,6 +3464,349 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
+// ─── LIVE BUS TRACKING ──────────────────────────────────────────────────────
+
+/**
+ * Known bus operator NOC codes for the Lancashire area.
+ * These are used to fetch live SIRI vehicle positions from the transport API.
+ */
+const BUS_OPERATOR_NOCS = ['SCNW', 'ARCT', 'BLAC'];
+
+/**
+ * Parse SIRI VehicleMonitoringDelivery XML into structured JSON vehicles.
+ * Returns an array of vehicle objects with position, route, bearing, etc.
+ */
+function parseSiriVehicles(xmlData) {
+  const xml2js = require('xml2js');
+  return new Promise((resolve, reject) => {
+    xml2js.parseString(xmlData, { explicitArray: false, ignoreAttrs: false }, (err, result) => {
+      if (err) return reject(err);
+      try {
+        const siri = result?.Siri || result?.['Siri'];
+        const delivery = siri?.ServiceDelivery?.VehicleMonitoringDelivery;
+        if (!delivery) return resolve([]);
+
+        let activities = delivery.VehicleActivity;
+        if (!activities) return resolve([]);
+        if (!Array.isArray(activities)) activities = [activities];
+
+        const vehicles = activities.map(activity => {
+          const journey = activity.MonitoredVehicleJourney || {};
+          const loc = journey.VehicleLocation || {};
+          const ext = activity.Extensions?.VehicleJourney || {};
+          return {
+            vehicleRef: journey.VehicleRef || null,
+            vehicleId: ext?.VehicleUniqueId || journey.VehicleRef || null,
+            lineRef: journey.LineRef || null,
+            lineName: journey.PublishedLineName || journey.LineRef || null,
+            operatorRef: journey.OperatorRef || null,
+            directionRef: journey.DirectionRef || null,
+            originRef: journey.OriginRef || null,
+            originName: (journey.OriginName || '').replace(/_/g, ' '),
+            destinationRef: journey.DestinationRef || null,
+            destinationName: (journey.DestinationName || '').replace(/_/g, ' '),
+            aimedDeparture: journey.OriginAimedDepartureTime || null,
+            aimedArrival: journey.DestinationAimedArrivalTime || null,
+            latitude: loc.Latitude ? parseFloat(loc.Latitude) : null,
+            longitude: loc.Longitude ? parseFloat(loc.Longitude) : null,
+            bearing: journey.Bearing ? parseFloat(journey.Bearing) : null,
+            recordedAt: activity.RecordedAtTime || null,
+            validUntil: activity.ValidUntilTime || null,
+            journeyCode: ext?.Operational?.TicketMachine?.JourneyCode || null,
+          };
+        }).filter(v => v.latitude !== null && v.longitude !== null);
+
+        resolve(vehicles);
+      } catch (parseErr) {
+        reject(parseErr);
+      }
+    });
+  });
+}
+
+/**
+ * GET /api/bus/live/route/:routeNumber
+ * Get live buses for a specific route number across all operators.
+ * Must be defined BEFORE /api/bus/live/:noc to avoid "route" matching as a NOC code.
+ */
+app.get('/api/bus/live/route/:routeNumber', async (req, res) => {
+  try {
+    const { routeNumber } = req.params;
+    const https = require('https');
+
+    // Fetch from all operators simultaneously
+    const fetchOperator = (noc) => new Promise((resolve) => {
+      const url = `https://transport.scc.lancs.ac.uk/bus/live/${noc}`;
+      https.get(url, { timeout: 10000 }, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', async () => {
+          try {
+            const vehicles = await parseSiriVehicles(data);
+            resolve(vehicles);
+          } catch {
+            resolve([]);
+          }
+        });
+      }).on('error', () => resolve([]))
+        .on('timeout', function() { this.destroy(); resolve([]); });
+    });
+
+    const results = await Promise.all(BUS_OPERATOR_NOCS.map(fetchOperator));
+    let allVehicles = results.flat();
+
+    // Filter to the requested route number
+    allVehicles = allVehicles.filter(v =>
+      v.lineName === routeNumber || v.lineRef === routeNumber
+    );
+
+    // Deduplicate
+    const seen = new Set();
+    allVehicles = allVehicles.filter(v => {
+      const key = v.vehicleRef || v.vehicleId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    res.json({
+      routeNumber: routeNumber,
+      timestamp: new Date().toISOString(),
+      count: allVehicles.length,
+      vehicles: allVehicles
+    });
+  } catch (err) {
+    console.error('Bus live route endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/bus/live/:noc
+ * Get live GPS positions for all vehicles of a given operator.
+ * Optional query params: ?line=100 (filter by route number)
+ */
+app.get('/api/bus/live/:noc', async (req, res) => {
+  try {
+    const { noc } = req.params;
+    const lineFilter = req.query.line;
+    const https = require('https');
+
+    const url = `https://transport.scc.lancs.ac.uk/bus/live/${noc.toUpperCase()}`;
+
+    https.get(url, { timeout: 10000 }, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', async () => {
+        try {
+          let vehicles = await parseSiriVehicles(data);
+
+          // Filter by line/route if requested
+          if (lineFilter) {
+            vehicles = vehicles.filter(v =>
+              v.lineName === lineFilter || v.lineRef === lineFilter
+            );
+          }
+
+          res.json({
+            operator: noc.toUpperCase(),
+            timestamp: new Date().toISOString(),
+            count: vehicles.length,
+            vehicles: vehicles
+          });
+        } catch (parseErr) {
+          console.error('Failed to parse bus live data:', parseErr);
+          res.status(500).json({ error: 'Failed to parse live bus data' });
+        }
+      });
+    }).on('error', (err) => {
+      console.error('Bus live fetch error:', err);
+      res.status(500).json({ error: `Failed to fetch live data: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(504).json({ error: 'Transport API timed out' });
+    });
+  } catch (err) {
+    console.error('Bus live endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/bus/live
+ * Get live GPS positions for ALL known operators in the Lancashire area.
+ * Optional query params: ?line=100 (filter by route number)
+ */
+app.get('/api/bus/live', async (req, res) => {
+  try {
+    const https = require('https');
+    const lineFilter = req.query.line;
+
+    const fetchOperator = (noc) => new Promise((resolve) => {
+      const url = `https://transport.scc.lancs.ac.uk/bus/live/${noc}`;
+      https.get(url, { timeout: 10000 }, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', async () => {
+          try {
+            const vehicles = await parseSiriVehicles(data);
+            resolve(vehicles);
+          } catch {
+            resolve([]);
+          }
+        });
+      }).on('error', () => resolve([]))
+        .on('timeout', function() { this.destroy(); resolve([]); });
+    });
+
+    const results = await Promise.all(BUS_OPERATOR_NOCS.map(fetchOperator));
+    let allVehicles = results.flat();
+
+    // Deduplicate by vehicleRef (some operators may overlap)
+    const seen = new Set();
+    allVehicles = allVehicles.filter(v => {
+      const key = v.vehicleRef || v.vehicleId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Filter by line/route if requested
+    if (lineFilter) {
+      allVehicles = allVehicles.filter(v =>
+        v.lineName === lineFilter || v.lineRef === lineFilter
+      );
+    }
+
+    // Filter to Lancashire bounding box (roughly)
+    const LANCASHIRE_BOUNDS = {
+      minLat: 53.5, maxLat: 54.2,
+      minLon: -3.1, maxLon: -2.5
+    };
+    allVehicles = allVehicles.filter(v =>
+      v.latitude >= LANCASHIRE_BOUNDS.minLat && v.latitude <= LANCASHIRE_BOUNDS.maxLat &&
+      v.longitude >= LANCASHIRE_BOUNDS.minLon && v.longitude <= LANCASHIRE_BOUNDS.maxLon
+    );
+
+    res.json({
+      operators: BUS_OPERATOR_NOCS,
+      timestamp: new Date().toISOString(),
+      count: allVehicles.length,
+      vehicles: allVehicles
+    });
+  } catch (err) {
+    console.error('Bus live all endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── ROAD / MOTORWAY VMS SIGNS ──────────────────────────────────────────────
+
+/**
+ * GET /api/road/vms
+ * Get Variable Message Sign data for motorways in the Lancashire area.
+ * Returns active messages from signs on the M6, M55, M65 etc.
+ */
+app.get('/api/road/vms', async (req, res) => {
+  try {
+    const https = require('https');
+    const xml2js = require('xml2js');
+
+    const url = 'https://transport.scc.lancs.ac.uk/road/vms';
+
+    https.get(url, { timeout: 15000 }, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', () => {
+        xml2js.parseString(data, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to parse VMS data' });
+          }
+
+          try {
+            const payload = result?.D2Payload;
+            let controllers = payload?.vmsControllerStatus;
+            if (!controllers) return res.json({ signs: [] });
+            if (!Array.isArray(controllers)) controllers = [controllers];
+
+            // Lancashire area roads of interest
+            const LANCASHIRE_ROADS = ['M6', 'M55', 'M65', 'A6', 'A583', 'A585', 'A588', 'A59'];
+
+            const signs = [];
+            for (const ctrl of controllers) {
+              const status = ctrl?.vmsStatus?.vmsStatus;
+              if (!status) continue;
+
+              const ext = status?.vmsStatusExtensionG;
+              if (!ext) continue;
+
+              // Check if the sign is on a Lancashire road
+              const loc = ext?.vmsLocation?.locPointLocation;
+              const desc = loc?.supplementaryPositionalDescription;
+              const roadName = desc?.roadInformation?.roadName || '';
+              const locationDesc = desc?.locationDescription || '';
+
+              // Filter to Lancashire area roads
+              const isLancashireRoad = LANCASHIRE_ROADS.some(road =>
+                roadName.startsWith(road) || locationDesc.includes(road)
+              );
+              if (!isLancashireRoad) continue;
+
+              // Get coordinates
+              const coords = loc?.pointByCoordinates?.pointCoordinates;
+              const lat = coords?.latitude ? parseFloat(coords.latitude) : null;
+              const lon = coords?.longitude ? parseFloat(coords.longitude) : null;
+
+              // Filter by Lancashire bounding box
+              if (lat && lon) {
+                if (lat < 53.5 || lat > 54.2 || lon < -3.2 || lon > -2.4) continue;
+              }
+
+              // Get message info
+              const msg = status?.vmsMessage?.vmsMessage;
+              const messageText = msg?.reasonForSetting || '';
+              const messageType = msg?.messageInformationType || '';
+              const lastSet = msg?.timeLastSet || '';
+
+              signs.push({
+                id: ext?.externalIdentifier || ctrl?.vmsControllerReference?.idG || null,
+                type: ext?.vmsType || null,
+                description: ext?.description || null,
+                road: roadName,
+                location: locationDesc,
+                direction: desc?.supplementaryPositionalDescriptionExtensionG?.direction || null,
+                latitude: lat,
+                longitude: lon,
+                workingStatus: status?.workingStatus?.trim() || null,
+                messageType: messageType,
+                messageText: messageText,
+                lastUpdated: lastSet,
+              });
+            }
+
+            res.json({
+              timestamp: payload?.publicationTime || new Date().toISOString(),
+              count: signs.length,
+              signs: signs
+            });
+          } catch (parseErr) {
+            console.error('VMS parse error:', parseErr);
+            res.status(500).json({ error: 'Failed to parse VMS data' });
+          }
+        });
+      });
+    }).on('error', (err) => {
+      res.status(500).json({ error: `Failed to fetch VMS data: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(504).json({ error: 'VMS API timed out' });
+    });
+  } catch (err) {
+    console.error('VMS endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
