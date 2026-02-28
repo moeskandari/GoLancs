@@ -181,13 +181,15 @@ function App() {
   }, []);
 
   // Fetch weather for current location whenever userLocation changes
+  const userLat = userLocation?.lat;
+  const userLon = userLocation?.lon;
   useEffect(() => {
-    if (!userLocation) return;
+    if (!userLat || !userLon) return;
     let cancelled = false;
     const fetchWeather = async () => {
       setWeatherLoading(true);
       try {
-        const res = await fetch(`${API_URL}/api/weather?lat=${userLocation.lat}&lon=${userLocation.lon}`);
+        const res = await fetch(`${API_URL}/api/weather?lat=${userLat}&lon=${userLon}`);
         if (res.ok && !cancelled) {
           setCurrentWeather(await res.json());
         }
@@ -201,7 +203,7 @@ function App() {
     // Refresh weather every 10 minutes
     const interval = setInterval(fetchWeather, 10 * 60 * 1000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [userLocation?.lat, userLocation?.lon]);
+  }, [userLat, userLon]);
 
   // Fetch weather for destination whenever endStop changes
   useEffect(() => {
