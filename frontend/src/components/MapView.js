@@ -6,17 +6,28 @@ import './MapView.css';
 import Compass from './Compass';
 import WeatherIcon from './WeatherIcon';
 
+function formatTime(timeStr) {
+  if (!timeStr) return '';
+  return timeStr.substring(0, 5);
+}
+
 // Component to handle map bounds
 function MapBounds() {
   const map = useMap();
   
   useEffect(() => {
-    const bounds = [
-      [53.7, -3.2],
-      [54.1, -2.6]
+    // Max bounds: cover all stations from Manchester Airport to Barrow/Corkickle to Leeds
+    const maxBounds = [
+      [53.30, -3.70],  // SW corner (south of Manchester Airport, west of Corkickle)
+      [54.60, -1.40]   // NE corner (north of Corkickle, east of Leeds)
     ];
-    map.setMaxBounds(bounds);
-    map.fitBounds(bounds);
+    // Default view: Lancashire core area (Lancaster, Preston, Blackpool, Fylde)
+    const defaultView = [
+      [53.55, -3.15],
+      [54.25, -2.45]
+    ];
+    map.setMaxBounds(maxBounds);
+    map.fitBounds(defaultView);
   }, [map]);
   
   return null;
@@ -159,6 +170,41 @@ const userDotIcon = (heading) => {
   });
 };
 
+// Live bus marker icon — shows route number with bearing arrow
+const liveBusIcon = (lineName, bearing) => {
+  const rotation = bearing !== null && bearing !== undefined ? `transform: rotate(${bearing}deg);` : '';
+  const arrow = bearing !== null && bearing !== undefined
+    ? `<div class="live-bus-arrow" style="${rotation}"></div>`
+    : '';
+  return L.divIcon({
+    html: `<div class="live-bus-marker">
+      ${arrow}
+      <div class="live-bus-icon">
+        <span class="live-bus-number">${lineName || '?'}</span>
+      </div>
+      <div class="live-bus-pulse"></div>
+    </div>`,
+    className: 'live-bus-marker-wrapper',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+};
+
+// Live train marker icon — shows operator code with rail styling
+const liveTrainIcon = (operator) => {
+  return L.divIcon({
+    html: `<div class="live-train-marker">
+      <div class="live-train-icon">
+        <span class="live-train-label">🚂 ${operator || 'Train'}</span>
+      </div>
+      <div class="live-train-pulse"></div>
+    </div>`,
+    className: 'live-train-marker-wrapper',
+    iconSize: [48, 36],
+    iconAnchor: [24, 18]
+  });
+};
+
 // Button to centre the map on the user's location
 function LocateMeButton({ onLocate }) {
   const map = useMap();
@@ -196,7 +242,7 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick }) {
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -406,6 +452,223 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
 
         {/* Route polylines and changeover markers */}
         {routeOverlays}
+
+        {/* Live bus position markers */}
+        {liveTrackingActive && trackedLeg?.type !== 'train' && liveVehicles && liveVehicles.map((vehicle, idx) => (
+          <Marker
+            key={`live-bus-${vehicle.vehicleRef || idx}`}
+            position={[vehicle.latitude, vehicle.longitude]}
+            icon={liveBusIcon(vehicle.lineName, vehicle.bearing)}
+            zIndexOffset={900}
+          >
+            <Popup>
+              <div className="live-bus-popup">
+                <strong>🚌 {vehicle.lineName || 'Bus'}</strong>
+                <br/>
+                <span style={{fontSize: '12px', color: '#666'}}>
+                  {vehicle.originName} → {vehicle.destinationName}
+                </span>
+                <br/>
+                <span style={{fontSize: '11px', color: '#999'}}>
+                  Vehicle: {vehicle.vehicleId || vehicle.vehicleRef}
+                </span>
+                {vehicle.bearing !== null && (
+                  <><br/><span style={{fontSize: '11px', color: '#999'}}>
+                    Bearing: {Math.round(vehicle.bearing)}°
+                  </span></>
+                )}
+                {vehicle.recordedAt && (
+                  <><br/><span style={{fontSize: '11px', color: '#2196F3'}}>
+                    Updated: {new Date(vehicle.recordedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                  </span></>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* Live train position marker (estimated from calling points) */}
+        {liveTrackingActive && trackedLeg?.type === 'train' && trackedTrainService && (() => {
+          // Build waypoints from calling points (with coordinates and times)
+          // This works for trains coming from anywhere — not limited to rail graph coverage
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+
+          // Build ordered waypoints: boarding station + calling points (all with coords and times)
+          const waypoints = [];
+
+          // Add the boarding station as first waypoint
+          const boardingCoords = trackedTrainService.boardingStation;
+          if (boardingCoords?.lat && boardingCoords?.lon) {
+            waypoints.push({
+              lat: boardingCoords.lat,
+              lon: boardingCoords.lon,
+              time: new Date(`${todayStr}T${trackedLeg.boardTime}`),
+              name: trackedLeg.boardName || 'Departure'
+            });
+          }
+
+          // Add calling points that have coordinates
+          if (trackedTrainService.callingPoints) {
+            for (const cp of trackedTrainService.callingPoints) {
+              if (cp.lat && cp.lon && cp.scheduledTime) {
+                waypoints.push({
+                  lat: cp.lat,
+                  lon: cp.lon,
+                  time: new Date(`${todayStr}T${cp.scheduledTime}`),
+                  name: cp.name
+                });
+              }
+            }
+          }
+
+          // Need at least 2 waypoints to estimate position
+          if (waypoints.length < 2) {
+            // Fallback: use leg start/end coords with overall progress
+            const selRoute = routes?.routes?.[selectedRoute];
+            const trainLeg = selRoute?.legs?.find(l => l.type === 'train' && l.trainUid === trackedLeg.trainUid);
+            const depTime = new Date(`${todayStr}T${trackedLeg.boardTime}`);
+            const arrTime = new Date(`${todayStr}T${trackedLeg.alightTime}`);
+            const totalMs = arrTime - depTime;
+            const elapsedMs = now - depTime;
+            const progress = totalMs > 0 ? Math.max(0, Math.min(1, elapsedMs / totalMs)) : 0;
+
+            let position = null;
+            if (trainLeg?.geometry?.length >= 2) {
+              const geom = trainLeg.geometry;
+              const targetIdx = progress * (geom.length - 1);
+              const idx = Math.floor(targetIdx);
+              const frac = targetIdx - idx;
+              position = idx >= geom.length - 1
+                ? geom[geom.length - 1]
+                : [geom[idx][0] + (geom[idx+1][0] - geom[idx][0]) * frac,
+                   geom[idx][1] + (geom[idx+1][1] - geom[idx][1]) * frac];
+            } else if (trainLeg?.fromCoords && trainLeg?.toCoords) {
+              position = [
+                trainLeg.fromCoords.lat + (trainLeg.toCoords.lat - trainLeg.fromCoords.lat) * progress,
+                trainLeg.fromCoords.lon + (trainLeg.toCoords.lon - trainLeg.fromCoords.lon) * progress
+              ];
+            }
+            if (!position) return null;
+
+            // Render with fallback position
+            const statusText = trackedTrainService.estimatedDeparture === 'On time'
+              ? '✅ On time'
+              : trackedTrainService.cancelReason ? '❌ Cancelled'
+              : `⏱️ Est. ${trackedTrainService.estimatedDeparture}`;
+            return (
+              <Marker key="live-train" position={position} icon={liveTrainIcon(trackedLeg.operator)} zIndexOffset={1000}>
+                <Popup>
+                  <div className="live-bus-popup">
+                    <strong>🚂 {trackedTrainService.origin?.name} → {trackedTrainService.destination?.name}</strong>
+                    <br/><span style={{fontSize:'12px',color:'#666'}}>{trackedTrainService.operator} · {trackedTrainService.scheduledDeparture}</span>
+                    <br/><span style={{fontSize:'12px',color:'#333',fontWeight:'bold'}}>{statusText}</span>
+                    {trackedTrainService.platform && <><br/><span style={{fontSize:'12px',color:'#1976d2'}}>Platform {trackedTrainService.platform}</span></>}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          }
+
+          // Find which segment the train is currently on based on time
+          // For segments within our rail-graph area (Lancashire), interpolate smoothly.
+          // For segments outside the area, snap to the last station passed.
+          const LOCAL_BOUNDS = { minLat: 53.60, maxLat: 54.20, minLon: -3.10, maxLon: -2.50 };
+          const isLocal = (wp) => wp.lat >= LOCAL_BOUNDS.minLat && wp.lat <= LOCAL_BOUNDS.maxLat
+                              && wp.lon >= LOCAL_BOUNDS.minLon && wp.lon <= LOCAL_BOUNDS.maxLon;
+
+          let position = null;
+          let lastPassedName = null;
+          if (now <= waypoints[0].time) {
+            // Before departure — show at boarding station
+            position = [waypoints[0].lat, waypoints[0].lon];
+            lastPassedName = waypoints[0].name;
+          } else if (now >= waypoints[waypoints.length - 1].time) {
+            // Past last calling point — show at final station
+            position = [waypoints[waypoints.length - 1].lat, waypoints[waypoints.length - 1].lon];
+            lastPassedName = waypoints[waypoints.length - 1].name;
+          } else {
+            // Find the segment: between which two waypoints is 'now'?
+            for (let i = 0; i < waypoints.length - 1; i++) {
+              if (now >= waypoints[i].time && now <= waypoints[i + 1].time) {
+                if (isLocal(waypoints[i]) && isLocal(waypoints[i + 1])) {
+                  // Both ends are in our area — interpolate smoothly
+                  const segMs = waypoints[i + 1].time - waypoints[i].time;
+                  const segElapsed = now - waypoints[i].time;
+                  const frac = segMs > 0 ? segElapsed / segMs : 0;
+                  position = [
+                    waypoints[i].lat + (waypoints[i + 1].lat - waypoints[i].lat) * frac,
+                    waypoints[i].lon + (waypoints[i + 1].lon - waypoints[i].lon) * frac
+                  ];
+                  lastPassedName = waypoints[i].name;
+                } else {
+                  // Outside our area — snap to the last station passed
+                  position = [waypoints[i].lat, waypoints[i].lon];
+                  lastPassedName = waypoints[i].name;
+                }
+                break;
+              }
+            }
+          }
+
+          if (!position) position = [waypoints[0].lat, waypoints[0].lon];
+
+          const statusText = trackedTrainService.estimatedDeparture === 'On time' 
+            ? '✅ On time'
+            : trackedTrainService.cancelReason 
+              ? '❌ Cancelled'
+              : `⏱️ Est. ${trackedTrainService.estimatedDeparture}`;
+
+          return (
+            <Marker
+              key="live-train"
+              position={position}
+              icon={liveTrainIcon(trackedLeg.operator)}
+              zIndexOffset={1000}
+            >
+              <Popup>
+                <div className="live-bus-popup">
+                  <strong>🚂 {trackedTrainService.origin?.name} → {trackedTrainService.destination?.name}</strong>
+                  <br/>
+                  <span style={{fontSize: '12px', color: '#666'}}>
+                    {trackedTrainService.operator} · {trackedTrainService.scheduledDeparture}
+                  </span>
+                  {lastPassedName && (
+                    <><br/><span style={{fontSize: '12px', color: '#1976d2', fontWeight: '600'}}>
+                      📍 Last stop: {lastPassedName}
+                    </span></>
+                  )}
+                  <br/>
+                  <span style={{fontSize: '12px', color: '#333', fontWeight: 'bold'}}>
+                    {statusText}
+                  </span>
+                  {trackedTrainService.platform && (
+                    <><br/><span style={{fontSize: '12px', color: '#1976d2'}}>
+                      Platform {trackedTrainService.platform}
+                    </span></>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })()}
+
+        {/* Live tracking indicator badge */}
+        {liveTrackingActive && trackedLeg && (
+          <div className="live-tracking-badge">
+            <span className="live-dot-indicator"></span>
+            {trackedLeg.type === 'train'
+              ? `Tracking Train ${trackedLeg.operator || ''} ${formatTime(trackedLeg.boardTime)}`
+              : `Tracking Bus ${trackedLeg.routeNumber}`
+            }
+            <span className="live-count">
+              {trackedLeg.type === 'train'
+                ? (trackedTrainService ? (trackedTrainService.estimatedDeparture === 'On time' ? 'On time' : trackedTrainService.estimatedDeparture || 'Live') : 'Searching...')
+                : (liveVehicles?.length ? 'Your bus' : 'Searching...')
+              }
+            </span>
+          </div>
+        )}
       </MapContainer>
       <Compass />
       <WeatherIcon weather={currentWeather} loading={weatherLoading} onClick={onWeatherClick} />

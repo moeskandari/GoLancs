@@ -56,6 +56,37 @@ describe('minutesToTime', () => {
   it('should pad single-digit hours and minutes', () => {
     expect(minutesToTime(65)).toBe('01:05');
   });
+
+  // ── Midnight wrap tests (new) ──────────────────────────
+  it('should wrap 1440 to "00:00" (midnight)', () => {
+    expect(minutesToTime(1440)).toBe('00:00');
+  });
+
+  it('should wrap 1456 to "00:16" not "24:16"', () => {
+    expect(minutesToTime(1456)).toBe('00:16');
+  });
+
+  it('should wrap 1500 to "01:00"', () => {
+    expect(minutesToTime(1500)).toBe('01:00');
+  });
+
+  it('should wrap 2880 (2 days) to "00:00"', () => {
+    expect(minutesToTime(2880)).toBe('00:00');
+  });
+
+  it('should handle negative minutes by wrapping backwards', () => {
+    // -60 → 1440 - 60 = 1380 → "23:00"
+    expect(minutesToTime(-60)).toBe('23:00');
+  });
+
+  it('should handle -1 as "23:59"', () => {
+    expect(minutesToTime(-1)).toBe('23:59');
+  });
+
+  it('should handle large values like 2000', () => {
+    // 2000 % 1440 = 560 → "09:20"
+    expect(minutesToTime(2000)).toBe('09:20');
+  });
 });
 
 describe('getDayIndex', () => {

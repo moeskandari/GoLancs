@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import './App.css';
 import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
@@ -11,6 +11,8 @@ import WeatherSidebar from './components/WeatherSidebar';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
+const LIVE_POLL_INTERVAL = 15000; // 15 seconds for live bus tracking
+const TRAIN_POLL_INTERVAL = 30000; // 30 seconds for live train tracking
 
 // Geocode free text to coordinates via the backend Nominatim proxy
 async function geocodeText(text) {
@@ -55,6 +57,14 @@ function App() {
   // authView: null (map visible), 'signin', 'signup', 'profile'
   const [authView, setAuthView] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // ---------- Live tracking state ----------
+  const [liveVehicles, setLiveVehicles] = useState([]);  // live bus GPS positions (single best-match)
+  const [trackedLeg, setTrackedLeg] = useState(null); // full bus/train leg being tracked
+  const [liveTrackingActive, setLiveTrackingActive] = useState(false);
+  const [railDepartures, setRailDepartures] = useState(null); // live rail departures
+  const [trackedTrainService, setTrackedTrainService] = useState(null); // live train service with calling points
+  const liveIntervalRef = useRef(null);
 
   // Handlers for the auth flow
   const handleAccountClick = () => {
@@ -225,6 +235,142 @@ function App() {
     fetchDestWeather();
     return () => { cancelled = true; };
   }, [endStop?.lat, endStop?.lon]);
+
+  // ─── Live train tracking: fetch departures for a station and match the specific service ───
+  const fetchLiveTrainData = useCallback(async (leg) => {
+    if (!leg || !leg.startCrs) return;
+    try {
+      const res = await fetch(`${API_URL}/api/rail/departures/${encodeURIComponent(leg.startCrs)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setRailDepartures(data);
+
+      // Find the matching service by scheduled departure time
+      const boardTimeShort = leg.boardTime
+        ? leg.boardTime.substring(0, 5) // "HH:MM"
+        : null;
+      const match = (data.services || []).find(s =>
+        s.scheduledDeparture === boardTimeShort &&
+        s.destination?.crs === leg.endCrs
+      ) || (data.services || []).find(s =>
+        s.scheduledDeparture === boardTimeShort
+      );
+
+      if (match) {
+        setTrackedTrainService(match);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch live train data:', e.message);
+    }
+  }, []);
+
+  // ─── Live bus tracking: fetch positions for a route leg, pick single best match ───
+  const fetchLiveVehicles = useCallback(async (leg) => {
+    if (!leg || !leg.routeNumber) return;
+    try {
+      const res = await fetch(`${API_URL}/api/bus/live/route/${encodeURIComponent(leg.routeNumber)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.vehicles || [];
+        if (all.length === 0) { setLiveVehicles([]); return; }
+
+        // Score each vehicle against the selected leg
+        const scored = all.map(v => {
+          let score = 0;
+          // Operator match (SCCU etc)
+          if (leg.operator && v.operatorRef && v.operatorRef.toUpperCase() === leg.operator.toUpperCase()) score += 10;
+          // Direction match
+          if (leg.direction && v.directionRef && v.directionRef.toLowerCase() === leg.direction.toLowerCase()) score += 5;
+          // Origin/destination name fuzzy match
+          const oName = (v.originName || '').toLowerCase();
+          const dName = (v.destinationName || '').toLowerCase();
+          if (leg.boardName && oName.includes(leg.boardName.toLowerCase().slice(0, 8))) score += 3;
+          if (leg.alightName && dName.includes(leg.alightName.toLowerCase().slice(0, 8))) score += 3;
+          // ATCO code match (most precise)
+          if (leg.boardAtco && v.originRef === leg.boardAtco) score += 8;
+          if (leg.alightAtco && v.destinationRef === leg.alightAtco) score += 8;
+          // Prefer recently recorded
+          const age = v.recordedAt ? (Date.now() - new Date(v.recordedAt).getTime()) / 60000 : 999;
+          if (age < 5) score += 2;
+          return { vehicle: v, score, age };
+        });
+
+        // Pick the single best match
+        scored.sort((a, b) => b.score - a.score || a.age - b.age);
+        setLiveVehicles([scored[0].vehicle]);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch live bus data:', e.message);
+    }
+  }, []);
+
+  // Start / stop live tracking (bus or train — one at a time)
+  const startTracking = useCallback((leg) => {
+    // Clear any existing interval
+    if (liveIntervalRef.current) {
+      clearInterval(liveIntervalRef.current);
+      liveIntervalRef.current = null;
+    }
+    setTrackedLeg(leg);
+    setLiveTrackingActive(true);
+    setLiveVehicles([]);
+    setTrackedTrainService(null);
+
+    if (leg.type === 'train') {
+      // Train tracking: poll departures
+      fetchLiveTrainData(leg);
+      liveIntervalRef.current = setInterval(() => fetchLiveTrainData(leg), TRAIN_POLL_INTERVAL);
+    } else {
+      // Bus tracking: poll live GPS
+      fetchLiveVehicles(leg);
+      liveIntervalRef.current = setInterval(() => fetchLiveVehicles(leg), LIVE_POLL_INTERVAL);
+    }
+  }, [fetchLiveVehicles, fetchLiveTrainData]);
+
+  const stopTracking = useCallback(() => {
+    if (liveIntervalRef.current) {
+      clearInterval(liveIntervalRef.current);
+      liveIntervalRef.current = null;
+    }
+    setTrackedLeg(null);
+    setLiveTrackingActive(false);
+    setLiveVehicles([]);
+    setTrackedTrainService(null);
+  }, []);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
+    };
+  }, []);
+
+  // ─── Live rail departures: fetch for stations on a selected route ───
+  const fetchRailDepartures = useCallback(async (crsCode) => {
+    if (!crsCode) return;
+    try {
+      const res = await fetch(`${API_URL}/api/rail/departures/${encodeURIComponent(crsCode)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRailDepartures(data);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch rail departures:', e.message);
+    }
+  }, []);
+
+  // Auto-fetch rail departures when a route with a train leg is selected
+  useEffect(() => {
+    if (!routes || selectedRoute === null) { setRailDepartures(null); return; }
+    const route = routes.routes[selectedRoute];
+    if (!route) return;
+    const trainLeg = route.legs.find(l => l.type === 'train');
+    if (trainLeg?.startCrs) {
+      fetchRailDepartures(trainLeg.startCrs);
+    } else {
+      setRailDepartures(null);
+    }
+  }, [routes, selectedRoute, fetchRailDepartures]);
 
   // Set the start location to the user's current GPS position
   const useMyLocation = useCallback(async () => {
@@ -461,6 +607,10 @@ function App() {
         currentWeather={currentWeather}
         weatherLoading={weatherLoading}
         onWeatherClick={() => setWeatherSidebarOpen(true)}
+        liveVehicles={liveVehicles}
+        liveTrackingActive={liveTrackingActive}
+        trackedLeg={trackedLeg}
+        trackedTrainService={trackedTrainService}
       />
 
       
@@ -472,6 +622,13 @@ function App() {
           onSelectRoute={setSelectedRoute}
           sortBy={sortBy}
           onSortChange={handleSortChange}
+          onTrackLeg={startTracking}
+          onStopTracking={stopTracking}
+          liveTrackingActive={liveTrackingActive}
+          trackedLeg={trackedLeg}
+          liveVehicles={liveVehicles}
+          railDepartures={railDepartures}
+          trackedTrainService={trackedTrainService}
         />
       )}
 

@@ -377,3 +377,350 @@
     border-radius: 16px;
   }
 }
+
+/* ===== Live Tracking: Track Bus Button ===== */
+.track-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1.5px solid #FF9800;
+  border-radius: 10px;
+  background: #fff8f0;
+  color: #e65100;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 4px 0;
+}
+
+.track-btn:hover {
+  background: #fff3e0;
+  border-color: #e65100;
+  transform: scale(1.03);
+}
+
+.track-btn.tracking {
+  border-color: #4CAF50;
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.track-btn.tracking:hover {
+  background: #ffebee;
+  border-color: #c62828;
+  color: #c62828;
+}
+
+/* ===== Live Status Badge (bus) ===== */
+.live-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #2e7d32;
+  margin: 2px 0 4px 0;
+}
+
+.live-status-text {
+  font-weight: 500;
+}
+
+.live-updated {
+  color: #999;
+  font-weight: 400;
+}
+
+/* ===== Live dots (coloured) ===== */
+.live-dot-green {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #4CAF50;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+.live-dot-amber {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #FF9800;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+.live-dot-red {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #f44336;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ===== Rail Live Badge ===== */
+.rail-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  margin: 3px 0 4px 0;
+}
+
+.rail-live-badge.on-time {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.rail-live-badge.delayed {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.rail-live-badge.cancelled {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.rail-live-text {
+  font-weight: 600;
+}
+
+.delay-reason {
+  font-weight: 400;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.platform-badge {
+  background: #1976D2;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  margin-left: 4px;
+}
+
+/* ===== Train Track Button ===== */
+.train-track-btn {
+  border-color: #1976d2;
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.train-track-btn:hover {
+  background: #bbdefb;
+  border-color: #0d47a1;
+}
+
+/* ===== Train Live Status ===== */
+.train-live-status {
+  margin: 4px 0;
+}
+
+/* ===== Calling Points ===== */
+.calling-points {
+  margin: 6px 0 4px 0;
+  padding: 6px 10px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  border-left: 3px solid #1976d2;
+}
+
+.calling-points-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1976d2;
+  margin-bottom: 4px;
+}
+
+.calling-point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 11px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+}
+
+.calling-point:last-child {
+  border-bottom: none;
+}
+
+.calling-point.on-time .cp-time {
+  color: #2e7d32;
+}
+
+.calling-point.delayed .cp-time,
+.calling-point.delayed .cp-est {
+  color: #e65100;
+}
+
+.cp-time {
+  font-weight: 700;
+  min-width: 38px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-est {
+  font-size: 10px;
+  font-weight: 600;
+  color: #e65100;
+  background: #fff3e0;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.cp-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.cp-your-stop {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1976d2;
+  background: #e3f2fd;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ===== Delay Highlighting ===== */
+
+/* Route card delay states */
+.route-card.route-delayed {
+  border-left: 3px solid #e65100;
+}
+
+.route-card.route-cancelled {
+  border-left: 3px solid #c62828;
+  opacity: 0.85;
+}
+
+/* Delay banner under route header */
+.route-delay-banner {
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin: 2px 0 4px;
+}
+
+.route-delay-banner.cancelled-banner {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Struck-through scheduled time */
+.scheduled-struck {
+  text-decoration: line-through;
+  opacity: 0.55;
+  font-weight: 400;
+}
+
+/* Estimated (delayed) time */
+.estimated-time {
+  color: #e65100;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.estimated-arrival {
+  color: #e65100;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* Delayed arrival in route header */
+.arrival-delayed {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.route-duration-delayed {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.header-cancelled-badge {
+  background: #c62828;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Delayed stop time display */
+.delayed-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.delayed-duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Leg-level delay/cancel warnings */
+.leg-delay-warning {
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin: 4px 0;
+  border-left: 3px solid #e65100;
+}
+
+.leg-cancelled-warning {
+  background: #ffebee;
+  color: #c62828;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin: 4px 0;
+  border-left: 3px solid #c62828;
+}
+
+/* Transfer connection warnings */
+.changeover-missed {
+  background: #ffebee !important;
+  color: #c62828 !important;
+  font-weight: 700;
+  border-left: 3px solid #c62828;
+  padding-left: 8px;
+}
+
+.changeover-risk {
+  background: #fff3e0 !important;
+  color: #e65100 !important;
+  font-weight: 700;
+  border-left: 3px solid #e65100;
+  padding-left: 8px;
+}
