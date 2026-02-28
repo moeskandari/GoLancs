@@ -2143,7 +2143,7 @@ async function enrichLegsWithGeometry(allRoutes) {
 
 app.get('/api/plan', async (req, res) => {
   try {
-    const { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
+    const { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName, arriveBy } = req.query;
     const _t0 = Date.now();
     const _timers = {};
     const _mark = (label) => { _timers[label] = Date.now() - _t0; };
@@ -2289,7 +2289,7 @@ app.get('/api/plan', async (req, res) => {
 
     const departureTime = time || `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:00`;
     const dayIndex = getDayIndex(day);
-    const sortBy = sort || 'departure';
+    const sortBy = sort || 'arrival';
 
     // --- Short-distance early exit ---
     // If both locations are coordinate-based (pin drops), calculate pin-to-pin distance.
@@ -3281,29 +3281,48 @@ app.get('/api/plan', async (req, res) => {
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance
     // - Remove routes arriving later than the last sensible option
-    // - Remove routes where any single walk leg exceeds 30 minutes (unless it's the only route type)
+    // - Remove routes where any single walk leg exceeds 60 minutes (unless it's the only route type)
     // - For short distances: remove transit routes that take much longer than just walking
     const reasonableMinMinutes = Math.max(directDistance * 2, 15); // ~30 km/h avg transit
-    const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
-    const maxWalkLegMinutes = 30; // cap individual walk legs at 30 minutes
+    const maxReasonableDuration = Math.max(reasonableMinMinutes * 8, 240);
+    const maxWalkLegMinutes = 60; // cap individual walk legs at 60 minutes
     // For short distances, calculate what walking would take so we can reject circuitous routes
     const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / 0.08)) : null;
+    console.log(`[FILTER] directDist=${directDistance.toFixed(2)}km walkDist=${walkDistance.toFixed(2)}km maxDuration=${maxReasonableDuration}min walkOnly=${walkOnlyDuration}min maxWalkLeg=${maxWalkLegMinutes}min`);
     const filteredRoutes = allRoutes.filter(r => {
-      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) return false;
+      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) {
+        console.log(`[FILTER] REJECT ${r.id}: duration=${r.durationMinutes}min (max=${maxReasonableDuration})`);
+        return false;
+      }
       // Filter out routes with excessively long walk legs (unless walk-only)
       if (r.id !== 'walk-only') {
         const walkLegs = r.legs.filter(l => l.type === 'walk');
         const maxWalk = Math.max(...walkLegs.map(l => l.duration || 0), 0);
-        if (maxWalk > maxWalkLegMinutes) return false;
+        if (maxWalk > maxWalkLegMinutes) {
+          console.log(`[FILTER] REJECT ${r.id}: maxWalkLeg=${maxWalk}min (limit=${maxWalkLegMinutes})`);
+          return false;
+        }
       }
       // For short walkable distances, reject transit routes that take much longer than walking
       // A bus/train should only be shown if it's actually faster or comparable to walking
       if (walkOnlyDuration !== null && r.id !== 'walk-only') {
-        // Transit route must not take more than 2x the walking time (includes wait + travel)
-        if (r.durationMinutes > walkOnlyDuration * 2) return false;
+        // Transit route must not take more than 3x the walking time (includes wait + travel)
+        if (r.durationMinutes > walkOnlyDuration * 3) {
+          console.log(`[FILTER] REJECT ${r.id}: duration=${r.durationMinutes}min > 3x walkOnly=${walkOnlyDuration * 3}min`);
+          return false;
+        }
       }
+      console.log(`[FILTER] PASS ${r.id}: duration=${r.durationMinutes}min`);
       return true;
     });
+
+    // If arriveBy is specified, sort routes by proximity to target arrival time
+    // (overrides the user's sort choice so the closest-arriving routes come first)
+    let arriveByTarget = null;
+    if (arriveBy) {
+      arriveByTarget = timeToMinutes(arriveBy);
+      console.log(`[arriveBy] target=${arriveBy} (${arriveByTarget}min) candidates=${filteredRoutes.length}`);
+    }
 
     // Deduplicate routes by their actual transport legs (same times + route = same journey)
     const uniqueRoutes = [];
@@ -3327,7 +3346,27 @@ app.get('/api/plan', async (req, res) => {
     }
 
     // Sort results BEFORE geometry enrichment (sort is cheap, geometry is expensive)
-    if (sortBy === 'arrival') {
+    // When arriveBy is set, filter out routes that arrive AFTER the target time
+    if (arriveByTarget !== null) {
+      const grace = 5; // allow a small 5-minute grace window
+      for (let i = uniqueRoutes.length - 1; i >= 0; i--) {
+        const arr = timeToMinutes(uniqueRoutes[i].arrivalTime);
+        if (arr > arriveByTarget + grace) {
+          uniqueRoutes.splice(i, 1);
+        }
+      }
+      console.log(`[arriveBy] after filter: ${uniqueRoutes.length} routes arrive by ${arriveBy}`);
+    }
+
+    // Sort results according to the user's chosen sort preference
+    if (sortBy === 'changes') {
+      const countChanges = (r) => r.legs.filter(l => l.type === 'bus' || l.type === 'train').length;
+      uniqueRoutes.sort((a, b) => {
+        const diff = countChanges(a) - countChanges(b);
+        if (diff !== 0) return diff;
+        return timeToMinutes(a.arrivalTime) - timeToMinutes(b.arrivalTime);
+      });
+    } else if (sortBy === 'arrival') {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.arrivalTime) - timeToMinutes(b.arrivalTime));
     } else if (sortBy === 'duration') {
       uniqueRoutes.sort((a, b) => a.durationMinutes - b.durationMinutes);

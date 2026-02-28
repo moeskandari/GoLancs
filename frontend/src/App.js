@@ -41,8 +41,12 @@ function App() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
-  const [sortBy, setSortBy] = useState('duration');
-  const [departureTime, setDepartureTime] = useState('');
+  const [sortBy, setSortBy] = useState('arrival');
+  const [departureTime, setDepartureTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+  });
+  const [arrivalTime, setArrivalTime] = useState('');
 
   // ---------- Weather state ----------
   const [currentWeather, setCurrentWeather] = useState(null);
@@ -296,7 +300,11 @@ function App() {
 
     try {
       const now = new Date();
-      const time = departureTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      // When arrivalTime is set, search from current time onwards
+      // and let the backend filter out routes that arrive after the target.
+      // When departureTime is set (or defaulted), use it directly.
+      const time = arrivalTime ? nowTime : departureTime;
       const day = (now.getDay() + 6) % 7;
 
       // Build query params based on whether selections are stops or places
@@ -304,6 +312,9 @@ function App() {
       params.set('time', time);
       params.set('day', day);
       params.set('sort', sortBy);
+      if (arrivalTime) {
+        params.set('arriveBy', arrivalTime);
+      }
 
       if (resolvedStart.type === 'stop' && resolvedStart.atco_code) {
         params.set('start', resolvedStart.atco_code);
@@ -332,7 +343,9 @@ function App() {
           ...data,
           routes: data.routes.slice(0, MAX_ROUTES),
           totalRoutes: Math.min(data.totalRoutes, MAX_ROUTES),
-          usingTime: departureTime ? time : `Now (${time.substring(0, 5)})`
+          usingTime: arrivalTime
+            ? `Arrive by ${arrivalTime.substring(0, 5)}`
+            : `Depart ${time.substring(0, 5)}`
         };
         setRoutes(limited);
         if (limited.routes.length > 0) {
@@ -345,7 +358,7 @@ function App() {
     } finally {
       setRouteLoading(false);
     }
-  }, [startStop, endStop, sortBy, departureTime]);
+  }, [startStop, endStop, sortBy, departureTime, arrivalTime]);
 
   // Handle sort change and re-fetch
   const handleSortChange = (newSort) => {
@@ -423,15 +436,40 @@ function App() {
           </button>
         </div>
         <div className="search-controls">
-          <div className="time-wrapper">
-            <input
-              type="time"
-              className="time-input"
-              value={departureTime ? departureTime.substring(0, 5) : ''}
-              onChange={(e) => setDepartureTime(e.target.value ? e.target.value + ':00' : '')}
-              aria-label="Departure time"
-            />
-            {!departureTime && <span className="time-hint">Now</span>}
+          <div className="time-inputs-column">
+            <div className="time-field">
+              <label className="time-label" htmlFor="departure-time">Depart at</label>
+              <div className="time-wrapper">
+                <input
+                  id="departure-time"
+                  type="time"
+                  className="time-input"
+                  value={departureTime ? departureTime.substring(0, 5) : ''}
+                  onChange={(e) => {
+                    setDepartureTime(e.target.value ? e.target.value + ':00' : '');
+                    if (e.target.value) setArrivalTime('');
+                  }}
+                  aria-label="Departure time"
+                />
+              </div>
+            </div>
+            <div className="time-field">
+              <label className="time-label" htmlFor="arrival-time">Arrive by</label>
+              <div className="time-wrapper">
+                <input
+                  id="arrival-time"
+                  type="time"
+                  className="time-input"
+                  value={arrivalTime ? arrivalTime.substring(0, 5) : ''}
+                  onChange={(e) => {
+                    setArrivalTime(e.target.value ? e.target.value + ':00' : '');
+                    if (e.target.value) setDepartureTime('');
+                  }}
+                  aria-label="Arrival time"
+                />
+                {!arrivalTime && <span className="time-hint">Any</span>}
+              </div>
+            </div>
           </div>
           <button
             className="route-btn"
