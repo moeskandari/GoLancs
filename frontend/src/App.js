@@ -58,8 +58,8 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // ---------- Live tracking state ----------
-  const [liveVehicles, setLiveVehicles] = useState([]);  // live bus GPS positions
-  const [trackedRoute, setTrackedRoute] = useState(null); // route number being tracked
+  const [liveVehicles, setLiveVehicles] = useState([]);  // live bus GPS positions (single best-match)
+  const [trackedLeg, setTrackedLeg] = useState(null); // full bus leg being tracked
   const [liveTrackingActive, setLiveTrackingActive] = useState(false);
   const [railDepartures, setRailDepartures] = useState(null); // live rail departures
   const liveIntervalRef = useRef(null);
@@ -232,32 +232,58 @@ function App() {
     return () => { cancelled = true; };
   }, [endStop?.lat, endStop?.lon]);
 
-  // ─── Live bus tracking: fetch positions for a route number ───
-  const fetchLiveVehicles = useCallback(async (routeNumber) => {
-    if (!routeNumber) return;
+  // ─── Live bus tracking: fetch positions for a route leg, pick single best match ───
+  const fetchLiveVehicles = useCallback(async (leg) => {
+    if (!leg || !leg.routeNumber) return;
     try {
-      const res = await fetch(`${API_URL}/api/bus/live/route/${encodeURIComponent(routeNumber)}`);
+      const res = await fetch(`${API_URL}/api/bus/live/route/${encodeURIComponent(leg.routeNumber)}`);
       if (res.ok) {
         const data = await res.json();
-        setLiveVehicles(data.vehicles || []);
+        const all = data.vehicles || [];
+        if (all.length === 0) { setLiveVehicles([]); return; }
+
+        // Score each vehicle against the selected leg
+        const scored = all.map(v => {
+          let score = 0;
+          // Operator match (SCCU etc)
+          if (leg.operator && v.operatorRef && v.operatorRef.toUpperCase() === leg.operator.toUpperCase()) score += 10;
+          // Direction match
+          if (leg.direction && v.directionRef && v.directionRef.toLowerCase() === leg.direction.toLowerCase()) score += 5;
+          // Origin/destination name fuzzy match
+          const oName = (v.originName || '').toLowerCase();
+          const dName = (v.destinationName || '').toLowerCase();
+          if (leg.boardName && oName.includes(leg.boardName.toLowerCase().slice(0, 8))) score += 3;
+          if (leg.alightName && dName.includes(leg.alightName.toLowerCase().slice(0, 8))) score += 3;
+          // ATCO code match (most precise)
+          if (leg.boardAtco && v.originRef === leg.boardAtco) score += 8;
+          if (leg.alightAtco && v.destinationRef === leg.alightAtco) score += 8;
+          // Prefer recently recorded
+          const age = v.recordedAt ? (Date.now() - new Date(v.recordedAt).getTime()) / 60000 : 999;
+          if (age < 5) score += 2;
+          return { vehicle: v, score, age };
+        });
+
+        // Pick the single best match
+        scored.sort((a, b) => b.score - a.score || a.age - b.age);
+        setLiveVehicles([scored[0].vehicle]);
       }
     } catch (e) {
       console.warn('Failed to fetch live bus data:', e.message);
     }
   }, []);
 
-  // Start / stop live bus tracking
-  const startTracking = useCallback((routeNumber) => {
+  // Start / stop live bus tracking (tracks a single specific bus)
+  const startTracking = useCallback((leg) => {
     // Clear any existing interval
     if (liveIntervalRef.current) {
       clearInterval(liveIntervalRef.current);
       liveIntervalRef.current = null;
     }
-    setTrackedRoute(routeNumber);
+    setTrackedLeg(leg);
     setLiveTrackingActive(true);
     // Fetch immediately, then poll
-    fetchLiveVehicles(routeNumber);
-    liveIntervalRef.current = setInterval(() => fetchLiveVehicles(routeNumber), LIVE_POLL_INTERVAL);
+    fetchLiveVehicles(leg);
+    liveIntervalRef.current = setInterval(() => fetchLiveVehicles(leg), LIVE_POLL_INTERVAL);
   }, [fetchLiveVehicles]);
 
   const stopTracking = useCallback(() => {
@@ -265,7 +291,7 @@ function App() {
       clearInterval(liveIntervalRef.current);
       liveIntervalRef.current = null;
     }
-    setTrackedRoute(null);
+    setTrackedLeg(null);
     setLiveTrackingActive(false);
     setLiveVehicles([]);
   }, []);
@@ -541,7 +567,7 @@ function App() {
         onWeatherClick={() => setWeatherSidebarOpen(true)}
         liveVehicles={liveVehicles}
         liveTrackingActive={liveTrackingActive}
-        trackedRoute={trackedRoute}
+        trackedLeg={trackedLeg}
       />
 
       
@@ -556,7 +582,7 @@ function App() {
           onTrackBus={startTracking}
           onStopTracking={stopTracking}
           liveTrackingActive={liveTrackingActive}
-          trackedRoute={trackedRoute}
+          trackedLeg={trackedLeg}
           liveVehicles={liveVehicles}
           railDepartures={railDepartures}
         />

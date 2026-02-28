@@ -216,7 +216,7 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedRoute }) {
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -462,11 +462,11 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
         ))}
 
         {/* Live tracking indicator badge */}
-        {liveTrackingActive && trackedRoute && (
+        {liveTrackingActive && trackedLeg && (
           <div className="live-tracking-badge">
             <span className="live-dot-indicator"></span>
-            Tracking Bus {trackedRoute}
-            <span className="live-count">{liveVehicles?.length || 0} active</span>
+            Tracking Bus {trackedLeg.routeNumber}
+            <span className="live-count">{liveVehicles?.length ? 'Your bus' : 'Searching...'}</span>
           </div>
         )}
       </MapContainer>

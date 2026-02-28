@@ -22,7 +22,7 @@ set -e
 PROJECT_NAME="group1"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_FILE="${REPO_ROOT}/postgres/group1db_backup.sql"
-NETWORK_NAME="${PROJECT_NAME}-net"
+NETWORK_NAME="scc200_${PROJECT_NAME}-net"
 
 echo "================================"
 echo "Lab Machine Restart Sequence"

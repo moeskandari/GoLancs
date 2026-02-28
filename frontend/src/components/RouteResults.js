@@ -125,14 +125,18 @@ function RailLiveBadge({ departure }) {
 }
 
 // Individual leg detail component with full info
-function LegDetail({ leg, legIndex, totalLegs, onTrackBus, onStopTracking, liveTrackingActive, trackedRoute, liveVehicles, railDepartures }) {
+function LegDetail({ leg, legIndex, totalLegs, onTrackBus, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures }) {
   const config = modeConfig[leg.type] || modeConfig.walk;
   const duration = calcLegDuration(leg);
 
   // Find live data for this leg
   const matchingVehicle = leg.type === 'bus' ? findMatchingVehicle(leg, liveVehicles) : null;
   const matchingDeparture = leg.type === 'train' ? findMatchingDeparture(leg, railDepartures) : null;
-  const isTracking = liveTrackingActive && trackedRoute === leg.routeNumber;
+  // This leg is tracked if the trackedLeg matches by route number, operator, and boarding stop
+  const isTracking = liveTrackingActive && trackedLeg &&
+    trackedLeg.routeNumber === leg.routeNumber &&
+    trackedLeg.operator === leg.operator &&
+    trackedLeg.boardAtco === leg.boardAtco;
 
   return (
     <div className={`leg-detail-card ${leg.type}-card`}>
@@ -188,7 +192,7 @@ function LegDetail({ leg, legIndex, totalLegs, onTrackBus, onStopTracking, liveT
             ) : (
               <button
                 className="track-btn"
-                onClick={(e) => { e.stopPropagation(); onTrackBus?.(leg.routeNumber); }}
+                onClick={(e) => { e.stopPropagation(); onTrackBus?.(leg); }}
                 aria-label={`Track bus ${leg.routeNumber} live`}
               >
                 📡 Track Live
@@ -289,7 +293,7 @@ function ModesSummary({ legs }) {
   );
 }
 
-function RouteCard({ route, index, isSelected, onSelect, onTrackBus, onStopTracking, liveTrackingActive, trackedRoute, liveVehicles, railDepartures }) {
+function RouteCard({ route, index, isSelected, onSelect, onTrackBus, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures }) {
   return (
     <div
       className={`route-card ${isSelected ? 'selected' : ''}`}
@@ -325,7 +329,7 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackBus, onStopTrack
                 onTrackBus={onTrackBus}
                 onStopTracking={onStopTracking}
                 liveTrackingActive={liveTrackingActive}
-                trackedRoute={trackedRoute}
+                trackedLeg={trackedLeg}
                 liveVehicles={liveVehicles}
                 railDepartures={railDepartures}
               />
@@ -337,7 +341,7 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackBus, onStopTrack
   );
 }
 
-function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChange, onTrackBus, onStopTracking, liveTrackingActive, trackedRoute, liveVehicles, railDepartures }) {
+function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChange, onTrackBus, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures }) {
   if (!routes) return null;
 
   return (
@@ -385,7 +389,7 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
               onTrackBus={onTrackBus}
               onStopTracking={onStopTracking}
               liveTrackingActive={liveTrackingActive}
-              trackedRoute={trackedRoute}
+              trackedLeg={trackedLeg}
               liveVehicles={liveVehicles}
               railDepartures={railDepartures}
             />
