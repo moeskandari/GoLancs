@@ -2363,12 +2363,53 @@ app.get('/api/plan', async (req, res) => {
     _mark('init');
 
     // === Strategies 1 & 2: Run in parallel (independent DB queries) ===
-    const [directBus, startRailStations, endRailStations] = await Promise.all([
+    const [directBus, startRailStations, endRailStations, nearbyStartStops, nearbyEndStops] = await Promise.all([
       findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, 5),
       findNearbyRailStations(resolvedStart, 5.0),
-      findNearbyRailStations(resolvedEnd, 5.0)
+      findNearbyRailStations(resolvedEnd, 5.0),
+      // Find walkable bus stops near start & end (within ~1km) for alternative services
+      findNearbyBusStops(resolvedStart, 1.0),
+      findNearbyBusStops(resolvedEnd, 1.0)
     ]);
     _mark('directBus+nearbyRail');
+
+    // === Strategy 1b: Direct bus from/to nearby walkable stops ===
+    // Walk to a nearby stop to catch a different bus service (e.g. walk to underpass)
+    const nearbyDirectBus = [];
+    {
+      const MAX_WALK_MINUTES = 15; // only consider stops within 15 min walk
+      const nearbyStartFiltered = nearbyStartStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
+      const nearbyEndFiltered = nearbyEndStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
+
+      // Search from nearby start stops → resolved end
+      const startPromises = nearbyStartFiltered.slice(0, 6).map(async (stop) => {
+        const buses = await findDirectBusJourneys(stop.atco_code, resolvedEnd, departureTime, dayIndex, 3);
+        return buses.map(bus => ({ bus, walkStart: stop, walkEnd: null }));
+      });
+      // Search from resolved start → nearby end stops
+      const endPromises = nearbyEndFiltered.slice(0, 6).map(async (stop) => {
+        const buses = await findDirectBusJourneys(resolvedStart, stop.atco_code, departureTime, dayIndex, 3);
+        return buses.map(bus => ({ bus, walkStart: null, walkEnd: stop }));
+      });
+      // Search from nearby start stops → nearby end stops (both different)
+      const crossPromises = nearbyStartFiltered.slice(0, 4).flatMap(startStop2 =>
+        nearbyEndFiltered.slice(0, 4).map(async (endStop2) => {
+          const buses = await findDirectBusJourneys(startStop2.atco_code, endStop2.atco_code, departureTime, dayIndex, 2);
+          return buses.map(bus => ({ bus, walkStart: startStop2, walkEnd: endStop2 }));
+        })
+      );
+
+      const allResults = await Promise.all([...startPromises, ...endPromises, ...crossPromises]);
+      const seenJourneys = new Set(directBus.map(b => b.journeyId));
+      for (const results of allResults) {
+        for (const { bus, walkStart, walkEnd } of results) {
+          if (seenJourneys.has(bus.journeyId)) continue;
+          seenJourneys.add(bus.journeyId);
+          nearbyDirectBus.push({ bus, walkStart, walkEnd });
+        }
+      }
+    }
+    _mark('nearbyDirectBus');
 
     // Also check if start/end IS a rail station
     const startIsRail = resolvedStart.startsWith('9100');
@@ -2817,10 +2858,22 @@ app.get('/api/plan', async (req, res) => {
     _mark('multiModal');
 
     // === Strategy 6: Bus → Bus transfer ===
+    // Always search for transfers — even when direct buses exist, a transfer
+    // via a nearby stop may offer a faster or more frequent alternative.
     let busTransfers = [];
-    if (directBus.length === 0) {
+    {
       let startCodes = await expandStopCode(resolvedStart);
       let endCodes = await expandStopCode(resolvedEnd);
+      // Include nearby walkable bus stops in the transfer search
+      // so users can walk to a different stop to catch a connecting service
+      for (const stop of nearbyStartStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
+        const expanded = await expandStopCode(stop.atco_code);
+        startCodes = [...new Set([...startCodes, ...expanded])];
+      }
+      for (const stop of nearbyEndStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
+        const expanded = await expandStopCode(stop.atco_code);
+        endCodes = [...new Set([...endCodes, ...expanded])];
+      }
       // When start/end is a rail station, include nearby bus stops in the transfer search
       if (startIsRail && busStartCodes.length > 0) {
         for (const code of busStartCodes) {
@@ -2988,6 +3041,54 @@ app.get('/api/plan', async (req, res) => {
         modes: modes,
         departureTime: bus.boardTime,
         arrivalTime: minutesToTime(depMins + totalDuration) + ':00',
+        durationMinutes: totalDuration,
+        legs: legs
+      });
+    }
+
+    // Nearby-stop bus routes (walk to a different stop to catch alternative services)
+    for (const { bus, walkStart, walkEnd } of nearbyDirectBus) {
+      const depMins = timeToMinutes(bus.boardTime);
+      const arrMins = timeToMinutes(bus.alightTime);
+      const legs = [];
+      let totalDuration = arrMins - depMins;
+
+      // Add walk leg to the alternative start stop
+      if (walkStart) {
+        legs.push({
+          type: 'walk',
+          fromName: startStop.common_name,
+          toName: walkStart.common_name,
+          duration: walkStart.walk_minutes,
+          distance_km: walkStart.walk_km
+        });
+        totalDuration += walkStart.walk_minutes;
+      }
+
+      legs.push(bus);
+
+      // Add walk leg from the alternative end stop
+      if (walkEnd) {
+        legs.push({
+          type: 'walk',
+          fromName: walkEnd.common_name,
+          toName: endStop.common_name,
+          duration: walkEnd.walk_minutes,
+          distance_km: walkEnd.walk_km
+        });
+        totalDuration += walkEnd.walk_minutes;
+      }
+
+      const modes = [...new Set(legs.map(l => l.type))];
+      const walkInfo = walkStart ? ` (via ${walkStart.common_name})` : '';
+      allRoutes.push({
+        id: `bus-nearby-${bus.journeyId}`,
+        summary: `Bus ${bus.routeNumber}${walkInfo}`,
+        modes: modes,
+        departureTime: walkStart
+          ? minutesToTime(depMins - walkStart.walk_minutes) + ':00'
+          : bus.boardTime,
+        arrivalTime: minutesToTime(depMins + totalDuration - (walkStart ? walkStart.walk_minutes : 0)) + ':00',
         durationMinutes: totalDuration,
         legs: legs
       });

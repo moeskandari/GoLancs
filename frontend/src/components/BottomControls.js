@@ -10,7 +10,7 @@ const pinSvg = `
 const pinDragImage = new Image();
 pinDragImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pinSvg);
 
-function BottomControls() {
+function BottomControls({ onAccountClick }) {
   const onPinDragStart = (e) => {
     // Indicate drag type so the map can accept the drop
     try {
