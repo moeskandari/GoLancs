@@ -80,8 +80,8 @@ function getWeatherRecommendation(currentWeather, destWeather) {
     if (Math.abs(tempDiff) >= 3) {
       tips.push(
         tempDiff > 0
-          ? `📈 It\'s ${Math.abs(tempDiff)}°C warmer at your destination.`
-          : `📉 It\'s ${Math.abs(tempDiff)}°C cooler at your destination — bring an extra layer.`
+          ? `📈 It's ${Math.abs(tempDiff)}°C warmer at your destination.`
+          : `📉 It's ${Math.abs(tempDiff)}°C cooler at your destination — bring an extra layer.`
       );
     }
   }
