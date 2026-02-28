@@ -574,9 +574,8 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
               onChange={(e) => onSortChange(e.target.value)}
               aria-label="Sort routes by"
             >
-              <option value="duration">⏱ Fastest</option>
-              <option value="departure">🕐 Earliest</option>
-              <option value="arrival">🏁 Arrives first</option>
+              <option value="changes">🔄 Least changes</option>
+              <option value="arrival">🏁 Arrives earliest</option>
             </select>
           </div>
         </div>
