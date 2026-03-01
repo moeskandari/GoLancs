@@ -376,7 +376,8 @@ async function enrichLegsWithCoordinates(allRoutes, startStop, endStop) {
   }
 
   for (const route of allRoutes) {
-    for (const leg of route.legs) {
+    for (let li = 0; li < route.legs.length; li++) {
+      const leg = route.legs[li];
       if (leg.type === 'bus') {
         leg.fromCoords = leg.fromCoords || coordsMap[leg.boardAtco] || null;
         leg.toCoords = leg.toCoords || coordsMap[leg.alightAtco] || null;
@@ -404,12 +405,24 @@ async function enrichLegsWithCoordinates(allRoutes, startStop, endStop) {
         if (!leg.fromCoords && leg.boardAtco) leg.fromCoords = coordsMap[leg.boardAtco] || null;
         if (!leg.toCoords && leg.alightAtco) leg.toCoords = coordsMap[leg.alightAtco] || null;
       }
-      // Walk legs: use start/end stop coords as fallback
-      if (leg.type === 'walk' && !leg.fromCoords && startStop) {
-        leg.fromCoords = { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) };
+      // Walk legs: use adjacent leg coords or start/end stop as fallback
+      if (leg.type === 'walk' && !leg.fromCoords) {
+        // Try previous leg's toCoords first (e.g., bus alight → walk → train)
+        const prevLeg = li > 0 ? route.legs[li - 1] : null;
+        if (prevLeg && prevLeg.toCoords) {
+          leg.fromCoords = { ...prevLeg.toCoords };
+        } else if (li === 0 && startStop) {
+          leg.fromCoords = { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) };
+        }
       }
-      if (leg.type === 'walk' && !leg.toCoords && endStop) {
-        leg.toCoords = { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) };
+      if (leg.type === 'walk' && !leg.toCoords) {
+        // Try next leg's fromCoords first (e.g., walk → train board)
+        const nextLeg = li < route.legs.length - 1 ? route.legs[li + 1] : null;
+        if (nextLeg && nextLeg.fromCoords) {
+          leg.toCoords = { ...nextLeg.fromCoords };
+        } else if (li === route.legs.length - 1 && endStop) {
+          leg.toCoords = { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) };
+        }
       }
     }
   }

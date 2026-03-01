@@ -142,7 +142,8 @@ export default function useRoutePlanner(userLocation) {
           ...data,
           routes: data.routes.slice(0, MAX_ROUTES),
           totalRoutes: Math.min(data.totalRoutes, MAX_ROUTES),
-          usingTime: departureTime ? time : `Now (${time.substring(0, 5)})`
+          usingTime: departureTime ? time : `Now (${time.substring(0, 5)})`,
+          nextAvailable: data.nextAvailable || null
         };
         setRoutes(limited);
         if (limited.routes.length > 0) setSelectedRoute(0);

@@ -73,9 +73,9 @@ async function findDirectTrainJourneys(startTiplocs, endTiplocs, departureTime, 
 
   const result = await pool.query(`
     SELECT sp1.train_uid, sp1.tiploc_code as start_tiploc, sp2.tiploc_code as end_tiploc,
-           sp1.departure as board_time, sp2.arrival as alight_time,
+           sp1.departure_time as board_time, sp2.arrival_time as alight_time,
            s1.common_name as board_name, s2.common_name as alight_name,
-           ts.atoc_code as operator
+           rs.operator_code as operator
     FROM schedule_points sp1
     JOIN schedule_points sp2 ON sp1.train_uid = sp2.train_uid
       AND sp2.sequence_order > sp1.sequence_order
@@ -83,13 +83,13 @@ async function findDirectTrainJourneys(startTiplocs, endTiplocs, departureTime, 
     JOIN national_rail nr2 ON sp2.tiploc_code = nr2.tiploc_code
     JOIN stops s1 ON nr1.atco_code = s1.atco_code
     JOIN stops s2 ON nr2.atco_code = s2.atco_code
-    LEFT JOIN train_schedules ts ON sp1.train_uid = ts.train_uid
+    LEFT JOIN rail_schedule rs ON sp1.train_uid = rs.train_uid
     WHERE sp1.tiploc_code IN (${sPlaceholders})
       AND sp2.tiploc_code IN (${ePlaceholders})
-      AND sp1.departure >= $${startTiplocs.length + endTiplocs.length + 1}::time
-      AND sp1.departure IS NOT NULL
-      AND sp2.arrival IS NOT NULL
-    ORDER BY sp1.departure
+      AND sp1.departure_time >= $${startTiplocs.length + endTiplocs.length + 1}::time
+      AND sp1.departure_time IS NOT NULL
+      AND sp2.arrival_time IS NOT NULL
+    ORDER BY sp1.departure_time
     LIMIT $${startTiplocs.length + endTiplocs.length + 2}
   `, [...startTiplocs, ...endTiplocs, departureTime, limit]);
 
@@ -120,20 +120,20 @@ async function findTrainTrainConnections(startTiplocs, endTiplocs, departureTime
     SELECT
       sp1.train_uid as train1_uid, sp1.tiploc_code as start_tiploc,
       sp2.tiploc_code as change_tiploc,
-      sp2.arrival as train1_arrive, sp3.departure as train2_depart,
+      sp2.arrival_time as train1_arrive, sp3.departure_time as train2_depart,
       sp3.train_uid as train2_uid, sp4.tiploc_code as end_tiploc,
-      sp4.arrival as train2_arrive,
-      sp1.departure as train1_depart,
+      sp4.arrival_time as train2_arrive,
+      sp1.departure_time as train1_depart,
       s1.common_name as start_name, s2.common_name as change_name,
       s4.common_name as end_name,
-      ts1.atoc_code as operator1, ts2.atoc_code as operator2
+      rs1.operator_code as operator1, rs2.operator_code as operator2
     FROM schedule_points sp1
     JOIN schedule_points sp2 ON sp1.train_uid = sp2.train_uid
       AND sp2.sequence_order > sp1.sequence_order
     JOIN schedule_points sp3 ON sp3.tiploc_code = sp2.tiploc_code
       AND sp3.train_uid != sp1.train_uid
-      AND sp3.departure >= sp2.arrival + INTERVAL '3 minutes'
-      AND sp3.departure <= sp2.arrival + INTERVAL '60 minutes'
+      AND sp3.departure_time >= sp2.arrival_time + INTERVAL '3 minutes'
+      AND sp3.departure_time <= sp2.arrival_time + INTERVAL '60 minutes'
     JOIN schedule_points sp4 ON sp3.train_uid = sp4.train_uid
       AND sp4.sequence_order > sp3.sequence_order
     JOIN national_rail nr1 ON sp1.tiploc_code = nr1.tiploc_code
@@ -142,14 +142,14 @@ async function findTrainTrainConnections(startTiplocs, endTiplocs, departureTime
     JOIN stops s1 ON nr1.atco_code = s1.atco_code
     JOIN stops s2 ON nr2.atco_code = s2.atco_code
     JOIN stops s4 ON nr4.atco_code = s4.atco_code
-    LEFT JOIN train_schedules ts1 ON sp1.train_uid = ts1.train_uid
-    LEFT JOIN train_schedules ts2 ON sp3.train_uid = ts2.train_uid
+    LEFT JOIN rail_schedule rs1 ON sp1.train_uid = rs1.train_uid
+    LEFT JOIN rail_schedule rs2 ON sp3.train_uid = rs2.train_uid
     WHERE sp1.tiploc_code IN (${sPlaceholders})
       AND sp4.tiploc_code IN (${ePlaceholders})
-      AND sp1.departure >= $${startTiplocs.length + endTiplocs.length + 1}::time
-      AND sp1.departure IS NOT NULL AND sp2.arrival IS NOT NULL
-      AND sp3.departure IS NOT NULL AND sp4.arrival IS NOT NULL
-    ORDER BY sp1.departure
+      AND sp1.departure_time >= $${startTiplocs.length + endTiplocs.length + 1}::time
+      AND sp1.departure_time IS NOT NULL AND sp2.arrival_time IS NOT NULL
+      AND sp3.departure_time IS NOT NULL AND sp4.arrival_time IS NOT NULL
+    ORDER BY sp1.departure_time
     LIMIT $${startTiplocs.length + endTiplocs.length + 2}
   `, [...startTiplocs, ...endTiplocs, departureTime, limit]);
 

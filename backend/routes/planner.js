@@ -28,12 +28,58 @@ const { enrichLegsWithCoordinates, enrichLegsWithGeometry, mergeConsecutiveWalkL
 
 const router = Router();
 
+/**
+ * Geocode a plain-text location name to lat/lon via Nominatim.
+ * Returns { lat, lon, name } or null.
+ */
+async function geocodeText(text) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&viewbox=-3.1,54.2,-2.5,53.5&bounded=1&limit=1`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'LancasterTravelRoutes/1.0' },
+      signal: AbortSignal.timeout(5000)
+    });
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon),
+        name: data[0].display_name.split(',').slice(0, 2).join(',')
+      };
+    }
+  } catch (err) {
+    console.error('Geocode error for', text, err.message);
+  }
+  return null;
+}
+
 router.get('/api/plan', async (req, res) => {
   try {
-    const { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
+    let { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
     const _t0 = Date.now();
     const _timers = {};
     const _mark = (label) => { _timers[label] = Date.now() - _t0; };
+
+    // ── Geocode plain text start/end if not ATCO codes or coords ──
+    const isAtcoCode = (s) => /^(\d{3,}|9100)/.test(s);
+    if (start && !isAtcoCode(start) && !startLat) {
+      const geo = await geocodeText(start);
+      if (geo) {
+        startLat = String(geo.lat);
+        startLon = String(geo.lon);
+        startName = startName || geo.name;
+        start = null;
+      }
+    }
+    if (end && !isAtcoCode(end) && !endLat) {
+      const geo = await geocodeText(end);
+      if (geo) {
+        endLat = String(geo.lat);
+        endLon = String(geo.lon);
+        endName = endName || geo.name;
+        end = null;
+      }
+    }
 
     let resolvedStart = start || null;
     let resolvedEnd = end || null;
@@ -713,9 +759,23 @@ router.get('/api/plan', async (req, res) => {
       const depMins = timeToMinutes(departureTime);
       const arrMins = timeToMinutes(train.alightTime) + walkFrom;
       const legs = [];
-      if (walkToStation && !startIsRail) { legs.push({ type: 'walk', fromName: startStop.common_name, toName: walkToStation.common_name, duration: walkTo, distance_km: walkToStation.walk_km }); }
+      if (walkToStation && !startIsRail) {
+        legs.push({
+          type: 'walk', fromName: startStop.common_name, toName: walkToStation.common_name,
+          fromCoords: { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) },
+          toCoords: { lat: walkToStation.lat, lon: walkToStation.lon },
+          duration: walkTo, distance_km: walkToStation.walk_km
+        });
+      }
       legs.push(train);
-      if (walkFromStation && !endIsRail) { legs.push({ type: 'walk', fromName: walkFromStation.common_name, toName: endStop.common_name, duration: walkFrom, distance_km: walkFromStation.walk_km }); }
+      if (walkFromStation && !endIsRail) {
+        legs.push({
+          type: 'walk', fromName: walkFromStation.common_name, toName: endStop.common_name,
+          fromCoords: { lat: walkFromStation.lat, lon: walkFromStation.lon },
+          toCoords: { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) },
+          duration: walkFrom, distance_km: walkFromStation.walk_km
+        });
+      }
       allRoutes.push({ id: `train-direct-${train.trainUid}`, summary: `Train ${train.operator || ''} direct`, modes: walkTo > 0 || walkFrom > 0 ? ['walk', 'train'] : ['train'], departureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
     }
 
@@ -731,9 +791,23 @@ router.get('/api/plan', async (req, res) => {
       const lastLeg = conn.legs[conn.legs.length - 1];
       const arrMins = timeToMinutes(lastLeg.alightTime) + walkFrom;
       const legs = [];
-      if (walkToStation && !startIsRail) { legs.push({ type: 'walk', fromName: startStop.common_name, toName: walkToStation.common_name, duration: walkTo, distance_km: walkToStation.walk_km }); }
+      if (walkToStation && !startIsRail) {
+        legs.push({
+          type: 'walk', fromName: startStop.common_name, toName: walkToStation.common_name,
+          fromCoords: { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) },
+          toCoords: { lat: walkToStation.lat, lon: walkToStation.lon },
+          duration: walkTo, distance_km: walkToStation.walk_km
+        });
+      }
       legs.push(...conn.legs);
-      if (walkFromStation && !endIsRail) { legs.push({ type: 'walk', fromName: walkFromStation.common_name, toName: endStop.common_name, duration: walkFrom, distance_km: walkFromStation.walk_km }); }
+      if (walkFromStation && !endIsRail) {
+        legs.push({
+          type: 'walk', fromName: walkFromStation.common_name, toName: endStop.common_name,
+          fromCoords: { lat: walkFromStation.lat, lon: walkFromStation.lon },
+          toCoords: { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) },
+          duration: walkFrom, distance_km: walkFromStation.walk_km
+        });
+      }
       allRoutes.push({ id: `train-conn-${conn.legs[0].trainUid}-${lastLeg.trainUid}`, summary: `Train via ${conn.legs[1].station || 'connection'}`, modes: ['walk', 'train'], departureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
     }
 
@@ -776,10 +850,54 @@ router.get('/api/plan', async (req, res) => {
     // === Prepend/append walk legs for place-based searches ===
     if (startWalkLeg || endWalkLeg) {
       for (const route of allRoutes) {
-        if (startWalkLeg) { route.legs.unshift({ ...startWalkLeg }); route.durationMinutes += startWalkLeg.duration; }
-        if (endWalkLeg) { route.legs.push({ ...endWalkLeg }); route.durationMinutes += endWalkLeg.duration; }
+        if (startWalkLeg) {
+          // Skip if route already starts with a walk leg from the same location
+          const firstLeg = route.legs[0];
+          if (firstLeg && firstLeg.type === 'walk') {
+            // Merge: update the existing walk leg's start to be the user's location
+            firstLeg.fromName = startWalkLeg.fromName;
+            firstLeg.fromCoords = startWalkLeg.fromCoords;
+            // Recalculate distance and duration for the combined walk
+            if (firstLeg.fromCoords && firstLeg.toCoords) {
+              const dist = haversineDistance(firstLeg.fromCoords.lat, firstLeg.fromCoords.lon, firstLeg.toCoords.lat, firstLeg.toCoords.lon);
+              const newDuration = Math.max(1, Math.ceil(dist / 0.08));
+              route.durationMinutes += newDuration - (firstLeg.duration || 0);
+              firstLeg.duration = newDuration;
+              firstLeg.distance_km = Math.round(dist * 1000) / 1000;
+            } else {
+              route.durationMinutes += startWalkLeg.duration;
+              firstLeg.duration = (firstLeg.duration || 0) + startWalkLeg.duration;
+              firstLeg.distance_km = (firstLeg.distance_km || 0) + (startWalkLeg.distance_km || 0);
+            }
+          } else {
+            route.legs.unshift({ ...startWalkLeg });
+            route.durationMinutes += startWalkLeg.duration;
+          }
+        }
+        if (endWalkLeg) {
+          // Skip if route already ends with a walk leg to the same destination
+          const lastLeg = route.legs[route.legs.length - 1];
+          if (lastLeg && lastLeg.type === 'walk') {
+            // Merge: update the existing walk leg's end to be the user's destination
+            lastLeg.toName = endWalkLeg.toName;
+            lastLeg.toCoords = endWalkLeg.toCoords;
+            if (lastLeg.fromCoords && lastLeg.toCoords) {
+              const dist = haversineDistance(lastLeg.fromCoords.lat, lastLeg.fromCoords.lon, lastLeg.toCoords.lat, lastLeg.toCoords.lon);
+              const newDuration = Math.max(1, Math.ceil(dist / 0.08));
+              route.durationMinutes += newDuration - (lastLeg.duration || 0);
+              lastLeg.duration = newDuration;
+              lastLeg.distance_km = Math.round(dist * 1000) / 1000;
+            } else {
+              route.durationMinutes += endWalkLeg.duration;
+              lastLeg.duration = (lastLeg.duration || 0) + endWalkLeg.duration;
+              lastLeg.distance_km = (lastLeg.distance_km || 0) + (endWalkLeg.distance_km || 0);
+            }
+          } else {
+            route.legs.push({ ...endWalkLeg });
+            route.durationMinutes += endWalkLeg.duration;
+          }
+        }
       }
-      mergeConsecutiveWalkLegs(allRoutes);
     }
 
     // === Filter unreasonable routes ===
@@ -832,6 +950,93 @@ router.get('/api/plan', async (req, res) => {
     _mark('done');
     console.log(`[PERF] /api/plan total=${_timers.done}ms | candidates=${allRoutes.length} filtered=${uniqueRoutes.length} displayed=${topRoutes.length} |`, Object.entries(_timers).map(([k, v]) => `${k}=${v}ms`).join(' '));
 
+    // ── Next-available fallback when no routes found ────────────────
+    let nextAvailable = null;
+    if (topRoutes.length === 0) {
+      // Try next morning (06:00) on the next day
+      const nextDayIndex = (dayIndex + 1) % 7;
+      const nextDayTime = '06:00:00';
+      const dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+      try {
+        // Quick search: direct bus + direct train for next morning
+        const [nextBus, nextTrain] = await Promise.all([
+          findDirectBusJourneys(resolvedStart, resolvedEnd, nextDayTime, nextDayIndex, 3),
+          (startTiplocs.length > 0 && endTiplocs.length > 0)
+            ? findDirectTrainJourneys(startTiplocs, endTiplocs, nextDayTime, 3)
+            : Promise.resolve([])
+        ]);
+
+        // Also check nearby-stop buses
+        const nearbyNextPromises = nearbyStartStops
+          .filter(s => s.walk_minutes <= 15).slice(0, 4)
+          .map(stop => findDirectBusJourneys(stop.atco_code, resolvedEnd, nextDayTime, nextDayIndex, 1));
+        const nearbyNextResults = await Promise.all(nearbyNextPromises);
+        const nearbyNextBus = nearbyNextResults.flat();
+
+        const allNext = [...nextBus, ...nearbyNextBus, ...nextTrain];
+
+        if (allNext.length > 0) {
+          // Find earliest departure
+          const earliest = allNext.reduce((best, item) => {
+            const t = item.boardTime || item.departTime;
+            if (!t) return best;
+            if (!best || timeToMinutes(t) < timeToMinutes(best.time)) {
+              return { time: t, mode: item.type || (item.trainUid ? 'train' : 'bus'), summary: item.routeNumber || item.operator || '' };
+            }
+            return best;
+          }, null);
+
+          if (earliest) {
+            nextAvailable = {
+              day: dayNames[nextDayIndex],
+              dayIndex: nextDayIndex,
+              time: earliest.time,
+              mode: earliest.mode,
+              summary: earliest.summary,
+              message: `No services available at ${departureTime.substring(0, 5)} on ${dayNames[dayIndex]}. First available: ${earliest.time.substring(0, 5)} on ${dayNames[nextDayIndex]} (${earliest.mode}${earliest.summary ? ' ' + earliest.summary : ''}).`
+            };
+          }
+        }
+
+        // If nothing found next day, try searching the same day from 06:00
+        if (!nextAvailable) {
+          const [sameDayBus, sameDayTrain] = await Promise.all([
+            findDirectBusJourneys(resolvedStart, resolvedEnd, '06:00:00', dayIndex, 1),
+            (startTiplocs.length > 0 && endTiplocs.length > 0)
+              ? findDirectTrainJourneys(startTiplocs, endTiplocs, '06:00:00', 1)
+              : Promise.resolve([])
+          ]);
+          const allSameDay = [...sameDayBus, ...sameDayTrain];
+          if (allSameDay.length > 0) {
+            const earliest = allSameDay[0];
+            const t = earliest.boardTime || earliest.departTime;
+            if (t) {
+              nextAvailable = {
+                day: dayNames[dayIndex],
+                dayIndex,
+                time: t,
+                mode: earliest.type || (earliest.trainUid ? 'train' : 'bus'),
+                summary: earliest.routeNumber || earliest.operator || '',
+                message: `No services available at ${departureTime.substring(0, 5)}. Services run on ${dayNames[dayIndex]} from ${t.substring(0, 5)}.`
+              };
+            }
+          }
+        }
+
+        if (!nextAvailable) {
+          nextAvailable = {
+            message: `No services found between these locations at ${departureTime.substring(0, 5)} on ${dayNames[dayIndex]}. Try a different time or day.`
+          };
+        }
+      } catch (err) {
+        console.error('Next-available search error:', err.message);
+        nextAvailable = {
+          message: `No routes available at ${departureTime.substring(0, 5)} on ${dayNames[dayIndex]}. Try a different departure time.`
+        };
+      }
+    }
+
     res.json({
       start: { atco: resolvedStart, name: startPlaceName || startStop.common_name, coordinates: startPlaceCoords || { lon: startStop.lon, lat: startStop.lat }, resolvedStop: startWalkLeg ? startStop.common_name : undefined },
       end: { atco: resolvedEnd, name: endPlaceName || endStop.common_name, coordinates: endPlaceCoords || { lon: endStop.lon, lat: endStop.lat }, resolvedStop: endWalkLeg ? endStop.common_name : undefined },
@@ -841,7 +1046,8 @@ router.get('/api/plan', async (req, res) => {
       sortedBy: sortBy,
       routes: topRoutes,
       totalRoutes: uniqueRoutes.length,
-      nearbyRailStations: { start: startRailStations, end: endRailStations }
+      nearbyRailStations: { start: startRailStations, end: endRailStations },
+      ...(nextAvailable ? { nextAvailable } : {})
     });
 
   } catch (err) {
