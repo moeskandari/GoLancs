@@ -325,7 +325,8 @@ app.get('/api/geocode', async (req, res) => {
 
     const data = await new Promise((resolve, reject) => {
       https.get(url, {
-        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' },
+        timeout: 8000
       }, (response) => {
         let body = '';
         response.on('data', chunk => body += chunk);
@@ -334,7 +335,8 @@ app.get('/api/geocode', async (req, res) => {
           catch (e) { reject(e); }
         });
         response.on('error', reject);
-      }).on('error', reject);
+      }).on('error', reject)
+        .on('timeout', function() { this.destroy(); reject(new Error('Nominatim timeout')); });
     });
 
     // Format results
@@ -371,7 +373,8 @@ async function handleReverseGeocode(req, res) {
 
     const data = await new Promise((resolve, reject) => {
       https.get(url, {
-        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' },
+        timeout: 8000
       }, (response) => {
         let body = '';
         response.on('data', chunk => body += chunk);
@@ -380,7 +383,8 @@ async function handleReverseGeocode(req, res) {
           catch (e) { reject(e); }
         });
         response.on('error', reject);
-      }).on('error', reject);
+      }).on('error', reject)
+        .on('timeout', function() { this.destroy(); reject(new Error('Nominatim timeout')); });
     });
 
     if (data && data.address) {
@@ -727,7 +731,7 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
     
     const url = `https://transport.scc.lancs.ac.uk/rail/departures/${crs.toUpperCase()}`;
     
-    https.get(url, (response) => {
+    https.get(url, { timeout: 10000 }, (response) => {
       let data = '';
       response.on('data', chunk => data += chunk);
       response.on('end', () => {
@@ -823,6 +827,9 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
       });
     }).on('error', (err) => {
       res.status(500).json({ error: `Failed to fetch departures: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(500).json({ error: 'Rail departures API timed out' });
     });
   } catch (err) {
     console.error(err);
@@ -3760,7 +3767,7 @@ app.get('/api/bus/live/:noc', async (req, res) => {
       res.status(500).json({ error: `Failed to fetch live data: ${err.message}` });
     }).on('timeout', function() {
       this.destroy();
-      res.status(504).json({ error: 'Transport API timed out' });
+      res.status(500).json({ error: 'Transport API timed out' });
     });
   } catch (err) {
     console.error('Bus live endpoint error:', err);
