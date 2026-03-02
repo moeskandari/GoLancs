@@ -18,6 +18,7 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'group1db',
   user: process.env.DB_USER || 'group1user',
   password: process.env.DB_PASSWORD || 'group1pass',
+  connectionTimeoutMillis: 5000,  // fail fast when DB is unavailable (e.g. in CI)
 });
 
 module.exports = pool;

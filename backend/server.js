@@ -240,7 +240,8 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5050),
   database: process.env.DB_NAME || 'group1db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'group1'
+  password: process.env.DB_PASSWORD || 'group1',
+  connectionTimeoutMillis: 5000,  // fail fast when DB is unavailable (e.g. in CI)
 });
 
 // Haversine distance calculation in kilometers
