@@ -592,7 +592,11 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
         <div className="no-routes">
           <div className="no-routes-icon">🔍</div>
           <p><strong>No routes found</strong></p>
-          <p>Try adjusting the departure time or selecting different stops.</p>
+          {routes.nextAvailable ? (
+            <p className="next-available-msg">{routes.nextAvailable.message}</p>
+          ) : (
+            <p>Try adjusting the departure time or selecting different stops.</p>
+          )}
         </div>
       ) : (
         <div className="route-list">

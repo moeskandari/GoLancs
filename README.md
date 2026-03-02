@@ -147,9 +147,27 @@ Always run `./scripts/backup_db.sh` after important data changes.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check — returns service status |
-| GET | `/api/routes?start=ATCO&end=ATCO` | Find bus routes between two stops |
-| POST | `/api/routes` | Route planning (in development) |
-| GET | `/api/transport` | Transportation data (in development) |
+| GET | `/api/stops` | List all bus/rail stops |
+| GET | `/api/stops/nearby?lat=&lon=&radius=` | Find stops near a location |
+| GET | `/api/geocode?q=` | Forward geocode (text → coordinates) |
+| GET | `/api/reverse-geocode?lat=&lon=` | Reverse geocode (coordinates → name) |
+| GET | `/api/reverse?lat=&lon=` | Full reverse geocode with display_name |
+| GET | `/api/search?q=` | Unified search (stops + places) |
+| GET | `/api/plan?start=&end=&time=&sort=` | **Multi-modal route planner** (bus, train, walk) |
+| GET | `/api/routes?start=ATCO&end=ATCO` | Legacy bus route search |
+| GET | `/api/transport` | Transport data placeholder |
+| GET | `/api/rail/stations` | Rail stations in database |
+| GET | `/api/rail/departures/:crs` | Live rail departures with calling points |
+| GET | `/api/rail/facilities/:crs` | Station facilities |
+| GET | `/api/rail/routes?from=CRS&to=CRS` | Find train routes between stations |
+| GET | `/api/rail/delay-codes` | UK rail delay reason codes |
+| GET | `/api/bus/departures/:atco` | Timetable departures from a bus stop |
+| GET | `/api/bus/journey/:journeyId` | Full stop list for a bus journey |
+| GET | `/api/bus/live` | All live bus GPS positions (Lancashire) |
+| GET | `/api/bus/live/route/:routeNumber` | Live buses for a specific route |
+| GET | `/api/bus/live/:noc` | Live buses for an operator |
+| GET | `/api/weather?lat=&lon=` | 3-day weather forecast (Open-Meteo) |
+| GET | `/api/road/vms` | Motorway Variable Message Signs |
 
 ### Route Finding Example
 
@@ -186,27 +204,81 @@ Routes are imported from the transport API (requires campus/VPN access):
 ## Project Structure
 
 ```
-├── backend/              # Node.js Express API
+├── backend/                        # Node.js Express API (modular architecture)
 │   ├── Dockerfile
-│   ├── server.js
-│   ├── __tests__/        # Jest tests
-│   └── data/             # Static data (railway graph)
-├── frontend/             # React application
+│   ├── server.js                   # Slim entry point — mounts all route modules
+│   ├── db/
+│   │   └── pool.js                 # Centralised PostgreSQL connection pool
+│   ├── utils/                      # Pure utility functions (no side-effects)
+│   │   ├── geo.js                  # Haversine distance, bearing, station coords (88+ stations)
+│   │   ├── time.js                 # Time ↔ minutes conversion, day-of-week index
+│   │   ├── rail-graph.js           # Railway graph loading + Dijkstra pathfinding
+│   │   └── stop-utils.js           # ATCO stop code expansion (sibling stops)
+│   ├── services/                   # Business logic (database + computation)
+│   │   ├── geometry.js             # Route polyline enrichment (Valhalla/OSRM)
+│   │   ├── journey-search.js       # Direct bus/train journey + connection finders
+│   │   └── nearby.js               # Nearby rail stations + bus stops search
+│   ├── routes/                     # Express route handlers (one per feature)
+│   │   ├── health.js               # GET /api/health
+│   │   ├── stops.js                # GET /api/stops, /api/stops/nearby
+│   │   ├── geocode.js              # Geocoding, reverse geocode, search
+│   │   ├── rail.js                 # Rail stations, departures, facilities, routes
+│   │   ├── bus-timetable.js        # Bus departures, journeys, route search
+│   │   ├── planner.js              # GET /api/plan — multi-modal journey planner
+│   │   ├── weather.js              # GET /api/weather — Open-Meteo proxy
+│   │   ├── bus-live.js             # Live bus GPS tracking (SIRI-VM parser)
+│   │   └── road-vms.js             # Variable Message Signs (motorway data)
+│   ├── __tests__/                  # Jest + Supertest tests (142 tests, 10 suites)
+│   └── data/
+│       └── railway_graph.json      # Dijkstra graph nodes for track-following geometry
+├── frontend/                       # React application (hooks-based architecture)
 │   ├── Dockerfile
 │   ├── src/
-│   │   ├── App.js
-│   │   └── components/   # SearchBar, MapView, RouteResults, etc.
+│   │   ├── App.js                  # Slim root component — composes all hooks
+│   │   ├── services/
+│   │   │   └── api.js              # Centralised API client (all backend calls)
+│   │   ├── hooks/                  # Custom React hooks
+│   │   │   ├── useGeolocation.js   # GPS/IP geolocation with multi-level fallback
+│   │   │   ├── useWeather.js       # Current + destination weather fetching
+│   │   │   ├── useLiveTracking.js  # Live bus/train polling with best-match scoring
+│   │   │   └── useRoutePlanner.js  # Route planning state + geocoding + pin drop
+│   │   └── components/             # React UI components (43 tests, 3 suites)
+│   │       ├── MapView.js          # Leaflet map with route/live overlays
+│   │       ├── SearchBar.js        # Autocomplete search input
+│   │       ├── RouteResults.js     # Route cards with leg details + live tracking
+│   │       ├── WeatherSidebar.js   # 3-day forecast sidebar
+│   │       └── ...                 # Auth, Compass, BottomControls
 │   └── public/
-├── postgres/             # Database setup & import scripts
-│   ├── init.sql          # Initial schema
-│   ├── bus_schema.sql    # Bus-specific tables
-│   ├── post_restore.sql  # Post-restore migrations
-│   ├── import_*.py       # Python data import scripts
-│   └── *.sql             # Backups
-├── scripts/              # Automation scripts
-├── docker-compose.yml    # Production orchestration
-├── docker-compose.dev.yml # Dev overrides (hot-reload)
-└── README.md             # This file
+├── postgres/                       # Database setup & import scripts
+│   ├── init.sql                    # Initial schema
+│   ├── bus_schema.sql              # Bus-specific tables
+│   ├── post_restore.sql            # Post-restore migrations
+│   ├── import_*.py                 # Python data import scripts
+│   └── *.sql                       # Backups
+├── scripts/                        # Automation scripts
+├── docker-compose.yml              # Production orchestration
+├── docker-compose.dev.yml          # Dev overrides (hot-reload)
+└── README.md                       # This file
+```
+
+### Backend Module Dependency Graph
+
+```
+server.js (entry)
+  ├── routes/*         (Express routers — each feature isolated)
+  │     ├── planner.js → services/* + utils/* + db/pool
+  │     ├── rail.js    → utils/geo + db/pool
+  │     ├── bus-live.js → xml2js (SIRI-VM parsing)
+  │     └── ...
+  ├── services/*       (business logic)
+  │     ├── geometry.js  → db/pool + utils/geo + utils/rail-graph
+  │     ├── journey-search.js → db/pool + utils/stop-utils + utils/time + services/nearby
+  │     └── nearby.js    → db/pool + utils/geo + utils/stop-utils
+  └── utils/*          (pure functions, no side-effects)
+        ├── geo.js       (haversine, bearing, STATION_COORDS)
+        ├── time.js      (timeToMinutes, minutesToTime, getDayIndex)
+        ├── rail-graph.js (graph loading + Dijkstra)
+        └── stop-utils.js (ATCO code expansion → db/pool)
 ```
 
 ---
