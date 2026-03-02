@@ -1,0 +1,230 @@
+/* ===================================================================
+   FilterPage styles
+   Full-screen page with three filter categories and interactive toggles.
+   =================================================================== */
+
+/* ---------- Full-screen container ---------- */
+.filter-page {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: filter-fade-in 0.2s ease-out;
+}
+
+@keyframes filter-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---------- Top bar ---------- */
+.filter-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.filter-back-btn {
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2196F3;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 20px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.filter-back-btn:hover {
+  background: #e3f2fd;
+}
+
+.filter-page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.filter-top-spacer {
+  /* Same width as back button to keep title centered */
+  width: 72px;
+}
+
+/* ---------- Scrollable body ---------- */
+.filter-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---------- Category section ---------- */
+.filter-category {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.filter-category-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e8e8e8;
+}
+
+/* ---------- Option buttons ---------- */
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fafafa;
+  font-size: 15px;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.filter-option-btn:hover {
+  border-color: #90caf9;
+  background: #f0f7ff;
+}
+
+/* Selected / highlighted state */
+.filter-option-btn.selected {
+  border-color: #2196F3;
+  background: #e3f2fd;
+  color: #1565c0;
+  font-weight: 600;
+}
+
+/* Tick indicator */
+.filter-option-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  color: #fff;
+  background: #fff;
+}
+
+.filter-option-btn.selected .filter-option-indicator {
+  background: #2196F3;
+  border-color: #2196F3;
+}
+
+.filter-option-label {
+  flex: 1;
+}
+
+/* ---------- Submit bar ---------- */
+.filter-submit-bar {
+  padding: 16px 20px;
+  background: #fff;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.filter-submit-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #2196F3;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.15s;
+}
+
+.filter-submit-btn:hover {
+  background: #1b7ed1;
+  transform: translateY(-1px);
+}
+
+.filter-submit-btn:active {
+  transform: translateY(0);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 480px) {
+  .filter-top-bar {
+    padding: 12px 14px;
+  }
+
+  .filter-page-title {
+    font-size: 17px;
+  }
+
+  .filter-body {
+    padding: 14px;
+    gap: 16px;
+  }
+
+  .filter-category {
+    padding: 14px;
+  }
+
+  .filter-option-btn {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .filter-submit-bar {
+    padding: 12px 14px;
+  }
+
+  .filter-submit-btn {
+    padding: 14px;
+    font-size: 15px;
+  }
+}
+
+/* Larger screens: limit width and center */
+@media (min-width: 769px) {
+  .filter-body {
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .filter-submit-bar {
+    display: flex;
+    justify-content: center;
+  }
+
+  .filter-submit-btn {
+    max-width: 600px;
+  }
+}

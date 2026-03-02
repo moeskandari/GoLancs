@@ -10,7 +10,7 @@ const pinSvg = `
 const pinDragImage = new Image();
 pinDragImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pinSvg);
 
-function BottomControls({ onAccountClick }) {
+function BottomControls({ onFilterClick, onAccountClick }) {
   const onPinDragStart = (e) => {
     // Indicate drag type so the map can accept the drop
     try {
@@ -34,7 +34,12 @@ function BottomControls({ onAccountClick }) {
 
   return (
     <div className="bottom-controls">
-      <button className="control-btn" title="Filter Options">
+      <button
+        className="control-btn"
+        title="Filter Options"
+        onClick={onFilterClick}
+        aria-label="Open filter options"
+      >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <line x1="4" y1="6" x2="20" y2="6" strokeWidth="2"/>
           <line x1="4" y1="12" x2="20" y2="12" strokeWidth="2"/>
