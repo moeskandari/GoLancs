@@ -575,8 +575,9 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
               aria-label="Sort routes by"
             >
               <option value="duration">⏱ Fastest</option>
-              <option value="departure">🕐 Earliest</option>
-              <option value="arrival">🏁 Arrives first</option>
+              <option value="departure">🕘 Departs earliest</option>
+              <option value="arrival">🏁 Arrives earliest</option>
+              <option value="changes">🔄 Least changes</option>
             </select>
           </div>
         </div>

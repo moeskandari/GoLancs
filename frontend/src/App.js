@@ -85,15 +85,40 @@ function App() {
           </button>
         </div>
         <div className="search-controls">
-          <div className="time-wrapper">
-            <input
-              type="time"
-              className="time-input"
-              value={departureTime ? departureTime.substring(0, 5) : ''}
-              onChange={(e) => setDepartureTime(e.target.value ? e.target.value + ':00' : '')}
-              aria-label="Departure time"
-            />
-            {!departureTime && <span className="time-hint">Now</span>}
+          <div className="time-inputs-column">
+            <div className="time-field">
+              <label className="time-label" htmlFor="departure-time">Depart at</label>
+              <div className="time-wrapper">
+                <input
+                  id="departure-time"
+                  type="time"
+                  className="time-input"
+                  value={departureTime ? departureTime.substring(0, 5) : ''}
+                  onChange={(e) => {
+                    setDepartureTime(e.target.value ? e.target.value + ':00' : '');
+                    if (e.target.value) setArrivalTime('');
+                  }}
+                  aria-label="Departure time"
+                />
+              </div>
+            </div>
+            <div className="time-field">
+              <label className="time-label" htmlFor="arrival-time">Arrive by</label>
+              <div className="time-wrapper">
+                <input
+                  id="arrival-time"
+                  type="time"
+                  className="time-input"
+                  value={arrivalTime ? arrivalTime.substring(0, 5) : ''}
+                  onChange={(e) => {
+                    setArrivalTime(e.target.value ? e.target.value + ':00' : '');
+                    if (e.target.value) setDepartureTime('');
+                  }}
+                  aria-label="Arrival time"
+                />
+                {!arrivalTime && <span className="time-hint">Any</span>}
+              </div>
+            </div>
           </div>
           <button
             className="route-btn"
