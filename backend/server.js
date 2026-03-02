@@ -8,6 +8,9 @@
 
 const express = require('express');
 const cors    = require('cors');
+const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app  = express();
@@ -3972,11 +3975,6 @@ module.exports = app;
 
 // ── Re-export pure functions for unit tests ─────────────────────────
 // Tests access these via  app._test.functionName
-const { haversineDistance, calculateBearing, getStationCoords, STATION_COORDS } = require('./utils/geo');
-const { timeToMinutes, minutesToTime, getDayIndex }    = require('./utils/time');
-const { decodeValhallaPolyline, mergeConsecutiveWalkLegs } = require('./services/geometry');
-const { parseSiriVehicles } = require('./routes/bus-live');
-
 module.exports._test = {
   haversineDistance,
   calculateBearing,
