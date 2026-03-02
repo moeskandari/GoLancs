@@ -3,7 +3,7 @@ import './FilterPage.css';
 
 /**
  * Default filter state – every option starts as false (not selected).
- * Structured into the three required categories.
+ * Structured into the two required categories.
  */
 const DEFAULT_FILTERS = {
   onMap: {
@@ -13,15 +13,8 @@ const DEFAULT_FILTERS = {
   },
   direction: {
     includeWalking: false,
-    includeDriving: false,
     includeBusses: false,
     includeTrains: false,
-  },
-  routeSuggestions: {
-    fastestRoute: false,
-    leastTraffic: false,
-    cheapestRoute: false,
-    leastChanges: false,
   },
 };
 
@@ -33,18 +26,13 @@ const LABELS = {
   showTrainStations: 'Show Train Stations',
   showTrafficConditions: 'Show Traffic Conditions',
   includeWalking: 'Include Walking',
-  includeDriving: 'Include Driving',
   includeBusses: 'Include Busses',
   includeTrains: 'Include Trains',
-  fastestRoute: 'Fastest Route',
-  leastTraffic: 'Least Traffic',
-  cheapestRoute: 'Cheapest Route',
-  leastChanges: 'Least Changes',
 };
 
 /**
  * FilterPage component – full-screen overlay page where the user can
- * toggle filter options across three categories, then submit them.
+ * toggle filter options across two categories, then submit them.
  *
  * Props:
  *   initialFilters – optional object matching DEFAULT_FILTERS shape to
@@ -58,7 +46,7 @@ function FilterPage({ initialFilters, onBack, onSubmit }) {
 
   /**
    * Toggle a single filter option within a category.
-   * @param {string} category  – 'onMap' | 'direction' | 'routeSuggestions'
+   * @param {string} category  – 'onMap' | 'direction'
    * @param {string} key       – filter key inside that category
    */
   const toggle = (category, key) => {
@@ -123,7 +111,6 @@ function FilterPage({ initialFilters, onBack, onSubmit }) {
       <div className="filter-body">
         {renderCategory('On Map', 'onMap')}
         {renderCategory('Direction', 'direction')}
-        {renderCategory('Route Suggestions', 'routeSuggestions')}
       </div>
 
       {/* ---- Submit bar ---- */}
