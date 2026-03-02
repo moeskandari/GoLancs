@@ -237,10 +237,11 @@ function findRailTrackPath(fromLat, fromLon, toLat, toLon) {
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT || 5050),
+  port: Number(process.env.DB_PORT || 5432),
   database: process.env.DB_NAME || 'group1db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'group1'
+  user: process.env.DB_USER || 'group1user',
+  password: process.env.DB_PASSWORD || 'group1pass',
+  connectionTimeoutMillis: 5000,  // fail fast when DB is unavailable (e.g. in CI)
 });
 
 // Haversine distance calculation in kilometers
