@@ -8,6 +8,7 @@ import SignIn from './components/SignIn';
 import SignUp from './components/SignUp';
 import Profile from './components/Profile';
 import FilterPage from './components/FilterPage';
+import WeatherSidebar from './components/WeatherSidebar';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
@@ -41,8 +42,19 @@ function App() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
-  const [sortBy, setSortBy] = useState('duration');
-  const [departureTime, setDepartureTime] = useState('');
+  const [sortBy, setSortBy] = useState('arrival');
+  const [departureTime, setDepartureTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+  });
+  const [arrivalTime, setArrivalTime] = useState('');
+
+  // ---------- Weather state ----------
+  const [currentWeather, setCurrentWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [destWeather, setDestWeather] = useState(null);
+  const [destWeatherLoading, setDestWeatherLoading] = useState(false);
+  const [weatherSidebarOpen, setWeatherSidebarOpen] = useState(false);
 
   // ---------- Authentication / profile UI state (front-end only) ----------
   // authView: null (map visible), 'signin', 'signup', 'profile'
@@ -187,6 +199,50 @@ function App() {
     };
   }, []);
 
+  // Fetch weather for current location whenever userLocation changes
+  useEffect(() => {
+    if (!userLocation) return;
+    let cancelled = false;
+    const fetchWeather = async () => {
+      setWeatherLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/weather?lat=${userLocation.lat}&lon=${userLocation.lon}`);
+        if (res.ok && !cancelled) {
+          setCurrentWeather(await res.json());
+        }
+      } catch (e) {
+        console.warn('Failed to fetch current weather:', e.message);
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    };
+    fetchWeather();
+    // Refresh weather every 10 minutes
+    const interval = setInterval(fetchWeather, 10 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [userLocation?.lat, userLocation?.lon]);
+
+  // Fetch weather for destination whenever endStop changes
+  useEffect(() => {
+    if (!endStop?.lat || !endStop?.lon) { setDestWeather(null); return; }
+    let cancelled = false;
+    const fetchDestWeather = async () => {
+      setDestWeatherLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/weather?lat=${endStop.lat}&lon=${endStop.lon}`);
+        if (res.ok && !cancelled) {
+          setDestWeather(await res.json());
+        }
+      } catch (e) {
+        console.warn('Failed to fetch destination weather:', e.message);
+      } finally {
+        if (!cancelled) setDestWeatherLoading(false);
+      }
+    };
+    fetchDestWeather();
+    return () => { cancelled = true; };
+  }, [endStop?.lat, endStop?.lon]);
+
   // Set the start location to the user's current GPS position
   const useMyLocation = useCallback(async () => {
     if (!userLocation) return;
@@ -259,7 +315,11 @@ function App() {
 
     try {
       const now = new Date();
-      const time = departureTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      // When arrivalTime is set, search from current time onwards
+      // and let the backend filter out routes that arrive after the target.
+      // When departureTime is set (or defaulted), use it directly.
+      const time = arrivalTime ? nowTime : departureTime;
       const day = (now.getDay() + 6) % 7;
 
       // Build query params based on whether selections are stops or places
@@ -267,6 +327,9 @@ function App() {
       params.set('time', time);
       params.set('day', day);
       params.set('sort', sortBy);
+      if (arrivalTime) {
+        params.set('arriveBy', arrivalTime);
+      }
 
       if (resolvedStart.type === 'stop' && resolvedStart.atco_code) {
         params.set('start', resolvedStart.atco_code);
@@ -295,7 +358,9 @@ function App() {
           ...data,
           routes: data.routes.slice(0, MAX_ROUTES),
           totalRoutes: Math.min(data.totalRoutes, MAX_ROUTES),
-          usingTime: departureTime ? time : `Now (${time.substring(0, 5)})`
+          usingTime: arrivalTime
+            ? `Arrive by ${arrivalTime.substring(0, 5)}`
+            : `Depart ${time.substring(0, 5)}`
         };
         setRoutes(limited);
         if (limited.routes.length > 0) {
@@ -308,11 +373,44 @@ function App() {
     } finally {
       setRouteLoading(false);
     }
-  }, [startStop, endStop, sortBy, departureTime]);
+  }, [startStop, endStop, sortBy, departureTime, arrivalTime]);
 
   // Handle sort change and re-fetch
   const handleSortChange = (newSort) => {
     setSortBy(newSort);
+  };
+
+  // Handle pin drop from BottomControls -> MapView drag/drop
+  const handlePinDrop = async (latlng) => {
+    if (!latlng) return;
+    try {
+      const res = await fetch(`${API_URL}/api/reverse?lat=${encodeURIComponent(latlng.lat)}&lon=${encodeURIComponent(latlng.lng)}`);
+      const data = await res.json();
+      const name = (data && data.name) ? data.name : 'Pinned location';
+      const place = {
+        type: 'place',
+        name,
+        common_name: name,
+        lat: latlng.lat,
+        lon: latlng.lng,
+        fullName: data && data.display_name ? data.display_name : undefined
+      };
+      setEndStop(place);
+      setRoutes(null);
+      setSelectedRoute(null);
+    } catch (err) {
+      console.error('Reverse geocode failed:', err);
+      const place = {
+        type: 'place',
+        name: 'Pinned location',
+        common_name: 'Pinned location',
+        lat: latlng.lat,
+        lon: latlng.lng
+      };
+      setEndStop(place);
+      setRoutes(null);
+      setSelectedRoute(null);
+    }
   };
 
   // Re-fetch when sort changes (if we already have routes)
@@ -353,15 +451,40 @@ function App() {
           </button>
         </div>
         <div className="search-controls">
-          <div className="time-wrapper">
-            <input
-              type="time"
-              className="time-input"
-              value={departureTime ? departureTime.substring(0, 5) : ''}
-              onChange={(e) => setDepartureTime(e.target.value ? e.target.value + ':00' : '')}
-              aria-label="Departure time"
-            />
-            {!departureTime && <span className="time-hint">Now</span>}
+          <div className="time-inputs-column">
+            <div className="time-field">
+              <label className="time-label" htmlFor="departure-time">Depart at</label>
+              <div className="time-wrapper">
+                <input
+                  id="departure-time"
+                  type="time"
+                  className="time-input"
+                  value={departureTime ? departureTime.substring(0, 5) : ''}
+                  onChange={(e) => {
+                    setDepartureTime(e.target.value ? e.target.value + ':00' : '');
+                    if (e.target.value) setArrivalTime('');
+                  }}
+                  aria-label="Departure time"
+                />
+              </div>
+            </div>
+            <div className="time-field">
+              <label className="time-label" htmlFor="arrival-time">Arrive by</label>
+              <div className="time-wrapper">
+                <input
+                  id="arrival-time"
+                  type="time"
+                  className="time-input"
+                  value={arrivalTime ? arrivalTime.substring(0, 5) : ''}
+                  onChange={(e) => {
+                    setArrivalTime(e.target.value ? e.target.value + ':00' : '');
+                    if (e.target.value) setDepartureTime('');
+                  }}
+                  aria-label="Arrival time"
+                />
+                {!arrivalTime && <span className="time-hint">Any</span>}
+              </div>
+            </div>
           </div>
           <button
             className="route-btn"
@@ -384,8 +507,14 @@ function App() {
         endLocation={endStop}
         routes={routes}
         selectedRoute={selectedRoute}
+        onPinDrop={handlePinDrop}
         onLocateMe={useMyLocation}
+        currentWeather={currentWeather}
+        weatherLoading={weatherLoading}
+        onWeatherClick={() => setWeatherSidebarOpen(true)}
       />
+
+      
 
       {routes && (
         <RouteResults
@@ -407,6 +536,17 @@ function App() {
           onSubmit={handleFilterSubmit}
         />
       )}
+
+      {/* ----- Weather sidebar ----- */}
+      <WeatherSidebar
+        isOpen={weatherSidebarOpen}
+        onClose={() => setWeatherSidebarOpen(false)}
+        currentWeather={currentWeather}
+        destWeather={destWeather}
+        loadingCurrent={weatherLoading}
+        loadingDest={destWeatherLoading}
+        hasDestination={!!endStop?.lat}
+      />
 
       {/* ----- Auth overlays (front-end only) ----- */}
       {authView === 'signin' && (

@@ -1,14 +1,39 @@
 import React from 'react';
 import './BottomControls.css';
 
-/**
- * BottomControls – persistent control bar at the bottom of the map.
- *
- * Props:
- *   onFilterClick  – callback fired when the Filter button is pressed
- *   onAccountClick – callback fired when the Account button is pressed
- */
+
+// Pre-create an Image using the pin SVG so we can use it as the drag image.
+const pinSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#FF5252" stroke="none"/>
+  <circle cx="12" cy="9" r="2.2" fill="#ffffff" />
+</svg>`;
+const pinDragImage = new Image();
+pinDragImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pinSvg);
+
 function BottomControls({ onFilterClick, onAccountClick }) {
+  const onPinDragStart = (e) => {
+    // Indicate drag type so the map can accept the drop
+    try {
+      e.dataTransfer.setData('text/pin', 'pin');
+      // Use our pre-created SVG image so the drag ghost is just the pin.
+      if (pinDragImage && pinDragImage.complete) {
+        e.dataTransfer.setDragImage(pinDragImage, 16, 16);
+      } else if (pinDragImage) {
+        // If image not yet loaded, set a one-time onload to apply it.
+        const img = pinDragImage;
+        const handler = () => {
+          try { e.dataTransfer.setDragImage(img, 16, 16); } catch (err) {}
+          img.removeEventListener('load', handler);
+        };
+        img.addEventListener('load', handler);
+      }
+    } catch (err) {
+      // some browsers may block access in strict contexts
+    }
+  };
+
+
   return (
     <div className="bottom-controls">
       <button
@@ -50,6 +75,20 @@ function BottomControls({ onFilterClick, onAccountClick }) {
           <path d="M4 20c0-4 4-6 8-6s8 2 8 6" strokeWidth="2"/>
         </svg>
         <span>Account</span>
+      </button>
+
+      <button
+        className="control-btn pin-btn"
+        title="Drag pin to map to set destination"
+        draggable
+        onDragStart={onPinDragStart}
+        aria-label="Drag pin to map to set destination"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" strokeWidth="1.5" fill="#FF5252" />
+          <circle cx="12" cy="9" r="2.2" fill="#fff" strokeWidth="1" />
+        </svg>
+        <span>Pin</span>
       </button>
     </div>
   );

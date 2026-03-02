@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
+import WeatherIcon from './WeatherIcon';
 
 // Component to handle map bounds
 function MapBounds() {
@@ -64,6 +65,53 @@ function FitToRoute({ startLocation, endLocation, routes, selectedRoute }) {
       map.fitBounds(bounds.pad(0.15), { maxZoom: 14 });
     }
   }, [startLocation, endLocation, routes, selectedRoute, map]);
+
+  return null;
+}
+
+// Component to handle drag/drop of a pin onto the map container
+function DragDropHandler({ onDrop, onDrag }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+
+    const handleDragOver = (ev) => {
+      ev.preventDefault();
+      try {
+        const latlng = map.mouseEventToLatLng(ev);
+        if (onDrag) onDrag(latlng);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const handleDrop = (ev) => {
+      ev.preventDefault();
+      try {
+        const hasPin = ev.dataTransfer && (ev.dataTransfer.getData('text/pin') || ev.dataTransfer.getData('text'));
+        const latlng = map.mouseEventToLatLng(ev);
+        if (hasPin && onDrop) onDrop(latlng);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const handleDragLeave = () => {
+      if (onDrag) onDrag(null);
+    };
+
+    container.addEventListener('dragover', handleDragOver);
+    container.addEventListener('drop', handleDrop);
+    container.addEventListener('dragleave', handleDragLeave);
+
+    return () => {
+      container.removeEventListener('dragover', handleDragOver);
+      container.removeEventListener('drop', handleDrop);
+      container.removeEventListener('dragleave', handleDragLeave);
+    };
+  }, [map, onDrop, onDrag]);
 
   return null;
 }
@@ -148,8 +196,9 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe }) {
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick }) {
   const [panToUser, setPanToUser] = useState(false);
+  const [dragLatLng, setDragLatLng] = useState(null);
 
   const defaultCenter = [53.96, -2.8];
 
@@ -297,6 +346,12 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           selectedRoute={selectedRoute}
         />
 
+        {/* Drag/drop handler for pin-drop destination selection */}
+        <DragDropHandler onDrop={(latlng) => {
+          setDragLatLng(null);
+          if (onPinDrop) onPinDrop(latlng);
+        }} onDrag={(latlng) => setDragLatLng(latlng)} />
+
         {/* Start marker (green) */}
         {startLatLng && (
           <Marker 
@@ -338,6 +393,14 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           </Marker>
         )}
 
+        {/* Temporary pin while dragging */}
+        {dragLatLng && (
+          <Marker
+            position={[dragLatLng.lat, dragLatLng.lng]}
+            icon={L.divIcon({ html: '<div class="pin-emoji">📌</div>', className: 'pin-drop-icon', iconSize: [28, 40], iconAnchor: [14, 40] })}
+          />
+        )}
+
         <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
         <PanToUser userLocation={userLocation} active={panToUser} />
 
@@ -345,6 +408,7 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
         {routeOverlays}
       </MapContainer>
       <Compass />
+      <WeatherIcon weather={currentWeather} loading={weatherLoading} onClick={onWeatherClick} />
     </div>
   );
 }

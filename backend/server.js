@@ -242,7 +242,8 @@ app.get('/api/geocode', async (req, res) => {
 });
 
 // ─── Reverse geocode: turn lat/lon into a human-readable address ───
-app.get('/api/reverse-geocode', async (req, res) => {
+// Supports both /api/reverse-geocode (new) and /api/reverse (legacy drop-pin)
+async function handleReverseGeocode(req, res) {
   try {
     const { lat, lon } = req.query;
     if (!lat || !lon) {
@@ -274,7 +275,7 @@ app.get('/api/reverse-geocode', async (req, res) => {
       const road = a.road || a.pedestrian || a.footway || a.path || '';
       const area = a.suburb || a.village || a.hamlet || a.neighbourhood || a.town || a.city || '';
       const name = [road, area].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'My Location';
-      return res.json({ name, fullName: data.display_name });
+      return res.json({ name, display_name: data.display_name, fullName: data.display_name, lat: parseFloat(lat), lon: parseFloat(lon) });
     }
 
     res.json({ name: 'My Location' });
@@ -282,7 +283,9 @@ app.get('/api/reverse-geocode', async (req, res) => {
     console.error('Reverse geocode error:', err.message);
     res.json({ name: 'My Location' });
   }
-});
+}
+app.get('/api/reverse-geocode', handleReverseGeocode);
+app.get('/api/reverse', handleReverseGeocode);
 
 // ─── Search: Combined stop + place search for the frontend ───
 app.get('/api/search', async (req, res) => {
@@ -2140,7 +2143,7 @@ async function enrichLegsWithGeometry(allRoutes) {
 
 app.get('/api/plan', async (req, res) => {
   try {
-    const { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
+    const { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName, arriveBy } = req.query;
     const _t0 = Date.now();
     const _timers = {};
     const _mark = (label) => { _timers[label] = Date.now() - _t0; };
@@ -2286,7 +2289,62 @@ app.get('/api/plan', async (req, res) => {
 
     const departureTime = time || `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:00`;
     const dayIndex = getDayIndex(day);
-    const sortBy = sort || 'departure';
+    const sortBy = sort || 'arrival';
+
+    // --- Short-distance early exit ---
+    // If both locations are coordinate-based (pin drops), calculate pin-to-pin distance.
+    // For very short distances walking is always faster than any transit option.
+    const pinToPin = (startPlaceCoords && endPlaceCoords)
+      ? haversineDistance(startPlaceCoords.lat, startPlaceCoords.lon, endPlaceCoords.lat, endPlaceCoords.lon)
+      : null;
+
+    if (pinToPin !== null && pinToPin < 0.8) {
+      // Under 800m — just return a walk route, no need for transit searches
+      const walkMinutes = Math.max(1, Math.ceil(pinToPin / 0.08));
+      const depTime = departureTime;
+      const arrTime = minutesToTime(timeToMinutes(depTime) + walkMinutes) + ':00';
+
+      const walkRoute = {
+        id: 'walk-only',
+        summary: 'Walk',
+        modes: ['walk'],
+        departureTime: depTime,
+        arrivalTime: arrTime,
+        durationMinutes: walkMinutes,
+        legs: [{
+          type: 'walk',
+          fromName: startPlaceName || 'Start location',
+          toName: endPlaceName || 'Destination',
+          fromCoords: { lat: startPlaceCoords.lat, lon: startPlaceCoords.lon },
+          toCoords: { lat: endPlaceCoords.lat, lon: endPlaceCoords.lon },
+          duration: walkMinutes,
+          distance_km: Math.round(pinToPin * 1000) / 1000
+        }]
+      };
+
+      // Enrich geometry for the walk route
+      await enrichLegsWithGeometry([walkRoute]);
+
+      return res.json({
+        start: {
+          atco: resolvedStart,
+          name: startPlaceName || 'Start location',
+          coordinates: startPlaceCoords
+        },
+        end: {
+          atco: resolvedEnd,
+          name: endPlaceName || 'Destination',
+          coordinates: endPlaceCoords
+        },
+        directDistance_km: Math.round(pinToPin * 100) / 100,
+        departureTime: depTime,
+        dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][dayIndex],
+        sortedBy: sortBy,
+        routes: [walkRoute],
+        totalRoutes: 1,
+        nearbyRailStations: { start: [], end: [] }
+      });
+    }
 
     // Get coordinates for start and end stops
     const stopInfo = await pool.query(
@@ -2305,12 +2363,53 @@ app.get('/api/plan', async (req, res) => {
     _mark('init');
 
     // === Strategies 1 & 2: Run in parallel (independent DB queries) ===
-    const [directBus, startRailStations, endRailStations] = await Promise.all([
+    const [directBus, startRailStations, endRailStations, nearbyStartStops, nearbyEndStops] = await Promise.all([
       findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, 5),
       findNearbyRailStations(resolvedStart, 5.0),
-      findNearbyRailStations(resolvedEnd, 5.0)
+      findNearbyRailStations(resolvedEnd, 5.0),
+      // Find walkable bus stops near start & end (within ~1km) for alternative services
+      findNearbyBusStops(resolvedStart, 1.0),
+      findNearbyBusStops(resolvedEnd, 1.0)
     ]);
     _mark('directBus+nearbyRail');
+
+    // === Strategy 1b: Direct bus from/to nearby walkable stops ===
+    // Walk to a nearby stop to catch a different bus service (e.g. walk to underpass)
+    const nearbyDirectBus = [];
+    {
+      const MAX_WALK_MINUTES = 15; // only consider stops within 15 min walk
+      const nearbyStartFiltered = nearbyStartStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
+      const nearbyEndFiltered = nearbyEndStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
+
+      // Search from nearby start stops → resolved end
+      const startPromises = nearbyStartFiltered.slice(0, 6).map(async (stop) => {
+        const buses = await findDirectBusJourneys(stop.atco_code, resolvedEnd, departureTime, dayIndex, 3);
+        return buses.map(bus => ({ bus, walkStart: stop, walkEnd: null }));
+      });
+      // Search from resolved start → nearby end stops
+      const endPromises = nearbyEndFiltered.slice(0, 6).map(async (stop) => {
+        const buses = await findDirectBusJourneys(resolvedStart, stop.atco_code, departureTime, dayIndex, 3);
+        return buses.map(bus => ({ bus, walkStart: null, walkEnd: stop }));
+      });
+      // Search from nearby start stops → nearby end stops (both different)
+      const crossPromises = nearbyStartFiltered.slice(0, 4).flatMap(startStop2 =>
+        nearbyEndFiltered.slice(0, 4).map(async (endStop2) => {
+          const buses = await findDirectBusJourneys(startStop2.atco_code, endStop2.atco_code, departureTime, dayIndex, 2);
+          return buses.map(bus => ({ bus, walkStart: startStop2, walkEnd: endStop2 }));
+        })
+      );
+
+      const allResults = await Promise.all([...startPromises, ...endPromises, ...crossPromises]);
+      const seenJourneys = new Set(directBus.map(b => b.journeyId));
+      for (const results of allResults) {
+        for (const { bus, walkStart, walkEnd } of results) {
+          if (seenJourneys.has(bus.journeyId)) continue;
+          seenJourneys.add(bus.journeyId);
+          nearbyDirectBus.push({ bus, walkStart, walkEnd });
+        }
+      }
+    }
+    _mark('nearbyDirectBus');
 
     // Also check if start/end IS a rail station
     const startIsRail = resolvedStart.startsWith('9100');
@@ -2759,10 +2858,22 @@ app.get('/api/plan', async (req, res) => {
     _mark('multiModal');
 
     // === Strategy 6: Bus → Bus transfer ===
+    // Always search for transfers — even when direct buses exist, a transfer
+    // via a nearby stop may offer a faster or more frequent alternative.
     let busTransfers = [];
-    if (directBus.length === 0) {
+    {
       let startCodes = await expandStopCode(resolvedStart);
       let endCodes = await expandStopCode(resolvedEnd);
+      // Include nearby walkable bus stops in the transfer search
+      // so users can walk to a different stop to catch a connecting service
+      for (const stop of nearbyStartStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
+        const expanded = await expandStopCode(stop.atco_code);
+        startCodes = [...new Set([...startCodes, ...expanded])];
+      }
+      for (const stop of nearbyEndStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
+        const expanded = await expandStopCode(stop.atco_code);
+        endCodes = [...new Set([...endCodes, ...expanded])];
+      }
       // When start/end is a rail station, include nearby bus stops in the transfer search
       if (startIsRail && busStartCodes.length > 0) {
         for (const code of busStartCodes) {
@@ -2935,6 +3046,54 @@ app.get('/api/plan', async (req, res) => {
       });
     }
 
+    // Nearby-stop bus routes (walk to a different stop to catch alternative services)
+    for (const { bus, walkStart, walkEnd } of nearbyDirectBus) {
+      const depMins = timeToMinutes(bus.boardTime);
+      const arrMins = timeToMinutes(bus.alightTime);
+      const legs = [];
+      let totalDuration = arrMins - depMins;
+
+      // Add walk leg to the alternative start stop
+      if (walkStart) {
+        legs.push({
+          type: 'walk',
+          fromName: startStop.common_name,
+          toName: walkStart.common_name,
+          duration: walkStart.walk_minutes,
+          distance_km: walkStart.walk_km
+        });
+        totalDuration += walkStart.walk_minutes;
+      }
+
+      legs.push(bus);
+
+      // Add walk leg from the alternative end stop
+      if (walkEnd) {
+        legs.push({
+          type: 'walk',
+          fromName: walkEnd.common_name,
+          toName: endStop.common_name,
+          duration: walkEnd.walk_minutes,
+          distance_km: walkEnd.walk_km
+        });
+        totalDuration += walkEnd.walk_minutes;
+      }
+
+      const modes = [...new Set(legs.map(l => l.type))];
+      const walkInfo = walkStart ? ` (via ${walkStart.common_name})` : '';
+      allRoutes.push({
+        id: `bus-nearby-${bus.journeyId}`,
+        summary: `Bus ${bus.routeNumber}${walkInfo}`,
+        modes: modes,
+        departureTime: walkStart
+          ? minutesToTime(depMins - walkStart.walk_minutes) + ':00'
+          : bus.boardTime,
+        arrivalTime: minutesToTime(depMins + totalDuration - (walkStart ? walkStart.walk_minutes : 0)) + ':00',
+        durationMinutes: totalDuration,
+        legs: legs
+      });
+    }
+
     // Direct train routes
     for (const train of directTrain) {
       // Match walk leg to the actual train's boarding station
@@ -3071,8 +3230,13 @@ app.get('/api/plan', async (req, res) => {
     }
 
     // === Strategy 0: Walking only (for short distances) ===
-    if (directDistance <= 3.0) {
-      const walkMinutes = Math.ceil(directDistance / 0.08); // ~5 km/h
+    // Use actual pin-to-pin distance when both locations are coordinate-based,
+    // otherwise fall back to stop-to-stop distance
+    const walkDistance = (pinToPin !== null) ? pinToPin : directDistance;
+    if (walkDistance <= 3.0) {
+      const walkMinutes = Math.max(1, Math.ceil(walkDistance / 0.08)); // ~5 km/h
+      const walkFrom = startPlaceCoords || { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) };
+      const walkTo = endPlaceCoords || { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) };
       allRoutes.push({
         id: 'walk-only',
         summary: 'Walk',
@@ -3082,10 +3246,12 @@ app.get('/api/plan', async (req, res) => {
         durationMinutes: walkMinutes,
         legs: [{
           type: 'walk',
-          fromName: startStop.common_name,
-          toName: endStop.common_name,
+          fromName: startPlaceName || startStop.common_name,
+          toName: endPlaceName || endStop.common_name,
+          fromCoords: walkFrom,
+          toCoords: walkTo,
           duration: walkMinutes,
-          distance_km: Math.round(directDistance * 100) / 100
+          distance_km: Math.round(walkDistance * 1000) / 1000
         }]
       });
     }
@@ -3115,20 +3281,48 @@ app.get('/api/plan', async (req, res) => {
     // Filter out unreasonable routes:
     // - Remove routes taking > 4x the reasonable minimum for the distance
     // - Remove routes arriving later than the last sensible option
-    // - Remove routes where any single walk leg exceeds 30 minutes (unless it's the only route type)
+    // - Remove routes where any single walk leg exceeds 60 minutes (unless it's the only route type)
+    // - For short distances: remove transit routes that take much longer than just walking
     const reasonableMinMinutes = Math.max(directDistance * 2, 15); // ~30 km/h avg transit
-    const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
-    const maxWalkLegMinutes = 30; // cap individual walk legs at 30 minutes
+    const maxReasonableDuration = Math.max(reasonableMinMinutes * 8, 240);
+    const maxWalkLegMinutes = 60; // cap individual walk legs at 60 minutes
+    // For short distances, calculate what walking would take so we can reject circuitous routes
+    const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / 0.08)) : null;
+    console.log(`[FILTER] directDist=${directDistance.toFixed(2)}km walkDist=${walkDistance.toFixed(2)}km maxDuration=${maxReasonableDuration}min walkOnly=${walkOnlyDuration}min maxWalkLeg=${maxWalkLegMinutes}min`);
     const filteredRoutes = allRoutes.filter(r => {
-      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) return false;
+      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) {
+        console.log(`[FILTER] REJECT ${r.id}: duration=${r.durationMinutes}min (max=${maxReasonableDuration})`);
+        return false;
+      }
       // Filter out routes with excessively long walk legs (unless walk-only)
       if (r.id !== 'walk-only') {
         const walkLegs = r.legs.filter(l => l.type === 'walk');
         const maxWalk = Math.max(...walkLegs.map(l => l.duration || 0), 0);
-        if (maxWalk > maxWalkLegMinutes) return false;
+        if (maxWalk > maxWalkLegMinutes) {
+          console.log(`[FILTER] REJECT ${r.id}: maxWalkLeg=${maxWalk}min (limit=${maxWalkLegMinutes})`);
+          return false;
+        }
       }
+      // For short walkable distances, reject transit routes that take much longer than walking
+      // A bus/train should only be shown if it's actually faster or comparable to walking
+      if (walkOnlyDuration !== null && r.id !== 'walk-only') {
+        // Transit route must not take more than 3x the walking time (includes wait + travel)
+        if (r.durationMinutes > walkOnlyDuration * 3) {
+          console.log(`[FILTER] REJECT ${r.id}: duration=${r.durationMinutes}min > 3x walkOnly=${walkOnlyDuration * 3}min`);
+          return false;
+        }
+      }
+      console.log(`[FILTER] PASS ${r.id}: duration=${r.durationMinutes}min`);
       return true;
     });
+
+    // If arriveBy is specified, sort routes by proximity to target arrival time
+    // (overrides the user's sort choice so the closest-arriving routes come first)
+    let arriveByTarget = null;
+    if (arriveBy) {
+      arriveByTarget = timeToMinutes(arriveBy);
+      console.log(`[arriveBy] target=${arriveBy} (${arriveByTarget}min) candidates=${filteredRoutes.length}`);
+    }
 
     // Deduplicate routes by their actual transport legs (same times + route = same journey)
     const uniqueRoutes = [];
@@ -3152,7 +3346,27 @@ app.get('/api/plan', async (req, res) => {
     }
 
     // Sort results BEFORE geometry enrichment (sort is cheap, geometry is expensive)
-    if (sortBy === 'arrival') {
+    // When arriveBy is set, filter out routes that arrive AFTER the target time
+    if (arriveByTarget !== null) {
+      const grace = 5; // allow a small 5-minute grace window
+      for (let i = uniqueRoutes.length - 1; i >= 0; i--) {
+        const arr = timeToMinutes(uniqueRoutes[i].arrivalTime);
+        if (arr > arriveByTarget + grace) {
+          uniqueRoutes.splice(i, 1);
+        }
+      }
+      console.log(`[arriveBy] after filter: ${uniqueRoutes.length} routes arrive by ${arriveBy}`);
+    }
+
+    // Sort results according to the user's chosen sort preference
+    if (sortBy === 'changes') {
+      const countChanges = (r) => r.legs.filter(l => l.type === 'bus' || l.type === 'train').length;
+      uniqueRoutes.sort((a, b) => {
+        const diff = countChanges(a) - countChanges(b);
+        if (diff !== 0) return diff;
+        return timeToMinutes(a.arrivalTime) - timeToMinutes(b.arrivalTime);
+      });
+    } else if (sortBy === 'arrival') {
       uniqueRoutes.sort((a, b) => timeToMinutes(a.arrivalTime) - timeToMinutes(b.arrivalTime));
     } else if (sortBy === 'duration') {
       uniqueRoutes.sort((a, b) => a.durationMinutes - b.durationMinutes);
@@ -3200,6 +3414,92 @@ app.get('/api/plan', async (req, res) => {
   } catch (err) {
     console.error('Route planner error:', err);
     res.status(500).json({ error: 'Failed to plan route', details: err.message });
+  }
+});
+
+// ─── Weather endpoint (Open-Meteo — free, no API key required) ──────
+/**
+ * Map WMO weather codes to { main, description, iconBase } so the frontend
+ * receives the same shape it used with OpenWeatherMap.
+ * Reference: https://open-meteo.com/en/docs#weathervariables
+ */
+const wmoCodeMap = {
+  0:  { main: 'Clear',        description: 'clear sky',            iconBase: '01' },
+  1:  { main: 'Clear',        description: 'mainly clear',         iconBase: '01' },
+  2:  { main: 'Clouds',       description: 'partly cloudy',        iconBase: '02' },
+  3:  { main: 'Clouds',       description: 'overcast',             iconBase: '04' },
+  45: { main: 'Fog',          description: 'fog',                  iconBase: '50' },
+  48: { main: 'Fog',          description: 'depositing rime fog',  iconBase: '50' },
+  51: { main: 'Drizzle',      description: 'light drizzle',        iconBase: '09' },
+  53: { main: 'Drizzle',      description: 'moderate drizzle',     iconBase: '09' },
+  55: { main: 'Drizzle',      description: 'dense drizzle',        iconBase: '09' },
+  56: { main: 'Drizzle',      description: 'light freezing drizzle', iconBase: '09' },
+  57: { main: 'Drizzle',      description: 'dense freezing drizzle', iconBase: '09' },
+  61: { main: 'Rain',         description: 'slight rain',          iconBase: '10' },
+  63: { main: 'Rain',         description: 'moderate rain',        iconBase: '10' },
+  65: { main: 'Rain',         description: 'heavy rain',           iconBase: '10' },
+  66: { main: 'Rain',         description: 'light freezing rain',  iconBase: '10' },
+  67: { main: 'Rain',         description: 'heavy freezing rain',  iconBase: '10' },
+  71: { main: 'Snow',         description: 'slight snow fall',     iconBase: '13' },
+  73: { main: 'Snow',         description: 'moderate snow fall',   iconBase: '13' },
+  75: { main: 'Snow',         description: 'heavy snow fall',      iconBase: '13' },
+  77: { main: 'Snow',         description: 'snow grains',          iconBase: '13' },
+  80: { main: 'Rain',         description: 'slight rain showers',  iconBase: '09' },
+  81: { main: 'Rain',         description: 'moderate rain showers',iconBase: '09' },
+  82: { main: 'Rain',         description: 'violent rain showers', iconBase: '09' },
+  85: { main: 'Snow',         description: 'slight snow showers',  iconBase: '13' },
+  86: { main: 'Snow',         description: 'heavy snow showers',   iconBase: '13' },
+  95: { main: 'Thunderstorm', description: 'thunderstorm',         iconBase: '11' },
+  96: { main: 'Thunderstorm', description: 'thunderstorm with slight hail', iconBase: '11' },
+  99: { main: 'Thunderstorm', description: 'thunderstorm with heavy hail',  iconBase: '11' },
+};
+
+app.get('/api/weather', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'lat and lon query parameters are required' });
+    }
+
+    const params = [
+      `latitude=${encodeURIComponent(lat)}`,
+      `longitude=${encodeURIComponent(lon)}`,
+      'current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,visibility',
+      'wind_speed_unit=kmh',
+      'timezone=auto'
+    ].join('&');
+
+    const url = `https://api.open-meteo.com/v1/forecast?${params}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      return res.status(response.status || 500).json({ error: data.reason || 'Weather API error' });
+    }
+
+    const c = data.current;
+    const code = c.weather_code;
+    const wmo = wmoCodeMap[code] || { main: 'Clouds', description: 'unknown', iconBase: '03' };
+    const daySuffix = c.is_day ? 'd' : 'n';
+
+    res.json({
+      temp: Math.round(c.temperature_2m),
+      feels_like: Math.round(c.apparent_temperature),
+      humidity: Math.round(c.relative_humidity_2m),
+      wind_speed: Math.round(c.wind_speed_10m),       // already km/h
+      wind_gust: c.wind_gusts_10m ? Math.round(c.wind_gusts_10m) : null,
+      description: wmo.description,
+      icon: wmo.iconBase + daySuffix,                  // e.g. '01d', '10n'
+      main: wmo.main,                                  // e.g. 'Rain', 'Clear'
+      visibility: c.visibility != null ? Math.round(c.visibility / 1000) : null, // m → km
+      rain_1h: c.rain || 0,                            // mm in last interval
+      snow_1h: c.snowfall || 0,                        // cm → treated as mm equivalent
+      clouds: c.cloud_cover || 0,
+      location_name: null                              // Open-Meteo doesn't provide a place name
+    });
+  } catch (err) {
+    console.error('Weather API error:', err);
+    res.status(500).json({ error: 'Failed to fetch weather data' });
   }
 });
 
