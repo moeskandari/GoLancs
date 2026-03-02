@@ -22,8 +22,12 @@ export default function useRoutePlanner(userLocation) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
-  const [sortBy, setSortBy] = useState('duration');
-  const [departureTime, setDepartureTime] = useState('');
+  const [sortBy, setSortBy] = useState('arrival');
+  const [departureTime, setDepartureTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+  });
+  const [arrivalTime, setArrivalTime] = useState('');
 
   // Use GPS as start location
   const useMyLocation = useCallback(async () => {
@@ -96,13 +100,20 @@ export default function useRoutePlanner(userLocation) {
 
     try {
       const now = new Date();
-      const time = departureTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      // When arrivalTime is set, search from current time onwards
+      // and let the backend filter out routes that arrive after the target.
+      // When departureTime is set (or defaulted), use it directly.
+      const time = arrivalTime ? nowTime : departureTime;
       const day = (now.getDay() + 6) % 7;
 
       const params = {};
       params.time = time;
       params.day = day;
       params.sort = sortBy;
+      if (arrivalTime) {
+        params.arriveBy = arrivalTime;
+      }
 
       if (resolvedStart.type === 'stop' && resolvedStart.atco_code) {
         params.start = resolvedStart.atco_code;
@@ -129,7 +140,9 @@ export default function useRoutePlanner(userLocation) {
           ...data,
           routes: data.routes.slice(0, MAX_ROUTES),
           totalRoutes: Math.min(data.totalRoutes, MAX_ROUTES),
-          usingTime: departureTime ? time : `Now (${time.substring(0, 5)})`,
+          usingTime: arrivalTime
+            ? `Arrive by ${arrivalTime.substring(0, 5)}`
+            : `Depart ${time.substring(0, 5)}`,
           nextAvailable: data.nextAvailable || null
         };
         setRoutes(limited);
@@ -141,7 +154,7 @@ export default function useRoutePlanner(userLocation) {
     } finally {
       setRouteLoading(false);
     }
-  }, [startStop, endStop, sortBy, departureTime]);
+  }, [startStop, endStop, sortBy, departureTime, arrivalTime]);
 
   const handleSortChange = (newSort) => setSortBy(newSort);
 
@@ -178,7 +191,7 @@ export default function useRoutePlanner(userLocation) {
     startStop, setStartStop, endStop, setEndStop,
     routes, routeLoading, routeError,
     selectedRoute, setSelectedRoute,
-    sortBy, departureTime, setDepartureTime,
+    sortBy, departureTime, setDepartureTime, arrivalTime, setArrivalTime,
     findRoutes, swapStops: swap, useMyLocation, handlePinDrop, handleSortChange,
   };
 }

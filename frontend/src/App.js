@@ -7,6 +7,7 @@ import RouteResults from './components/RouteResults';
 import SignIn from './components/SignIn';
 import SignUp from './components/SignUp';
 import Profile from './components/Profile';
+import FilterPage from './components/FilterPage';
 import WeatherSidebar from './components/WeatherSidebar';
 
 // Custom hooks
@@ -24,7 +25,7 @@ function App() {
     startStop, setStartStop, endStop, setEndStop,
     routes, routeLoading, routeError,
     selectedRoute, setSelectedRoute,
-    sortBy, departureTime, setDepartureTime,
+    sortBy, departureTime, setDepartureTime, arrivalTime, setArrivalTime,
     findRoutes, swapStops, useMyLocation, handlePinDrop, handleSortChange,
   } = useRoutePlanner(userLocation);
 
@@ -42,8 +43,19 @@ function App() {
     startTracking, stopTracking,
   } = useLiveTracking(routes, selectedRoute);
 
-  // ── Arrival time (mutually exclusive with departure) ───────
-  const [arrivalTime, setArrivalTime] = useState('');
+  // ── Filter page UI state (front-end only) ──────────────────
+  const [showFilterPage, setShowFilterPage] = useState(false);
+  const [activeFilters, setActiveFilters] = useState(null);
+
+  const handleFilterClick = () => setShowFilterPage(true);
+  const handleFilterBack = () => setShowFilterPage(false);
+
+  const handleFilterSubmit = (filters) => {
+    // Store the selected filters – will be sent to backend later.
+    setActiveFilters(filters);
+    setShowFilterPage(false);
+    console.log('Filters applied:', filters);
+  };
 
   // ── Auth UI state (front-end only) ────────────────────────
   const [authView, setAuthView] = useState(null);
@@ -172,7 +184,16 @@ function App() {
         />
       )}
 
-      <BottomControls onAccountClick={handleAccountClick} />
+      <BottomControls onFilterClick={handleFilterClick} onAccountClick={handleAccountClick} />
+
+      {/* ----- Filter page (front-end only) ----- */}
+      {showFilterPage && (
+        <FilterPage
+          initialFilters={activeFilters}
+          onBack={handleFilterBack}
+          onSubmit={handleFilterSubmit}
+        />
+      )}
 
       <WeatherSidebar
         isOpen={weatherSidebarOpen}
