@@ -49,19 +49,6 @@ export default function useRoutePlanner(userLocation) {
   }, [userLocation]);
 
   // Swap start ⇄ end
-  const swapStops = useCallback(() => {
-    setStartStop(prev => {
-      setEndStop(current => {
-        // We do this inside the setter to read current values
-        setStartStop(current);
-        return prev;
-      });
-      return prev; // this will be overwritten immediately
-    });
-    // Simpler approach:
-  }, []);
-
-  // Actually just do the swap simply:
   const swap = () => {
     const temp = startStop;
     setStartStop(endStop);

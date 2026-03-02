@@ -42,6 +42,9 @@ function App() {
     startTracking, stopTracking,
   } = useLiveTracking(routes, selectedRoute);
 
+  // ── Arrival time (mutually exclusive with departure) ───────
+  const [arrivalTime, setArrivalTime] = useState('');
+
   // ── Auth UI state (front-end only) ────────────────────────
   const [authView, setAuthView] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
