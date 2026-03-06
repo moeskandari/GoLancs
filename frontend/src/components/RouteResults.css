@@ -350,12 +350,48 @@
   line-height: 1.5;
 }
 
+/* ===== Scroll handle (mobile drag indicator) ===== */
+.route-results::before {
+  content: '';
+  display: none;
+  width: 36px;
+  height: 4px;
+  background: #ccc;
+  border-radius: 2px;
+  margin: 0 auto 8px;
+  flex-shrink: 0;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .route-results {
-    max-height: 55vh;
+    max-height: 40vh;
     padding: 12px;
     bottom: 60px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Panel itself doesn't scroll */
+  }
+
+  /* Show drag handle on mobile */
+  .route-results::before {
+    display: block;
+  }
+
+  /* Keep header fixed at top of panel */
+  .results-header {
+    flex-shrink: 0;
+  }
+
+  /* Route list scrolls independently */
+  .route-list,
+  .no-routes {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+    padding-bottom: 8px;
   }
 
   .departure, .arrival {
@@ -374,6 +410,52 @@
 
   .timeline-connector {
     width: 30px;
+  }
+
+  .leg-content {
+    padding-bottom: 10px;
+  }
+
+  .route-expanded {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+}
+
+/* Very small screens: further reduce panel to keep map visible */
+@media (max-width: 480px) {
+  .route-results {
+    max-height: 35vh;
+    padding: 10px;
+    bottom: 55px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .results-title {
+    font-size: 15px;
+  }
+
+  .results-meta {
+    font-size: 12px;
+  }
+
+  .departure, .arrival {
+    font-size: 16px;
+  }
+
+  .route-duration {
+    font-size: 13px;
+    padding: 2px 8px;
+  }
+
+  .mode-chip {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .sort-select {
+    font-size: 12px;
+    padding: 4px 8px;
   }
 }
 

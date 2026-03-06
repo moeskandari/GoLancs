@@ -167,6 +167,51 @@
   .search-controls {
     flex-direction: column;
   }
+
+  .time-input {
+    min-width: 90px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .route-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .swap-btn {
+    width: 36px;
+    min-width: 36px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-container {
+    width: 97%;
+    top: 8px;
+    gap: 6px;
+  }
+
+  .search-inputs-row {
+    gap: 4px;
+  }
+
+  .time-label {
+    font-size: 11px;
+    min-width: 50px;
+  }
+
+  .time-input {
+    min-width: 80px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .route-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
 }
 
 

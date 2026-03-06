@@ -293,6 +293,13 @@
 }
 
 @media (max-width: 768px) {
+  .map-container {
+    /* Ensure map fills available space above route results panel */
+    position: relative;
+    z-index: 1;
+    contain: layout style;
+  }
+
   .locate-me-btn-wrapper {
     bottom: 80px;
     right: 12px;
@@ -301,5 +308,17 @@
   .locate-me-btn {
     width: 40px;
     height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .locate-me-btn-wrapper {
+    bottom: 70px;
+    right: 8px;
+  }
+
+  .locate-me-btn {
+    width: 38px;
+    height: 38px;
   }
 }

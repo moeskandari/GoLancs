@@ -70,6 +70,8 @@
     bottom: 20px;
     padding: 10px 15px;
     gap: 10px;
+    /* Ensure safe area inset at bottom */
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
   }
   
   .control-btn {
@@ -83,5 +85,28 @@
   .control-btn svg {
     width: 20px;
     height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bottom-controls {
+    bottom: 12px;
+    padding: 8px 10px;
+    gap: 6px;
+    border-radius: 24px;
+  }
+
+  .control-btn {
+    padding: 6px 8px;
+    border-radius: 12px;
+  }
+
+  .control-btn span {
+    font-size: 10px;
+  }
+
+  .control-btn svg {
+    width: 18px;
+    height: 18px;
   }
 }

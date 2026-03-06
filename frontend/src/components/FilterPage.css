@@ -63,6 +63,9 @@
 .filter-body {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -178,6 +181,14 @@
 }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  .filter-page {
+    /* Ensure full-screen with safe area insets */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @media (max-width: 480px) {
   .filter-top-bar {
     padding: 12px 14px;
