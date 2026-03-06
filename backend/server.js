@@ -1,16 +1,25 @@
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+const createAuthRoutes = require('./routes/auth');
+const { securityHeaders, sanitiseInput } = require('./middleware/security');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(securityHeaders());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5001',
+  credentials: true
+}));
+app.use(express.json({ limit: '1mb' }));
 
 // ─── Railway Graph for track-following train geometry ───
 let railGraph = null;
@@ -120,6 +129,28 @@ const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'group1'
 });
+
+// ─── Session management (server-side, stored in PostgreSQL) ───
+app.use(session({
+  store: new PgSession({
+    pool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true
+  }),
+  secret: process.env.SESSION_SECRET || 'lancaster-travel-dev-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' && process.env.FORCE_HTTPS === 'true',
+    sameSite: 'lax'
+  },
+  name: 'connect.sid'
+}));
+
+// ─── Mount auth routes ───
+app.use('/api/auth', createAuthRoutes(pool));
 
 // Haversine distance calculation in kilometers
 function haversineDistance(lat1, lon1, lat2, lon2) {

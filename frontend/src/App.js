@@ -7,8 +7,12 @@ import RouteResults from './components/RouteResults';
 import SignIn from './components/SignIn';
 import SignUp from './components/SignUp';
 import Profile from './components/Profile';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
+import EmailVerification from './components/EmailVerification';
 import FilterPage from './components/FilterPage';
 import WeatherSidebar from './components/WeatherSidebar';
+import { useAuth } from './context/AuthContext';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_ROUTES = 3;
@@ -56,34 +60,57 @@ function App() {
   const [destWeatherLoading, setDestWeatherLoading] = useState(false);
   const [weatherSidebarOpen, setWeatherSidebarOpen] = useState(false);
 
-  // ---------- Authentication / profile UI state (front-end only) ----------
-  // authView: null (map visible), 'signin', 'signup', 'profile'
+  // ---------- Authentication / profile UI state ----------
+  // authView: null (map visible), 'signin', 'signup', 'profile', 'forgot-password', 'reset-password', 'verify-email'
   const [authView, setAuthView] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [resetToken, setResetToken] = useState(null);
+  const [verifyToken, setVerifyToken] = useState(null);
+  const { isLoggedIn, loading: authLoading } = useAuth();
+
+  // Check URL for verification or reset tokens on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verify = params.get('verify');
+    const reset = params.get('reset');
+
+    if (verify) {
+      setVerifyToken(verify);
+      setAuthView('verify-email');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (reset) {
+      setResetToken(reset);
+      setAuthView('reset-password');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Handlers for the auth flow
   const handleAccountClick = () => {
-    setAuthView(isLoggedIn ? 'profile' : 'signin');
+    if (isLoggedIn) {
+      setAuthView('profile');
+    } else {
+      setAuthView('signin');
+    }
   };
 
-  const handleSignIn = (/* { email, password } */) => {
-    // Placeholder – will validate against backend later.
-    // For now, treat every submission as a successful sign-in.
-    setIsLoggedIn(true);
+  const handleSignIn = () => {
+    // User successfully signed in → go to profile
     setAuthView('profile');
   };
 
-  const handleCreateAccount = (/* { firstName, lastName, email, password, retypePassword } */) => {
-    // Placeholder – will send data to backend later.
-    // For now, treat every submission as a successful sign-up & auto-login.
-    setIsLoggedIn(true);
+  const handleCreateAccount = () => {
+    // User successfully signed up → go to profile
     setAuthView('profile');
   };
 
   const handleAuthClose = () => setAuthView(null);
   const handleSwitchToSignUp = () => setAuthView('signup');
   const handleSwitchToSignIn = () => setAuthView('signin');
+  const handleForgotPassword = () => setAuthView('forgot-password');
   const handleProfileBack = () => setAuthView(null);
+  const handleLogout = () => setAuthView(null);
 
   // ---------- Filter page UI state (front-end only) ----------
   const [showFilterPage, setShowFilterPage] = useState(false);
@@ -548,12 +575,13 @@ function App() {
         hasDestination={!!endStop?.lat}
       />
 
-      {/* ----- Auth overlays (front-end only) ----- */}
+      {/* ----- Auth overlays ----- */}
       {authView === 'signin' && (
         <SignIn
           onClose={handleAuthClose}
           onSignIn={handleSignIn}
           onSwitchToSignUp={handleSwitchToSignUp}
+          onForgotPassword={handleForgotPassword}
         />
       )}
       {authView === 'signup' && (
@@ -564,7 +592,26 @@ function App() {
         />
       )}
       {authView === 'profile' && (
-        <Profile onBack={handleProfileBack} />
+        <Profile onBack={handleProfileBack} onLogout={handleLogout} />
+      )}
+      {authView === 'forgot-password' && (
+        <ForgotPassword
+          onClose={handleAuthClose}
+          onSwitchToSignIn={handleSwitchToSignIn}
+        />
+      )}
+      {authView === 'reset-password' && resetToken && (
+        <ResetPassword
+          token={resetToken}
+          onClose={handleAuthClose}
+          onSwitchToSignIn={handleSwitchToSignIn}
+        />
+      )}
+      {authView === 'verify-email' && verifyToken && (
+        <EmailVerification
+          token={verifyToken}
+          onClose={handleAuthClose}
+        />
       )}
     </div>
   );
