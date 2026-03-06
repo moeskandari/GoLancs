@@ -47,6 +47,11 @@
   background: #e3f2fd;
 }
 
+.filter-back-btn:active {
+  background: #bbdefb;
+  transform: scale(0.95);
+}
+
 .filter-page-title {
   font-size: 20px;
   font-weight: 700;
@@ -117,6 +122,12 @@
   background: #f0f7ff;
 }
 
+.filter-option-btn:active {
+  border-color: #64b5f6;
+  background: #e3eeff;
+  transform: scale(0.98);
+}
+
 /* Selected / highlighted state */
 .filter-option-btn.selected {
   border-color: #2196F3;
@@ -177,7 +188,8 @@
 }
 
 .filter-submit-btn:active {
-  transform: translateY(0);
+  background: #1565c0;
+  transform: scale(0.97);
 }
 
 /* ---------- Responsive ---------- */

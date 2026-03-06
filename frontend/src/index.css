@@ -17,10 +17,25 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   -webkit-overflow-scrolling: touch;
-  /* Remove 300ms tap delay on mobile */
-  touch-action: manipulation;
   /* Prevent pull-to-refresh on mobile browsers */
   overscroll-behavior: none;
+}
+
+/*
+ * Remove 300ms tap delay on UI elements but NOT on the Leaflet map.
+ * Leaflet needs touch-action: none to handle its own drag / pinch-zoom,
+ * which is set in MapView.css on .leaflet-container.
+ */
+button, a, input, select, textarea, label {
+  touch-action: manipulation;
+}
+
+/*
+ * Remove the default blue/grey tap highlight on mobile WebKit/Chrome.
+ * Individual components add their own :active feedback instead.
+ */
+button, a, [role="button"], [role="option"] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 code {

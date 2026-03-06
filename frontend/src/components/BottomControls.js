@@ -10,7 +10,7 @@ const pinSvg = `
 const pinDragImage = new Image();
 pinDragImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pinSvg);
 
-function BottomControls({ onFilterClick, onAccountClick }) {
+function BottomControls({ onFilterClick, onAccountClick, pinMode, onPinToggle }) {
   const onPinDragStart = (e) => {
     // Indicate drag type so the map can accept the drop
     try {
@@ -30,6 +30,15 @@ function BottomControls({ onFilterClick, onAccountClick }) {
     } catch (err) {
       // some browsers may block access in strict contexts
     }
+  };
+
+  /**
+   * On touch devices the HTML5 Drag & Drop API is not supported, so tapping the
+   * pin button toggles "pin drop mode". The next tap on the map sets the destination.
+   * On desktop, dragging still works as before.
+   */
+  const handlePinClick = () => {
+    if (onPinToggle) onPinToggle();
   };
 
   return (
@@ -76,11 +85,13 @@ function BottomControls({ onFilterClick, onAccountClick }) {
       </button>
 
       <button
-        className="control-btn pin-btn"
-        title="Drag pin to map to set destination"
+        className={`control-btn pin-btn${pinMode ? ' pin-active' : ''}`}
+        title={pinMode ? 'Tap the map to drop pin (tap again to cancel)' : 'Tap to place pin on map, or drag to map'}
         draggable
         onDragStart={onPinDragStart}
-        aria-label="Drag pin to map to set destination"
+        onClick={handlePinClick}
+        aria-label={pinMode ? 'Cancel pin drop mode' : 'Place pin on map to set destination'}
+        aria-pressed={pinMode}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" strokeWidth="1.5" fill="#FF5252" />

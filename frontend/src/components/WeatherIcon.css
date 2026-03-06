@@ -2,8 +2,13 @@
   position: absolute;
   top: 110px;
   right: 20px;
-  z-index: 1000;
+  z-index: 1050;
   cursor: pointer;
+  /* Button reset — element is now a <button> */
+  background: none;
+  border: none;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .weather-icon-btn {
@@ -20,13 +25,16 @@
   gap: 1px;
 }
 
-.weather-icon-btn:hover {
+.weather-icon-btn:hover,
+.weather-icon-container:hover .weather-icon-btn {
   transform: scale(1.08);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
-.weather-icon-btn:active {
-  transform: scale(0.95);
+.weather-icon-btn:active,
+.weather-icon-container:active .weather-icon-btn {
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .weather-emoji {

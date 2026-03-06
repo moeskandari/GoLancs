@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
@@ -9,6 +9,7 @@ import SignUp from './components/SignUp';
 import Profile from './components/Profile';
 import FilterPage from './components/FilterPage';
 import WeatherSidebar from './components/WeatherSidebar';
+import WeatherIcon from './components/WeatherIcon';
 
 // Custom hooks
 import useGeolocation from './hooks/useGeolocation';
@@ -61,6 +62,32 @@ function App() {
   const [authView, setAuthView] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // ── Search collapse on mobile (so map stays interactive) ──
+  const [searchCollapsed, setSearchCollapsed] = useState(false);
+
+  // ── Pin-drop mode (tap on map to place a pin — for touch devices) ──
+  const [pinMode, setPinMode] = useState(false);
+
+  const handlePinToggle = () => setPinMode(prev => !prev);
+
+  // When pin is dropped (via drag or tap), exit pin mode
+  const handlePinDropAndReset = (latlng) => {
+    handlePinDrop(latlng);
+    setPinMode(false);
+  };
+
+  const isMobile = useCallback(() => window.innerWidth <= 768, []);
+
+  // Auto-collapse the search form when routes appear on mobile
+  useEffect(() => {
+    if (routes && isMobile()) {
+      setSearchCollapsed(true);
+    }
+    if (!routes) {
+      setSearchCollapsed(false);
+    }
+  }, [routes, isMobile]);
+
   const handleAccountClick = () => setAuthView(isLoggedIn ? 'profile' : 'signin');
   const handleSignIn = () => { setIsLoggedIn(true); setAuthView('profile'); };
   const handleCreateAccount = () => { setIsLoggedIn(true); setAuthView('profile'); };
@@ -72,6 +99,24 @@ function App() {
   // ── Render ────────────────────────────────────────────────
   return (
     <div className="App">
+      {/* ── Search form: collapsible on mobile when routes shown ── */}
+      {searchCollapsed ? (
+        <div className="search-container search-collapsed">
+          <div className="collapsed-summary">
+            <span className="collapsed-route-text">
+              {startStop?.name || 'Start'} → {endStop?.name || 'Destination'}
+            </span>
+            <button
+              className="expand-search-btn"
+              onClick={() => setSearchCollapsed(false)}
+              aria-label="Expand search form"
+              title="Edit search"
+            >
+              ✏️
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="search-container">
         <div className="search-inputs-row">
           <div className="search-fields">
@@ -148,7 +193,18 @@ function App() {
             <span className="error-icon">⚠️</span> {routeError}
           </div>
         )}
+        {/* Collapse button on mobile when routes are showing */}
+        {routes && (
+          <button
+            className="collapse-search-btn"
+            onClick={() => setSearchCollapsed(true)}
+            aria-label="Collapse search form"
+          >
+            ▲ Hide search
+          </button>
+        )}
       </div>
+      )}
 
       <MapView
         userLocation={userLocation}
@@ -156,15 +212,13 @@ function App() {
         endLocation={endStop}
         routes={routes}
         selectedRoute={selectedRoute}
-        onPinDrop={handlePinDrop}
+        onPinDrop={handlePinDropAndReset}
         onLocateMe={useMyLocation}
-        currentWeather={currentWeather}
-        weatherLoading={weatherLoading}
-        onWeatherClick={() => setWeatherSidebarOpen(true)}
         liveVehicles={liveVehicles}
         liveTrackingActive={liveTrackingActive}
         trackedLeg={trackedLeg}
         trackedTrainService={trackedTrainService}
+        pinMode={pinMode}
       />
 
       {routes && (
@@ -184,7 +238,12 @@ function App() {
         />
       )}
 
-      <BottomControls onFilterClick={handleFilterClick} onAccountClick={handleAccountClick} />
+      <BottomControls
+        onFilterClick={handleFilterClick}
+        onAccountClick={handleAccountClick}
+        pinMode={pinMode}
+        onPinToggle={handlePinToggle}
+      />
 
       {/* ----- Filter page (front-end only) ----- */}
       {showFilterPage && (
@@ -194,6 +253,12 @@ function App() {
           onSubmit={handleFilterSubmit}
         />
       )}
+
+      <WeatherIcon
+        weather={currentWeather}
+        loading={weatherLoading}
+        onClick={() => setWeatherSidebarOpen(true)}
+      />
 
       <WeatherSidebar
         isOpen={weatherSidebarOpen}

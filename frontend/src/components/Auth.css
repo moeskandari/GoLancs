@@ -57,18 +57,24 @@
   font-size: 20px;
   cursor: pointer;
   color: #666;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .auth-close-btn:hover {
   background: #f0f0f0;
   color: #333;
+}
+
+.auth-close-btn:active {
+  background: #e0e0e0;
+  color: #111;
 }
 
 /* ---------- Title ---------- */
@@ -135,7 +141,8 @@
 }
 
 .auth-submit-btn:active {
-  transform: translateY(0);
+  background: #1565c0;
+  transform: scale(0.98);
 }
 
 /* ---------- Link-style buttons ---------- */
