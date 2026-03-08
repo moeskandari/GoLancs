@@ -74,4 +74,18 @@ export async function search(query) {
   return res.json();
 }
 
+/** Get nearby bus stops */
+export async function fetchNearbyStops(lat, lon, radius = 0.5) {
+  const res = await fetch(`${API_URL}/api/stops/nearby?lat=${lat}&lon=${lon}&radius=${radius}`);
+  if (!res.ok) throw new Error('Failed to fetch nearby stops');
+  return res.json();
+}
+
+/** Get all bus routes that stop at a specific stop */
+export async function fetchBusStopRoutes(atcoCode) {
+  const res = await fetch(`${API_URL}/api/stops/${encodeURIComponent(atcoCode)}/routes`);
+  if (!res.ok) throw new Error('Failed to fetch bus stop routes');
+  return res.json();
+}
+
 export { API_URL };

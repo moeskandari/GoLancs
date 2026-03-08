@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
 import WeatherIcon from './WeatherIcon';
+import { fetchNearbyStops, fetchBusStopRoutes, fetchRailDepartures } from '../services/api';
 
 function formatTime(timeStr) {
   if (!timeStr) return '';
@@ -205,6 +206,25 @@ const liveTrainIcon = (operator) => {
   });
 };
 
+// Bus stop marker icon — small circle for clickable bus stops
+const busStopIcon = L.divIcon({
+  html: `<div class="bus-stop-marker">
+    <div class="bus-stop-icon">🚏</div>
+  </div>`,
+  className: 'bus-stop-marker-wrapper',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
+
+const railStationIcon = L.divIcon({
+  html: `<div class="rail-station-marker">
+    <div class="rail-station-icon">🚉</div>
+  </div>`,
+  className: 'rail-station-marker-wrapper',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
+
 // Button to centre the map on the user's location
 function LocateMeButton({ onLocate }) {
   const map = useMap();
@@ -242,7 +262,211 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
+function parseHHMMToMinutes(hhmm) {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function getMinutesUntil(timeStr) {
+  const target = parseHHMMToMinutes(timeStr);
+  if (target === null) return null;
+
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  let diff = target - nowMins;
+
+  // Handle just-after-midnight services
+  if (diff < -1200) diff += 1440;
+  if (diff < 0) return null;
+  return diff;
+}
+
+// Component to fetch and display nearby bus stops and rail stations
+function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations }) {
+  const [busStops, setBusStops] = useState([]);
+  const [railStops, setRailStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState(null);
+  const [stopRoutes, setStopRoutes] = useState(null);
+  const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const [selectedRailStop, setSelectedRailStop] = useState(null);
+  const [railDepartures, setRailDepartures] = useState(null);
+  const [loadingRail, setLoadingRail] = useState(false);
+  const map = useMap();
+
+  useEffect(() => {
+    // Fetch bus stops within the current map view
+    const fetchStops = async () => {
+      const bounds = map.getBounds();
+      const center = bounds.getCenter();
+      
+      try {
+        const stopsData = await fetchNearbyStops(center.lat, center.lng, 2.0);
+        // Backend returns { bus: [], rail: [] }
+        const busOnly = Array.isArray(stopsData?.bus) ? stopsData.bus : [];
+        const railOnly = Array.isArray(stopsData?.rail) ? stopsData.rail : [];
+        setBusStops(busOnly);
+        setRailStops(railOnly);
+      } catch (err) {
+        console.error('Failed to fetch bus stops:', err);
+      }
+    };
+
+    // Fetch stops when map bounds change
+    map.on('moveend', fetchStops);
+    fetchStops();
+
+    return () => {
+      map.off('moveend', fetchStops);
+    };
+  }, [map]);
+
+  const handleStopClick = async (stop) => {
+    setSelectedStop(stop);
+    setLoadingRoutes(true);
+    setStopRoutes(null);
+    
+    try {
+      const data = await fetchBusStopRoutes(stop.atco_code);
+      setStopRoutes(data);
+    } catch (err) {
+      console.error('Failed to fetch stop routes:', err);
+      setStopRoutes({ error: 'Failed to load route information' });
+    } finally {
+      setLoadingRoutes(false);
+    }
+  };
+
+  const handleRailStopClick = async (station) => {
+    setSelectedRailStop(station);
+    setLoadingRail(true);
+    setRailDepartures(null);
+
+    try {
+      if (!station.crs_code) {
+        setRailDepartures({ services: [] });
+        return;
+      }
+      const data = await fetchRailDepartures(station.crs_code);
+      setRailDepartures(data);
+    } catch (err) {
+      console.error('Failed to fetch rail departures:', err);
+      setRailDepartures({ error: 'Failed to load train times' });
+    } finally {
+      setLoadingRail(false);
+    }
+  };
+
+  return (
+    <>
+      {showBusStops && busStops.map((stop) => (
+        <Marker
+          key={`bus-stop-${stop.atco_code}`}
+          position={[parseFloat(stop.lat), parseFloat(stop.lon)]}
+          icon={busStopIcon}
+          eventHandlers={{
+            click: () => handleStopClick(stop)
+          }}
+        >
+          <Popup maxWidth={300} minWidth={250}>
+            <div className="bus-stop-popup">
+              <strong>🚏 {stop.common_name}</strong>
+              <div className="bus-stop-atco">{stop.atco_code}</div>
+              
+              {loadingRoutes && selectedStop?.atco_code === stop.atco_code && (
+                <div className="loading-routes">Loading routes...</div>
+              )}
+              
+              {stopRoutes && selectedStop?.atco_code === stop.atco_code && (
+                <>
+                  {stopRoutes.error ? (
+                    <div className="error-message">{stopRoutes.error}</div>
+                  ) : stopRoutes.routes && stopRoutes.routes.length > 0 ? (
+                    <div className="stop-routes-list">
+                      <div className="routes-header">Bus routes stopping here:</div>
+                      {stopRoutes.routes.map((route, idx) => (
+                        <div key={`route-${route.routeId}-${idx}`} className="route-item">
+                          <div className="route-number-badge">{route.routeNumber}</div>
+                          <div className="route-info">
+                            <div className="route-operator">{route.operatorName || route.operatorCode}</div>
+                            <div className="route-stops-count">
+                              {route.stops.length} stops on route
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="no-routes">No bus routes found for this stop</div>
+                  )}
+                </>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+
+      {showTrainStations && railStops.map((station) => (
+        <Marker
+          key={`rail-station-${station.atco_code}`}
+          position={[parseFloat(station.lat), parseFloat(station.lon)]}
+          icon={railStationIcon}
+          eventHandlers={{
+            click: () => handleRailStopClick(station)
+          }}
+        >
+          <Popup maxWidth={320} minWidth={260}>
+            <strong>🚉 {station.common_name}</strong><br/>
+            {station.crs_code ? `CRS: ${station.crs_code}` : station.atco_code}
+            {loadingRail && selectedRailStop?.atco_code === station.atco_code && (
+              <div className="loading-routes">Loading train times...</div>
+            )}
+
+            {railDepartures && selectedRailStop?.atco_code === station.atco_code && (
+              <div className="rail-arrivals-box">
+                {railDepartures.error ? (
+                  <div className="error-message">{railDepartures.error}</div>
+                ) : (() => {
+                  const upcoming = (railDepartures.services || [])
+                    .map((svc) => {
+                      const preferred = /^\d{2}:\d{2}$/.test(svc.estimatedDeparture || '')
+                        ? svc.estimatedDeparture
+                        : svc.scheduledDeparture;
+                      const mins = getMinutesUntil(preferred);
+                      return { svc, mins, preferred };
+                    })
+                    .filter(({ mins }) => mins !== null && mins <= 60)
+                    .sort((a, b) => a.mins - b.mins)
+                    .slice(0, 5);
+
+                  if (upcoming.length === 0) {
+                    return <div className="no-routes">No trains within the next hour</div>;
+                  }
+
+                  return (
+                    <>
+                      <div className="routes-header">Trains in next 60 min:</div>
+                      {upcoming.map(({ svc, mins }, idx) => (
+                        <div key={`rail-upcoming-${idx}`} className="rail-arrival-item">
+                          <div className="rail-arrival-destination">Towards {svc.destination?.name || 'Unknown'}</div>
+                          <div className="rail-arrival-time">
+                            {mins === 0 ? 'Due now' : `${mins} min`}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+}
+
+function MapView({ userLocation, startLocation, endLocation, showBusStops = true, showTrainStations = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -295,6 +519,18 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
 
       // Add changeover markers at transfer/connection points
       if (leg.type === 'transfer' && from) {
+        const prevLeg = route.legs[i - 1] || null;
+        const nextLeg = route.legs[i + 1] || null;
+        const fromService = prevLeg?.type === 'bus'
+          ? `Bus ${prevLeg.routeNumber || ''}`.trim()
+          : prevLeg?.type === 'train'
+            ? `Train ${prevLeg.operator || ''}`.trim()
+            : 'previous service';
+        const toService = nextLeg?.type === 'bus'
+          ? `Bus ${nextLeg.routeNumber || ''}`.trim()
+          : nextLeg?.type === 'train'
+            ? `Train ${nextLeg.operator || ''}`.trim()
+            : 'next service';
         routeOverlays.push(
           <Marker
             key={`changeover-${selectedRoute}-${i}`}
@@ -304,7 +540,9 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
             <Popup>
               <strong>🔄 Changeover</strong><br/>
               {leg.station || leg.stop}<br/>
-              Wait: {leg.waitMinutes} min
+              Get off: {fromService}<br/>
+              Wait: {leg.waitMinutes} min<br/>
+              Board: {toService}
             </Popup>
           </Marker>
         );
@@ -449,6 +687,16 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
 
         <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
         <PanToUser userLocation={userLocation} active={panToUser} />
+
+        {/* Nearby transport stop markers */}
+        {(showBusStops || showTrainStations) && (
+          <BusStopMarkers
+            routes={routes}
+            selectedRoute={selectedRoute}
+            showBusStops={showBusStops}
+            showTrainStations={showTrainStations}
+          />
+        )}
 
         {/* Route polylines and changeover markers */}
         {routeOverlays}

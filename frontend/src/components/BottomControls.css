@@ -5,11 +5,15 @@
   transform: translateX(-50%);
   z-index: 1100;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 15px;
   background: white;
-  padding: 15px 20px;
+  padding: 12px 14px;
   border-radius: 30px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: min(95vw, 720px);
+  box-sizing: border-box;
 }
 
 .control-btn {
@@ -17,6 +21,8 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
+  flex: 1 1 90px;
+  min-width: 0;
   background: none;
   border: none;
   cursor: pointer;
@@ -38,6 +44,7 @@
 .control-btn span {
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .pin-btn {
@@ -68,12 +75,14 @@
 @media (max-width: 768px) {
   .bottom-controls {
     bottom: 20px;
-    padding: 10px 15px;
-    gap: 10px;
+    padding: 10px;
+    gap: 8px;
+    width: min(96vw, 520px);
   }
   
   .control-btn {
-    padding: 8px 12px;
+    flex: 1 1 78px;
+    padding: 7px 8px;
   }
   
   .control-btn span {
@@ -83,5 +92,48 @@
   .control-btn svg {
     width: 20px;
     height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bottom-controls {
+    bottom: 14px;
+    border-radius: 18px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .control-btn {
+    flex: 1 1 calc(50% - 6px);
+    border-radius: 12px;
+    padding: 7px 6px;
+  }
+
+  .control-btn span {
+    font-size: 10px;
+    white-space: normal;
+    line-height: 1.1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .bottom-controls {
+    width: 98vw;
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .control-btn {
+    padding: 6px 4px;
+  }
+
+  .control-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .control-btn span {
+    font-size: 9px;
   }
 }

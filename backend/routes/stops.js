@@ -93,4 +93,73 @@ router.get('/api/stops/nearby', async (req, res) => {
   }
 });
 
+// GET /api/stops/:atcoCode/routes – get all bus routes that stop at this location
+router.get('/api/stops/:atcoCode/routes', async (req, res) => {
+  try {
+    const { atcoCode } = req.params;
+
+    // Get stop information
+    const stopResult = await pool.query(`
+      SELECT atco_code, common_name, coordinates[0] as lon, coordinates[1] as lat, stop_type
+      FROM stops
+      WHERE atco_code = $1
+    `, [atcoCode]);
+
+    if (stopResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Stop not found' });
+    }
+
+    const stop = stopResult.rows[0];
+
+    // Find all routes that stop at this location
+    const routesResult = await pool.query(`
+      SELECT DISTINCT br.route_id, br.route_number, br.operator_code, o.name as operator_name
+      FROM route_stops rs
+      JOIN bus_routes br ON rs.route_id = br.route_id
+      LEFT JOIN operators o ON br.operator_code = o.operator_code
+      WHERE rs.atco_code = $1
+      ORDER BY br.route_number
+    `, [atcoCode]);
+
+    // For each route, get the full list of stops in order
+    const routes = [];
+    for (const route of routesResult.rows) {
+      const stopsResult = await pool.query(`
+        SELECT rs.atco_code, s.common_name, rs.stop_sequence,
+               s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM route_stops rs
+        JOIN stops s ON rs.atco_code = s.atco_code
+        WHERE rs.route_id = $1
+        ORDER BY rs.stop_sequence
+      `, [route.route_id]);
+
+      routes.push({
+        routeId: route.route_id,
+        routeNumber: route.route_number,
+        operatorCode: route.operator_code,
+        operatorName: route.operator_name,
+        stops: stopsResult.rows.map(s => ({
+          atcoCode: s.atco_code,
+          name: s.common_name,
+          sequence: s.stop_sequence,
+          coordinates: { lat: parseFloat(s.lat), lon: parseFloat(s.lon) }
+        }))
+      });
+    }
+
+    res.json({
+      stop: {
+        atcoCode: stop.atco_code,
+        name: stop.common_name,
+        coordinates: { lat: parseFloat(stop.lat), lon: parseFloat(stop.lon) },
+        type: stop.stop_type
+      },
+      routes
+    });
+  } catch (err) {
+    console.error('Error fetching routes for stop:', err);
+    res.status(500).json({ error: 'Failed to fetch routes for stop' });
+  }
+});
+
 module.exports = router;

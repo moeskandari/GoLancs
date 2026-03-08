@@ -16,6 +16,19 @@ import useWeather from './hooks/useWeather';
 import useLiveTracking from './hooks/useLiveTracking';
 import useRoutePlanner from './hooks/useRoutePlanner';
 
+const DEFAULT_FILTERS = {
+  onMap: {
+    showBusStops: false,
+    showTrainStations: false,
+    showTrafficConditions: false,
+  },
+  direction: {
+    includeWalking: false,
+    includeBusses: false,
+    includeTrains: false,
+  },
+};
+
 function App() {
   // ── Geolocation ───────────────────────────────────────────
   const { userLocation } = useGeolocation();
@@ -45,7 +58,7 @@ function App() {
 
   // ── Filter page UI state (front-end only) ──────────────────
   const [showFilterPage, setShowFilterPage] = useState(false);
-  const [activeFilters, setActiveFilters] = useState(null);
+  const [activeFilters, setActiveFilters] = useState(DEFAULT_FILTERS);
 
   const handleFilterClick = () => setShowFilterPage(true);
   const handleFilterBack = () => setShowFilterPage(false);
@@ -56,6 +69,10 @@ function App() {
     setShowFilterPage(false);
     console.log('Filters applied:', filters);
   };
+
+  // Filter-driven map toggles
+  const showBusStops = !!activeFilters?.onMap?.showBusStops;
+  const showTrainStations = !!activeFilters?.onMap?.showTrainStations;
 
   // ── Auth UI state (front-end only) ────────────────────────
   const [authView, setAuthView] = useState(null);
@@ -154,6 +171,8 @@ function App() {
         userLocation={userLocation}
         startLocation={startStop}
         endLocation={endStop}
+        showBusStops={showBusStops}
+        showTrainStations={showTrainStations}
         routes={routes}
         selectedRoute={selectedRoute}
         onPinDrop={handlePinDrop}

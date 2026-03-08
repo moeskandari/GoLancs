@@ -202,7 +202,7 @@ function RailLiveBadge({ departure }) {
 }
 
 // Individual leg detail component with full info
-function LegDetail({ leg, legIndex, totalLegs, onTrackLeg, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures, trackedTrainService, delayInfo, prevLegDelay }) {
+function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures, trackedTrainService, delayInfo, prevLegDelay }) {
   const config = modeConfig[leg.type] || modeConfig.walk;
   const duration = calcLegDuration(leg);
 
@@ -394,6 +394,18 @@ function LegDetail({ leg, legIndex, totalLegs, onTrackLeg, onStopTracking, liveT
             : leg.waitMinutes;
           const connectionAtRisk = prevLegDelay?.arrDelayMins > 0 && adjustedWait < 3;
           const connectionMissed = prevLegDelay?.cancelled || (prevLegDelay?.arrDelayMins > 0 && adjustedWait <= 0);
+          const arriveText = prevLeg?.alightTime ? formatTime(prevLeg.alightTime) : null;
+          const departText = nextLeg?.boardTime ? formatTime(nextLeg.boardTime) : null;
+          const fromService = prevLeg?.type === 'bus'
+            ? `Bus ${prevLeg.routeNumber || ''}`.trim()
+            : prevLeg?.type === 'train'
+              ? `Train ${prevLeg.operator || ''}`.trim()
+              : 'previous service';
+          const toService = nextLeg?.type === 'bus'
+            ? `Bus ${nextLeg.routeNumber || ''}`.trim()
+            : nextLeg?.type === 'train'
+              ? `Train ${nextLeg.operator || ''}`.trim()
+              : 'next service';
           return (
             <>
               <div className="leg-header">
@@ -411,6 +423,21 @@ function LegDetail({ leg, legIndex, totalLegs, onTrackLeg, onStopTracking, liveT
                 <div className="changeover-station">
                   📍 {leg.station || leg.stop}
                   {leg.crs && <span className="crs-code"> ({leg.crs})</span>}
+                </div>
+                <div className="changeover-update-box" role="status" aria-live="polite">
+                  <div className="changeover-update-line">
+                    🛑 Get off {fromService}
+                    {arriveText ? ` at ${arriveText}` : ''}
+                    {leg.station || leg.stop ? ` at ${leg.station || leg.stop}` : ''}
+                  </div>
+                  <div className="changeover-update-line">
+                    ⏳ Wait {adjustedWait} min
+                    {departText ? ` · next departs ${departText}` : ''}
+                  </div>
+                  <div className="changeover-update-line">
+                    🚌 Board {toService}
+                    {nextLeg?.boardName ? ` from ${nextLeg.boardName}` : ''}
+                  </div>
                 </div>
                 {connectionMissed ? (
                   <div className="changeover-tip changeover-missed">❌ Connection likely missed due to delay</div>
@@ -539,6 +566,8 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackLeg, onStopTrack
                 leg={leg}
                 legIndex={i}
                 totalLegs={route.legs.length}
+                prevLeg={i > 0 ? route.legs[i - 1] : null}
+                nextLeg={i < route.legs.length - 1 ? route.legs[i + 1] : null}
                 onTrackLeg={onTrackLeg}
                 onStopTracking={onStopTracking}
                 liveTrackingActive={liveTrackingActive}
