@@ -110,6 +110,11 @@ for i in $(seq 1 30); do
   fi
   sleep 1
 done
+
+# Apply auth schema to ensure auth tables exist
+echo "  Applying auth schema..."
+podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < "${REPO_ROOT}/postgres/auth_schema.sql" > /dev/null 2>&1
+echo "  ✓ Auth schema applied"
 echo ""
 
 # Step 7: Start backend container

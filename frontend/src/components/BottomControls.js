@@ -1,6 +1,7 @@
 import React from 'react';
 import './BottomControls.css';
 
+
 // Pre-create an Image using the pin SVG so we can use it as the drag image.
 const pinSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">

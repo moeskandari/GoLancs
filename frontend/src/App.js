@@ -7,8 +7,12 @@ import RouteResults from './components/RouteResults';
 import SignIn from './components/SignIn';
 import SignUp from './components/SignUp';
 import Profile from './components/Profile';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
+import EmailVerification from './components/EmailVerification';
 import FilterPage from './components/FilterPage';
 import WeatherSidebar from './components/WeatherSidebar';
+import { useAuth } from './context/AuthContext';
 import WeatherIcon from './components/WeatherIcon';
 
 // Custom hooks
@@ -60,7 +64,28 @@ function App() {
 
   // ── Auth UI state (front-end only) ────────────────────────
   const [authView, setAuthView] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [resetToken, setResetToken] = useState(null);
+  const [verifyToken, setVerifyToken] = useState(null);
+  const { isLoggedIn, loading: authLoading } = useAuth();
+
+  // Check URL for verification or reset tokens on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verify = params.get('verify');
+    const reset = params.get('reset');
+
+    if (verify) {
+      setVerifyToken(verify);
+      setAuthView('verify-email');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (reset) {
+      setResetToken(reset);
+      setAuthView('reset-password');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // ── Search collapse on mobile (so map stays interactive) ──
   const [searchCollapsed, setSearchCollapsed] = useState(false);
@@ -89,12 +114,14 @@ function App() {
   }, [routes, isMobile]);
 
   const handleAccountClick = () => setAuthView(isLoggedIn ? 'profile' : 'signin');
-  const handleSignIn = () => { setIsLoggedIn(true); setAuthView('profile'); };
-  const handleCreateAccount = () => { setIsLoggedIn(true); setAuthView('profile'); };
+  const handleSignIn = () => setAuthView('profile');
+  const handleCreateAccount = () => setAuthView('profile');
   const handleAuthClose = () => setAuthView(null);
   const handleSwitchToSignUp = () => setAuthView('signup');
   const handleSwitchToSignIn = () => setAuthView('signin');
+  const handleForgotPassword = () => setAuthView('forgot-password');
   const handleProfileBack = () => setAuthView(null);
+  const handleLogout = () => setAuthView(null);
 
   // ── Render ────────────────────────────────────────────────
   return (
@@ -270,14 +297,39 @@ function App() {
         hasDestination={!!endStop?.lat}
       />
 
+      {/* ----- Auth overlays ----- */}
       {authView === 'signin' && (
-        <SignIn onClose={handleAuthClose} onSignIn={handleSignIn} onSwitchToSignUp={handleSwitchToSignUp} />
+        <SignIn
+          onClose={handleAuthClose}
+          onSignIn={handleSignIn}
+          onSwitchToSignUp={handleSwitchToSignUp}
+          onForgotPassword={handleForgotPassword}
+        />
       )}
       {authView === 'signup' && (
         <SignUp onClose={handleAuthClose} onCreateAccount={handleCreateAccount} onSwitchToSignIn={handleSwitchToSignIn} />
       )}
       {authView === 'profile' && (
-        <Profile onBack={handleProfileBack} />
+        <Profile onBack={handleProfileBack} onLogout={handleLogout} />
+      )}
+      {authView === 'forgot-password' && (
+        <ForgotPassword
+          onClose={handleAuthClose}
+          onSwitchToSignIn={handleSwitchToSignIn}
+        />
+      )}
+      {authView === 'reset-password' && resetToken && (
+        <ResetPassword
+          token={resetToken}
+          onClose={handleAuthClose}
+          onSwitchToSignIn={handleSwitchToSignIn}
+        />
+      )}
+      {authView === 'verify-email' && verifyToken && (
+        <EmailVerification
+          token={verifyToken}
+          onClose={handleAuthClose}
+        />
       )}
     </div>
   );

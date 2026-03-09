@@ -28,6 +28,8 @@
   padding: 36px 32px 28px;
   width: 90%;
   max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
@@ -121,6 +123,11 @@
   background: #fff;
 }
 
+.auth-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---------- Submit button ---------- */
 .auth-submit-btn {
   margin-top: 8px;
@@ -135,14 +142,22 @@
   transition: background 0.25s, transform 0.15s;
 }
 
-.auth-submit-btn:hover {
+.auth-submit-btn:hover:not(:disabled) {
   background: #1b7ed1;
   transform: translateY(-1px);
 }
 
+.auth-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
 .auth-submit-btn:active {
   background: #1565c0;
   transform: scale(0.98);
+}
+
+.auth-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* ---------- Link-style buttons ---------- */
@@ -177,6 +192,94 @@
   margin-top: 6px;
 }
 
+.auth-description {
+  font-size: 14px;
+  color: #555;
+  text-align: center;
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+/* ---------- Error message ---------- */
+.auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #dc2626;
+  margin-bottom: 4px;
+}
+
+.auth-error-icon {
+  margin-right: 4px;
+}
+
+.auth-error-text {
+  color: #dc2626;
+}
+
+/* ---------- Success message ---------- */
+.auth-success-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.auth-success-icon {
+  font-size: 48px;
+}
+
+.auth-loading-spinner {
+  font-size: 48px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.auth-success-inline {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #16a34a;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.auth-hint {
+  font-size: 13px;
+  color: #888;
+}
+
+/* ---------- Password requirements ---------- */
+.password-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.pw-check {
+  font-size: 12px;
+  padding: 2px 0;
+  transition: color 0.2s;
+}
+
+.pw-check.pass {
+  color: #16a34a;
+}
+
+.pw-check.fail {
+  color: #dc2626;
+}
+
 /* ===================================================================
    Profile page (full-screen replacement of the map view)
    =================================================================== */
@@ -188,10 +291,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-y: auto;
 }
 
 .profile-back-btn {
-  position: absolute;
+  position: fixed;
   top: 16px;
   left: 16px;
   background: #fff;
@@ -204,6 +308,7 @@
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   transition: background 0.2s, transform 0.15s;
+  z-index: 10;
 }
 
 .profile-back-btn:hover {
@@ -211,14 +316,49 @@
   transform: translateX(-2px);
 }
 
+.profile-logout-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 10px 18px;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #dc2626;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: background 0.2s, transform 0.15s;
+  z-index: 10;
+}
+
+.profile-logout-btn:hover {
+  background: #fef2f2;
+  transform: translateX(2px);
+}
+
 .profile-content {
-  margin-top: 100px;
+  margin-top: 70px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  max-width: 400px;
+  max-width: 600px;
+  width: 100%;
+  padding: 0 20px 40px;
+}
+
+/* ---------- Profile header ---------- */
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  width: 100%;
 }
 
 .profile-avatar {
@@ -238,9 +378,380 @@
   margin: 0;
 }
 
+.profile-email {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.profile-member-since {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
+
+.profile-verification-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.profile-points-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.points-icon {
+  font-size: 18px;
+}
+
+.points-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.points-label {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* ---------- Tabs ---------- */
+.profile-tabs {
+  display: flex;
+  gap: 4px;
+  background: #e5e7eb;
+  border-radius: 12px;
+  padding: 4px;
+  width: 100%;
+}
+
+.profile-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.profile-tab.active {
+  background: #fff;
+  color: #2196F3;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-tab:hover:not(.active) {
+  color: #333;
+}
+
+.profile-tab-content {
+  width: 100%;
+}
+
+/* ---------- Profile sections ---------- */
+.profile-section {
+  width: 100%;
+}
+
+.profile-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin: 16px 0 12px;
+}
+
+.profile-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.profile-info-label {
+  font-size: 13px;
+  color: #888;
+  font-weight: 500;
+}
+
+.profile-info-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+}
+
+.verified-badge {
+  margin-left: 4px;
+}
+
+.unverified-badge {
+  margin-left: 4px;
+}
+
+.profile-edit-form {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.profile-edit-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.profile-edit-actions .auth-link-btn {
+  padding: 14px 20px;
+}
+
+/* ---------- Points dashboard ---------- */
+.points-summary {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.points-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.points-total-value {
+  font-size: 48px;
+  font-weight: 800;
+  color: #f59e0b;
+}
+
+.points-total-label {
+  font-size: 14px;
+  color: #888;
+  font-weight: 500;
+}
+
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.transaction-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.transaction-desc {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.transaction-date {
+  font-size: 12px;
+  color: #999;
+}
+
+.transaction-points {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.transaction-points.positive {
+  color: #16a34a;
+}
+
+.transaction-points.negative {
+  color: #dc2626;
+}
+
+/* ---------- Rewards ---------- */
+.rewards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reward-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  gap: 12px;
+}
+
+.reward-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.reward-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.reward-desc {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.reward-cost {
+  font-size: 12px;
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.reward-redeem-btn {
+  background: #f59e0b;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.reward-redeem-btn:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.reward-redeem-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Settings / Danger zone ---------- */
+.settings-danger-zone {
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 8px;
+}
+
+.danger-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #dc2626;
+  margin: 0 0 8px;
+}
+
+.danger-desc {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.delete-account-btn {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.delete-account-btn:hover {
+  background: #b91c1c;
+}
+
+.delete-confirm {
+  border-top: 1px solid #fecaca;
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.delete-confirm-text {
+  font-size: 14px;
+  color: #dc2626;
+  margin: 0 0 12px;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.delete-confirm-btn {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.delete-confirm-btn:hover {
+  background: #991b1b;
+}
+
+.delete-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .profile-placeholder-text {
   font-size: 14px;
   color: #888;
+  text-align: center;
+  padding: 20px 0;
 }
 
 /* ---------- Responsive: tablets ---------- */
@@ -325,6 +836,26 @@
   }
 
   .profile-content {
+    margin-top: 70px;
+    padding: 0 16px 40px;
+  }
+
+  .profile-tabs {
+    flex-wrap: wrap;
+  }
+
+  .profile-tab {
+    font-size: 12px;
+    padding: 8px 4px;
+  }
+
+  .reward-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reward-redeem-btn {
+    text-align: center;
     margin-top: 80px;
     padding: 0 20px;
   }
