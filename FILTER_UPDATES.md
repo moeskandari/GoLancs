@@ -233,6 +233,68 @@ Potential improvements for future iterations:
 
 ---
 
+## 11. Rail Departures Reliability Update (9 March 2026)
+
+### 11.1 Local Timetable Fallback for Train Station Popups
+**Files Modified:**
+- `backend/server.js`
+
+**Problem:**
+- Clicking a train station marker could show no departures when the external live feed was unavailable, timed out, or returned no service entries.
+
+**Changes:**
+- Updated `GET /api/rail/departures/:crs` to fallback to local database timetable data when:
+   - external live call fails,
+   - external response times out,
+   - XML parsing fails, or
+   - live feed returns zero services.
+- Added optional `time` and `day` query parameters for rail departures requests so station popup departures can follow the user-selected planner time.
+- Added local lookup from `national_rail`, `schedule_points`, `rail_schedule`, `operators`, and `stops`.
+- Returned local services in the same frontend-compatible shape (`services[]`, `destination`, `scheduledDeparture`, `boardingStation`, etc.).
+- Normalized local departure times to `HH:MM` format so existing “next 60 min” filtering works in map popups.
+- Updated frontend map station requests to pass selected time/day, and popup countdown filtering now uses the selected time reference instead of always using current clock time.
+
+**Result:**
+- Train station map popups now continue to show departures using local timetable data when live external data is missing.
+- Invalid CRS requests now return a safe empty local response with metadata instead of failing.
+
+---
+
+## 12. Live Bus Icon Destination Display
+
+### 12.1 Bus Direction Indicator on Map Icons
+**Files Modified:**
+- `frontend/src/components/MapView.js`
+- `frontend/src/components/MapView.css`
+
+**Changes:**
+- Enhanced `liveBusIcon()` function to accept optional `destination` parameter
+- Modified live bus marker icons to display route number and destination (e.g., "100" + "Bus Station")
+- Destination names are automatically truncated to 12 characters with ellipsis (`…`) if longer
+- Updated marker sizing: icons with destination expand from 36×36px to 50×48px to accommodate two-line layout
+- Added `.live-bus-destination` CSS class with small 8px font for destination label
+- Icon layout now uses `flex-direction: column` with 1px gap between route number and destination
+
+**Styling Details:**
+- Destination text uses same orange (#FF9800) background as route number
+- Font is smaller (8px) but still readable with adequate weight (600)
+- Text is centered and white with slight opacity (0.95) for depth
+- Responsive sizing ensures icons don't overlap on map
+
+**User Benefits:**
+- Users can immediately see where each bus is heading without clicking
+- Quicker journey planning when scanning multiple live vehicles on map
+- Especially useful for routes with multiple destinations (e.g., 100 to Bus Station vs 100 to City Centre)
+
+**Technical Details:**
+```javascript
+// Example: Bus route 100 to Bus Station Station
+icon={liveBusIcon(vehicle.lineName, vehicle.bearing, vehicle.destinationName)}
+// Renders: Icon with "100" and "Bus Station" (truncated if needed)
+```
+
+---
+
 ## Developer Notes
 
 - All filter state defaults to `false` to avoid cluttering the map
@@ -241,6 +303,43 @@ Potential improvements for future iterations:
 - Error handling implemented for all API calls
 - Responsive design uses mobile-first approach
 - No breaking changes to existing functionality
+- Live bus icons now display both route number and destination for better UX
+- Destination text is truncated at 12 characters to maintain icon size consistency
+
+---
+
+## 13. Generic Bus Stop Name Disambiguation
+
+**Problem:** Many bus route destinations and origins displayed as just "Bus Station", "Railway Station", etc., making it impossible to know which town they referred to. The `stops` table has no locality column.
+
+**Solution:** Added a coordinate-based nearest-town resolver in the backend.
+
+**Files Changed:**
+- `backend/server.js`
+
+**Implementation:**
+- Added `KNOWN_TOWNS` array with 30+ Lancashire/surrounding area town centre coordinates
+- Added `GENERIC_STOP_NAMES` set containing names that need qualification ("Bus Station", "Railway Station", "Square", "Hospital", etc.)
+- Added `qualifyGenericStopName(name, lat, lon)` function that finds the nearest town and prefixes generic names (e.g. "Bus Station" → "Lancaster Bus Station")
+- Updated `GET /api/stops/:atcoCode/routes` to fetch origin/destination coordinates and apply `qualifyGenericStopName()` to both
+- Result: 86 "Bus Station" entries now correctly show as "Lancaster Bus Station", "Preston Bus Station", "Chorley Bus Station", etc.
+
+---
+
+## 14. Train Station Popup CRS Code Fix
+
+**Problem:** Clicking on train station markers showed "No trains within the next hour" because the CRS code was missing from the API response, preventing the frontend from fetching departures.
+
+**Root Cause:** The `GET /api/stops/nearby` endpoint queried `nr.crs_code` from the `national_rail` table but omitted it from the response object mapping.
+
+**Files Changed:**
+- `backend/server.js`
+
+**Fix:**
+- Added `crs_code: r.crs_code` to the rail stop response mapping in the nearby stops endpoint
+- CRS codes (e.g. "LAN" for Lancaster, "BAR" for Bare Lane) are now correctly passed to the frontend
+- Frontend can now call `fetchRailDepartures(station.crs_code)` successfully
+- Live and fallback departures display correctly in station popups
 
 ---
 

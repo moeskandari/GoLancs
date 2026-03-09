@@ -152,11 +152,14 @@
   background: #FF9800;
   border: 2.5px solid #fff;
   border-radius: 8px;
-  width: 32px;
-  height: 22px;
+  width: auto;
+  min-width: 32px;
+  padding: 2px 4px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   z-index: 2;
 }
@@ -167,6 +170,21 @@
   font-weight: 800;
   letter-spacing: 0.3px;
   line-height: 1;
+}
+
+.live-bus-destination {
+  color: #fff;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  margin-top: 2px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+  display: block;
+  opacity: 0.95;
 }
 
 .live-bus-pulse {
@@ -458,15 +476,23 @@
 }
 
 .route-operator {
+  font-size: 11px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 1px;
+}
+
+.route-destination {
   font-size: 13px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: #1a1a1a;
   margin-bottom: 2px;
+  line-height: 1.2;
 }
 
 .route-stops-count {
   font-size: 11px;
-  color: #666;
+  color: #888;
 }
 
 .rail-arrivals-box {
@@ -499,10 +525,227 @@
   white-space: nowrap;
 }
 
+/* Delay / cancel state backgrounds */
+.rail-arrival-item.rail-delayed {
+  background: #fff8e1;
+  border-color: #ffe082;
+  flex-wrap: wrap;
+}
+.rail-arrival-item.rail-cancelled {
+  background: #ffebee;
+  border-color: #ef9a9a;
+  opacity: 0.75;
+  flex-wrap: wrap;
+}
+
+/* Time column (right side) */
+.rail-arrival-time-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+.rail-time-sched {
+  font-size: 11px;
+  color: #666;
+}
+.rail-strike {
+  text-decoration: line-through;
+}
+.rail-time-est {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e65100;
+}
+.rail-time-ontime {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d47a1;
+}
+
+/* Badges */
+.rail-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.rail-badge-delay {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+.rail-badge-cancel {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+/* Platform tag */
+.rail-platform {
+  font-size: 11px;
+  font-weight: 400;
+  color: #888;
+}
+
+/* Delay / cancel reason row */
+.rail-delay-reason {
+  width: 100%;
+  font-size: 11px;
+  color: #795548;
+  font-style: italic;
+  padding-top: 3px;
+  border-top: 1px dashed #e0c9a6;
+  margin-top: 2px;
+}
+
 .no-routes {
   font-size: 13px;
   color: #999;
   padding: 12px;
   text-align: center;
   font-style: italic;
+}
+
+/* ─── Traffic Condition Zones ─────────────────────────────────── */
+
+.traffic-zone-popup {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.traffic-zone-popup strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.traffic-zone-road {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.traffic-zone-desc {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.traffic-zone-meta {
+  font-size: 11px;
+  color: #888;
+  margin-top: 6px;
+  border-top: 1px solid #eee;
+  padding-top: 4px;
+}
+
+/* Floating traffic legend */
+.traffic-legend {
+  position: absolute;
+  bottom: 100px;
+  left: 12px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  cursor: pointer;
+  max-width: 180px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.traffic-legend-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.traffic-legend-close {
+  font-size: 14px;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.traffic-legend-close:hover {
+  color: #333;
+}
+
+.traffic-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.traffic-legend-line {
+  width: 24px;
+  height: 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.traffic-legend-label {
+  font-size: 12px;
+  color: #444;
+}
+
+.traffic-rush-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.traffic-rush-badge.rush {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.traffic-rush-badge.off-peak {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #a78bfa;
+}
+
+.traffic-legend-time {
+  font-size: 10px;
+  color: #999;
+  margin-top: 6px;
+  border-top: 1px solid #eee;
+  padding-top: 4px;
+}
+
+/* Mobile adjustments for traffic legend */
+@media (max-width: 600px) {
+  .traffic-legend {
+    bottom: 80px;
+    left: 8px;
+    padding: 8px 10px;
+    max-width: 150px;
+  }
+  .traffic-legend-title {
+    font-size: 11px;
+  }
+  .traffic-legend-dot {
+    width: 12px;
+    height: 12px;
+  }
+  .traffic-legend-label {
+    font-size: 11px;
+  }
 }

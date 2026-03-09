@@ -73,6 +73,7 @@ function App() {
   // Filter-driven map toggles
   const showBusStops = !!activeFilters?.onMap?.showBusStops;
   const showTrainStations = !!activeFilters?.onMap?.showTrainStations;
+  const showTrafficConditions = !!activeFilters?.onMap?.showTrafficConditions;
 
   // ── Auth UI state (front-end only) ────────────────────────
   const [authView, setAuthView] = useState(null);
@@ -171,8 +172,11 @@ function App() {
         userLocation={userLocation}
         startLocation={startStop}
         endLocation={endStop}
+        selectedTime={arrivalTime || departureTime}
+        selectedDay={(new Date().getDay() + 6) % 7}
         showBusStops={showBusStops}
         showTrainStations={showTrainStations}
+        showTrafficConditions={showTrafficConditions}
         routes={routes}
         selectedRoute={selectedRoute}
         onPinDrop={handlePinDrop}

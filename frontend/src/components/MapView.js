@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
 import WeatherIcon from './WeatherIcon';
-import { fetchNearbyStops, fetchBusStopRoutes, fetchRailDepartures } from '../services/api';
+import { fetchNearbyStops, fetchBusStopRoutes, fetchRailDepartures, fetchTrafficConditions } from '../services/api';
 
 function formatTime(timeStr) {
   if (!timeStr) return '';
@@ -171,23 +171,26 @@ const userDotIcon = (heading) => {
   });
 };
 
-// Live bus marker icon — shows route number with bearing arrow
-const liveBusIcon = (lineName, bearing) => {
+// Live bus marker icon — shows route number with bearing arrow and destination
+const liveBusIcon = (lineName, bearing, destination) => {
   const rotation = bearing !== null && bearing !== undefined ? `transform: rotate(${bearing}deg);` : '';
   const arrow = bearing !== null && bearing !== undefined
     ? `<div class="live-bus-arrow" style="${rotation}"></div>`
     : '';
+  // Truncate long destination names to 12 chars
+  const displayDest = destination ? (destination.length > 12 ? destination.substring(0, 11) + '…' : destination) : '';
   return L.divIcon({
     html: `<div class="live-bus-marker">
       ${arrow}
       <div class="live-bus-icon">
         <span class="live-bus-number">${lineName || '?'}</span>
+        ${displayDest ? `<span class="live-bus-destination">${displayDest}</span>` : ''}
       </div>
       <div class="live-bus-pulse"></div>
     </div>`,
     className: 'live-bus-marker-wrapper',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18]
+    iconSize: destination ? [50, 48] : [36, 36],
+    iconAnchor: destination ? [25, 24] : [18, 18]
   });
 };
 
@@ -268,12 +271,19 @@ function parseHHMMToMinutes(hhmm) {
   return h * 60 + m;
 }
 
-function getMinutesUntil(timeStr) {
+function getMinutesUntil(timeStr, referenceHHMM = null) {
   const target = parseHHMMToMinutes(timeStr);
   if (target === null) return null;
 
-  const now = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
+  let nowMins;
+  if (referenceHHMM && /^\d{2}:\d{2}(:\d{2})?$/.test(referenceHHMM)) {
+    const ref = referenceHHMM.substring(0, 5);
+    const parsedRef = parseHHMMToMinutes(ref);
+    nowMins = parsedRef !== null ? parsedRef : (new Date().getHours() * 60 + new Date().getMinutes());
+  } else {
+    const now = new Date();
+    nowMins = now.getHours() * 60 + now.getMinutes();
+  }
   let diff = target - nowMins;
 
   // Handle just-after-midnight services
@@ -283,7 +293,7 @@ function getMinutesUntil(timeStr) {
 }
 
 // Component to fetch and display nearby bus stops and rail stations
-function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations }) {
+function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations, selectedTime, selectedDay }) {
   const [busStops, setBusStops] = useState([]);
   const [railStops, setRailStops] = useState([]);
   const [selectedStop, setSelectedStop] = useState(null);
@@ -347,7 +357,10 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
         setRailDepartures({ services: [] });
         return;
       }
-      const data = await fetchRailDepartures(station.crs_code);
+      const data = await fetchRailDepartures(station.crs_code, {
+        time: selectedTime,
+        day: selectedDay,
+      });
       setRailDepartures(data);
     } catch (err) {
       console.error('Failed to fetch rail departures:', err);
@@ -388,9 +401,12 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
                         <div key={`route-${route.routeId}-${idx}`} className="route-item">
                           <div className="route-number-badge">{route.routeNumber}</div>
                           <div className="route-info">
+                            <div className="route-destination">
+                              → {route.destination || 'Unknown'}
+                            </div>
                             <div className="route-operator">{route.operatorName || route.operatorCode}</div>
                             <div className="route-stops-count">
-                              {route.stops.length} stops on route
+                              {route.stops.length} stops · from {route.origin || 'Unknown'}
                             </div>
                           </div>
                         </div>
@@ -429,14 +445,29 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
                 ) : (() => {
                   const upcoming = (railDepartures.services || [])
                     .map((svc) => {
-                      const preferred = /^\d{2}:\d{2}$/.test(svc.estimatedDeparture || '')
-                        ? svc.estimatedDeparture
-                        : svc.scheduledDeparture;
-                      const mins = getMinutesUntil(preferred);
-                      return { svc, mins, preferred };
+                      const est = svc.estimatedDeparture || '';
+                      const sched = svc.scheduledDeparture || '';
+                      const isCancelled = /cancel/i.test(est) || !!svc.cancelReason;
+                      const isDelayed = !isCancelled && (
+                        est === 'Delayed' ||
+                        (/^\d{2}:\d{2}$/.test(est) && est !== sched)
+                      );
+                      const preferred = /^\d{2}:\d{2}$/.test(est)
+                        ? est
+                        : sched;
+                      const mins = getMinutesUntil(preferred, selectedTime);
+                      // Calculate delay in minutes when both times are valid HH:MM
+                      let delayMins = 0;
+                      if (isDelayed && /^\d{2}:\d{2}$/.test(est) && /^\d{2}:\d{2}$/.test(sched)) {
+                        const [sh, sm] = sched.split(':').map(Number);
+                        const [eh, em] = est.split(':').map(Number);
+                        delayMins = (eh * 60 + em) - (sh * 60 + sm);
+                        if (delayMins < 0) delayMins += 1440; // handle midnight wrap
+                      }
+                      return { svc, mins, preferred, isCancelled, isDelayed, delayMins };
                     })
-                    .filter(({ mins }) => mins !== null && mins <= 60)
-                    .sort((a, b) => a.mins - b.mins)
+                    .filter(({ mins, isCancelled }) => isCancelled || (mins !== null && mins <= 60))
+                    .sort((a, b) => (a.mins ?? 999) - (b.mins ?? 999))
                     .slice(0, 5);
 
                   if (upcoming.length === 0) {
@@ -446,12 +477,49 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
                   return (
                     <>
                       <div className="routes-header">Trains in next 60 min:</div>
-                      {upcoming.map(({ svc, mins }, idx) => (
-                        <div key={`rail-upcoming-${idx}`} className="rail-arrival-item">
-                          <div className="rail-arrival-destination">Towards {svc.destination?.name || 'Unknown'}</div>
-                          <div className="rail-arrival-time">
-                            {mins === 0 ? 'Due now' : `${mins} min`}
+                      {upcoming.map(({ svc, mins, isCancelled, isDelayed, delayMins }, idx) => (
+                        <div
+                          key={`rail-upcoming-${idx}`}
+                          className={`rail-arrival-item${
+                            isCancelled ? ' rail-cancelled' : isDelayed ? ' rail-delayed' : ''
+                          }`}
+                        >
+                          <div className="rail-arrival-destination">
+                            Towards {svc.destination?.name || 'Unknown'}
+                            {(isDelayed || isCancelled) && svc.platform && (
+                              <span className="rail-platform"> · Plat {svc.platform}</span>
+                            )}
                           </div>
+                          <div className="rail-arrival-time-col">
+                            {isCancelled ? (
+                              <>
+                                <span className="rail-time-sched rail-strike">{svc.scheduledDeparture}</span>
+                                <span className="rail-badge rail-badge-cancel">Cancelled</span>
+                              </>
+                            ) : isDelayed ? (
+                              <>
+                                <span className="rail-time-sched rail-strike">{svc.scheduledDeparture}</span>
+                                <span className="rail-time-est">
+                                  {/^\d{2}:\d{2}$/.test(svc.estimatedDeparture)
+                                    ? svc.estimatedDeparture
+                                    : 'Delayed'}
+                                </span>
+                                <span className="rail-badge rail-badge-delay">
+                                  {delayMins > 0 ? `+${delayMins}m` : 'Late'}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="rail-time-ontime">
+                                {mins === 0 ? 'Due now' : `${mins} min`}
+                              </span>
+                            )}
+                          </div>
+                          {(isDelayed && svc.delayReason) && (
+                            <div className="rail-delay-reason">{svc.delayReason}</div>
+                          )}
+                          {(isCancelled && svc.cancelReason) && (
+                            <div className="rail-delay-reason">{svc.cancelReason}</div>
+                          )}
                         </div>
                       ))}
                     </>
@@ -466,7 +534,156 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
   );
 }
 
-function MapView({ userLocation, startLocation, endLocation, showBusStops = true, showTrainStations = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
+// ─── Traffic Condition Road Segments ─────────────────────────────────────────
+// Severity colour palette: darker red = worse delays
+const TRAFFIC_COLORS = {
+  0: { color: '#22c55e', label: 'Normal' },      // green
+  1: { color: '#eab308', label: 'Minor delays' }, // yellow
+  2: { color: '#f97316', label: 'Moderate' },      // orange
+  3: { color: '#ef4444', label: 'Heavy delays' },  // red
+};
+
+function TrafficZones({ show, selectedTime, selectedDay }) {
+  const [segments, setSegments] = useState([]);
+  const [meta, setMeta] = useState({});
+  const [showLegend, setShowLegend] = useState(true);
+  const [zoom, setZoom] = useState(11);
+  const map = useMap();
+
+  // Track zoom level for responsive line thickness
+  useEffect(() => {
+    setZoom(map.getZoom());
+    const onZoom = () => setZoom(map.getZoom());
+    map.on('zoomend', onZoom);
+    return () => map.off('zoomend', onZoom);
+  }, [map]);
+
+  useEffect(() => {
+    if (!show) { setSegments([]); return; }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await fetchTrafficConditions({
+          time: selectedTime || undefined,
+          day: selectedDay !== undefined ? selectedDay : undefined,
+        });
+        if (!cancelled) {
+          setSegments(data.segments || []);
+          setMeta({
+            timestamp: data.timestamp,
+            rushHour: data.rushHour,
+            offPeak: data.offPeak,
+            totalSigns: data.totalSigns,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch traffic conditions:', err);
+        if (!cancelled) setSegments([]);
+      }
+    };
+    load();
+
+    // Refresh every 3 minutes
+    const interval = setInterval(load, 3 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [show, selectedTime, selectedDay]);
+
+  if (!show || segments.length === 0) return null;
+
+  // Only display segments with actual delays (severity >= 1)
+  const activeSegments = segments.filter(s => s.severity >= 1);
+
+  // Zoom-responsive line weight: thicker when zoomed out so segments stay visible
+  // zoom ~8 (far) → multiplier ~3.0,  zoom ~11 → 1.5,  zoom ~14+ (close) → 1.0
+  const zoomScale = Math.max(1.0, 3.5 - zoom * 0.2);
+
+  return (
+    <>
+      {activeSegments.map((seg) => {
+        const colors = TRAFFIC_COLORS[seg.severity] || TRAFFIC_COLORS[0];
+        // Base weight: severity 1→6, 2→9, 3→12  ×  zoomScale
+        const baseWeight = 3 + seg.severity * 3;
+        const weight = Math.round(baseWeight * zoomScale);
+        const outlineWeight = weight + Math.round(4 * zoomScale); // dark border behind
+        const opacity = Math.min(1.0, 0.65 + seg.severity * 0.1);
+
+        return (
+          <React.Fragment key={seg.id}>
+            {/* Dark outline for contrast at all zoom levels */}
+            <Polyline
+              positions={seg.coordinates}
+              pathOptions={{
+                color: '#1a1a2e',
+                weight: outlineWeight,
+                opacity: opacity * 0.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+                interactive: false,
+              }}
+            />
+            {/* Coloured severity line */}
+            <Polyline
+              positions={seg.coordinates}
+              pathOptions={{
+                color: colors.color,
+                weight: weight,
+                opacity: opacity,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            >
+              <Popup maxWidth={280} minWidth={200}>
+                <div className="traffic-zone-popup">
+                  <strong style={{ color: colors.color }}>
+                    {seg.severity >= 3 ? '🔴' : seg.severity === 2 ? '🟠' : '🟡'}{' '}
+                    {seg.label}
+                  </strong>
+                  <div className="traffic-zone-road">{seg.road}</div>
+                  {seg.descriptions.map((desc, i) => (
+                    <div key={i} className="traffic-zone-desc">{desc}</div>
+                  ))}
+                  {seg.directions.length > 0 && (
+                    <div className="traffic-zone-meta">{seg.directions.join(', ')}</div>
+                  )}
+                </div>
+              </Popup>
+            </Polyline>
+          </React.Fragment>
+        );
+      })}
+
+      {/* Floating traffic legend */}
+      {showLegend && (
+        <div className="traffic-legend" onClick={(e) => e.stopPropagation()}>
+          <div className="traffic-legend-title">
+            Road Traffic
+            <span className="traffic-legend-close" title="Close legend" onClick={() => setShowLegend(false)}>✕</span>
+          </div>
+          {meta.rushHour && (
+            <div className="traffic-rush-badge rush">⏰ Rush Hour</div>
+          )}
+          {meta.offPeak && (
+            <div className="traffic-rush-badge off-peak">🌙 Off-Peak</div>
+          )}
+          {[3, 2, 1].map((sev) => (
+            <div key={sev} className="traffic-legend-item">
+              <span className="traffic-legend-line" style={{ backgroundColor: TRAFFIC_COLORS[sev].color }} />
+              <span className="traffic-legend-label">{TRAFFIC_COLORS[sev].label}</span>
+            </div>
+          ))}
+          {meta.timestamp && (
+            <div className="traffic-legend-time">
+              Updated: {new Date(meta.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function MapView({ userLocation, startLocation, endLocation, selectedTime = null, selectedDay = null, showBusStops = true, showTrainStations = false, showTrafficConditions = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -695,8 +912,13 @@ function MapView({ userLocation, startLocation, endLocation, showBusStops = true
             selectedRoute={selectedRoute}
             showBusStops={showBusStops}
             showTrainStations={showTrainStations}
+            selectedTime={selectedTime}
+            selectedDay={selectedDay}
           />
         )}
+
+        {/* Traffic condition zones (delay overlays) */}
+        <TrafficZones show={showTrafficConditions} selectedTime={selectedTime} selectedDay={selectedDay} />
 
         {/* Route polylines and changeover markers */}
         {routeOverlays}
@@ -706,7 +928,7 @@ function MapView({ userLocation, startLocation, endLocation, showBusStops = true
           <Marker
             key={`live-bus-${vehicle.vehicleRef || idx}`}
             position={[vehicle.latitude, vehicle.longitude]}
-            icon={liveBusIcon(vehicle.lineName, vehicle.bearing)}
+            icon={liveBusIcon(vehicle.lineName, vehicle.bearing, vehicle.destinationName)}
             zIndexOffset={900}
           >
             <Popup>

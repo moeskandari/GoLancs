@@ -62,8 +62,14 @@ export async function fetchLiveBusRoute(routeNumber) {
 }
 
 /** Get live rail departures for a station CRS code */
-export async function fetchRailDepartures(crs) {
-  const res = await fetch(`${API_URL}/api/rail/departures/${encodeURIComponent(crs)}`);
+export async function fetchRailDepartures(crs, options = {}) {
+  const qs = new URLSearchParams();
+  if (options.time) qs.set('time', options.time);
+  if (options.day !== undefined && options.day !== null && options.day !== '') {
+    qs.set('day', String(options.day));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${API_URL}/api/rail/departures/${encodeURIComponent(crs)}${suffix}`);
   if (!res.ok) throw new Error('Rail departures API error');
   return res.json();
 }
@@ -85,6 +91,19 @@ export async function fetchNearbyStops(lat, lon, radius = 0.5) {
 export async function fetchBusStopRoutes(atcoCode) {
   const res = await fetch(`${API_URL}/api/stops/${encodeURIComponent(atcoCode)}/routes`);
   if (!res.ok) throw new Error('Failed to fetch bus stop routes');
+  return res.json();
+}
+
+/** Get live traffic conditions (road segment overlays with delay severity) */
+export async function fetchTrafficConditions(options = {}) {
+  const qs = new URLSearchParams();
+  if (options.time) qs.set('time', options.time);
+  if (options.day !== undefined && options.day !== null && options.day !== '') {
+    qs.set('day', String(options.day));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${API_URL}/api/traffic/conditions${suffix}`);
+  if (!res.ok) throw new Error('Failed to fetch traffic conditions');
   return res.json();
 }
 
