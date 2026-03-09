@@ -32,7 +32,8 @@
 }
 
 .control-btn:active {
-  transform: translateY(0);
+  background: #e0e0e0;
+  transform: scale(0.92);
 }
 
 .control-btn span {
@@ -65,11 +66,24 @@
   cursor: grabbing;
 }
 
+/* Pin active mode — visual indicator when pin-drop mode is on */
+.pin-btn.pin-active {
+  background: #ffebee;
+  box-shadow: 0 0 0 2px #FF5252;
+}
+
+.pin-btn.pin-active span {
+  color: #FF5252;
+  font-weight: 700;
+}
+
 @media (max-width: 768px) {
   .bottom-controls {
     bottom: 20px;
     padding: 10px 15px;
     gap: 10px;
+    /* Ensure safe area inset at bottom */
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
   }
   
   .control-btn {
@@ -83,5 +97,28 @@
   .control-btn svg {
     width: 20px;
     height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bottom-controls {
+    bottom: 12px;
+    padding: 8px 10px;
+    gap: 6px;
+    border-radius: 24px;
+  }
+
+  .control-btn {
+    padding: 6px 8px;
+    border-radius: 12px;
+  }
+
+  .control-btn span {
+    font-size: 10px;
+  }
+
+  .control-btn svg {
+    width: 18px;
+    height: 18px;
   }
 }

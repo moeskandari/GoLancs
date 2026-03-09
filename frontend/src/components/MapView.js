@@ -4,7 +4,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
-import WeatherIcon from './WeatherIcon';
 
 function formatTime(timeStr) {
   if (!timeStr) return '';
@@ -205,6 +204,27 @@ const liveTrainIcon = (operator) => {
   });
 };
 
+// Component to handle tap-to-pin-drop on mobile (pin mode)
+function ClickToPinHandler({ active, onPinDrop }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!active || !map) return;
+    const handleClick = (e) => {
+      if (onPinDrop) onPinDrop(e.latlng);
+    };
+    map.on('click', handleClick);
+    // Change cursor to crosshair when pin mode is active
+    map.getContainer().style.cursor = 'crosshair';
+    return () => {
+      map.off('click', handleClick);
+      map.getContainer().style.cursor = '';
+    };
+  }, [active, map, onPinDrop]);
+
+  return null;
+}
+
 // Button to centre the map on the user's location
 function LocateMeButton({ onLocate }) {
   const map = useMap();
@@ -242,7 +262,7 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
+function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService, pinMode }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -397,6 +417,11 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           setDragLatLng(null);
           if (onPinDrop) onPinDrop(latlng);
         }} onDrag={(latlng) => setDragLatLng(latlng)} />
+
+        {/* Tap-to-pin handler for mobile touch devices */}
+        <ClickToPinHandler active={pinMode} onPinDrop={(latlng) => {
+          if (onPinDrop) onPinDrop(latlng);
+        }} />
 
         {/* Start marker (green) */}
         {startLatLng && (
@@ -670,8 +695,15 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           </div>
         )}
       </MapContainer>
+
+      {/* Pin-drop mode banner overlay */}
+      {pinMode && (
+        <div className="pin-mode-banner" role="status" aria-live="polite">
+          📍 Tap anywhere on the map to set your destination
+        </div>
+      )}
+
       <Compass />
-      <WeatherIcon weather={currentWeather} loading={weatherLoading} onClick={onWeatherClick} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './RouteResults.css';
 
 // Mode icons and labels
@@ -558,10 +558,33 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackLeg, onStopTrack
 }
 
 function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChange, onTrackLeg, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures, trackedTrainService }) {
+  const [minimized, setMinimized] = useState(false);
+
   if (!routes) return null;
 
   return (
-    <div className="route-results" role="region" aria-label="Route results">
+    <div
+      className={`route-results${minimized ? ' minimized' : ''}`}
+      role="region"
+      aria-label="Route results"
+    >
+      {/* Minimize / expand toggle bar */}
+      <button
+        className="route-results-toggle"
+        onClick={() => setMinimized(prev => !prev)}
+        aria-label={minimized ? 'Expand route results' : 'Minimize route results'}
+        aria-expanded={!minimized}
+      >
+        <span className="toggle-handle" />
+        {minimized && (
+          <span className="minimized-label">
+            {routes.totalRoutes} route{routes.totalRoutes !== 1 ? 's' : ''} · Tap to expand
+          </span>
+        )}
+      </button>
+
+      {!minimized && (
+        <>
       <div className="results-header">
         <div className="results-title-row">
           <h2 className="results-title">
@@ -615,6 +638,8 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
             />
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );
