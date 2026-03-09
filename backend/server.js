@@ -1,3 +1,11 @@
+/**
+ * Lancaster Travel Routes — Express application entry point.
+ *
+ * This is the slim entry point that composes all route modules.
+ * Business logic lives in /services, data helpers in /utils, and
+ * HTTP handlers in /routes.
+ */
+
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
@@ -13,13 +21,115 @@ const { securityHeaders, sanitiseInput } = require('./middleware/security');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ── Middleware ───────────────────────────────────────────────────────
 app.use(securityHeaders());
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5001',
   credentials: true
 }));
 app.use(express.json({ limit: '1mb' }));
+
+// ─── UK Station Coordinates by CRS code ───
+// Comprehensive lookup covering all stations referenced by services through Lancashire
+// Coordinates sourced from NaPTAN / ORR data (WGS84)
+const STATION_COORDS = {
+  // Lancashire & Cumbria core
+  LAN: { lat: 54.0488, lon: -2.8079, name: 'Lancaster' },
+  PRE: { lat: 53.7553, lon: -2.7072, name: 'Preston' },
+  MCM: { lat: 54.0703, lon: -2.8685, name: 'Morecambe' },
+  BAR: { lat: 54.0747, lon: -2.8350, name: 'Bare Lane' },
+  CNF: { lat: 54.1310, lon: -2.7700, name: 'Carnforth' },
+  HHB: { lat: 54.0328, lon: -2.9155, name: 'Heysham Harbour' },
+  OXN: { lat: 54.3195, lon: -2.7251, name: 'Oxenholme Lake District' },
+  WDM: { lat: 54.3791, lon: -2.9040, name: 'Windermere' },
+  BEN: { lat: 54.1160, lon: -2.5083, name: 'Bentham' },
+  WNN: { lat: 54.1139, lon: -2.5870, name: 'Wennington' },
+  CPY: { lat: 54.1057, lon: -2.4143, name: 'Clapham (North Yorkshire)' },
+  SVR: { lat: 54.1702, lon: -2.8076, name: 'Silverdale' },
+  ARN: { lat: 54.2037, lon: -2.8298, name: 'Arnside' },
+  GOS: { lat: 54.1946, lon: -2.9021, name: 'Grange-over-Sands' },
+  KBK: { lat: 54.1764, lon: -2.9191, name: 'Kents Bank' },
+  CAK: { lat: 54.1766, lon: -2.9636, name: 'Cark' },
+  ULV: { lat: 54.1938, lon: -3.0942, name: 'Ulverston' },
+  DLT: { lat: 54.1544, lon: -3.1808, name: 'Dalton' },
+  ROO: { lat: 54.1264, lon: -3.1949, name: 'Roose' },
+  BIF: { lat: 54.1177, lon: -3.2263, name: 'Barrow-in-Furness' },
+  // Blackpool & Fylde
+  BPN: { lat: 53.8229, lon: -3.0484, name: 'Blackpool North' },
+  BPS: { lat: 53.7984, lon: -3.0488, name: 'Blackpool South' },
+  BPB: { lat: 53.7879, lon: -3.0539, name: 'Blackpool Pleasure Beach' },
+  SQU: { lat: 53.7770, lon: -3.0502, name: 'Squires Gate' },
+  SAS: { lat: 53.7534, lon: -3.0249, name: "St Annes-on-the-Sea" },
+  LTM: { lat: 53.7393, lon: -2.9642, name: 'Lytham' },
+  AFV: { lat: 53.7416, lon: -2.9935, name: 'Ansdell & Fairhaven' },
+  MOS: { lat: 53.7646, lon: -2.9144, name: 'Moss Side' },
+  KKM: { lat: 53.7869, lon: -2.8834, name: 'Kirkham & Wesham' },
+  SAL: { lat: 53.7818, lon: -2.8182, name: 'Salwick' },
+  PFY: { lat: 53.8483, lon: -2.9897, name: 'Poulton-le-Fylde' },
+  LAY: { lat: 53.8353, lon: -3.0299, name: 'Layton' },
+  // South Lancashire
+  LEY: { lat: 53.6986, lon: -2.6866, name: 'Leyland' },
+  EBA: { lat: 53.6598, lon: -2.6717, name: 'Euxton Balshaw Lane' },
+  BMB: { lat: 53.7245, lon: -2.6594, name: 'Bamber Bridge' },
+  LOH: { lat: 53.7335, lon: -2.6892, name: 'Lostock Hall' },
+  CSO: { lat: 53.6747, lon: -2.7756, name: 'Croston' },
+  RUF: { lat: 53.6338, lon: -2.8182, name: 'Rufford' },
+  MLH: { lat: 53.7272, lon: -2.5964, name: 'Mill Hill (Lancashire)' },
+  PLS: { lat: 53.7345, lon: -2.5575, name: 'Pleasington' },
+  // East Lancashire
+  BBN: { lat: 53.7485, lon: -2.4806, name: 'Blackburn' },
+  CYT: { lat: 53.7328, lon: -2.5177, name: 'Cherry Tree' },
+  RIS: { lat: 53.7630, lon: -2.4200, name: 'Rishton' },
+  CTW: { lat: 53.7664, lon: -2.3939, name: 'Church & Oswaldtwistle' },
+  ACR: { lat: 53.7534, lon: -2.3693, name: 'Accrington' },
+  HPN: { lat: 53.7841, lon: -2.3192, name: 'Hapton' },
+  RSG: { lat: 53.7926, lon: -2.2955, name: 'Rose Grove' },
+  BUB: { lat: 53.7944, lon: -2.2680, name: 'Burnley Barracks' },
+  BNC: { lat: 53.7878, lon: -2.2490, name: 'Burnley Central' },
+  BYM: { lat: 53.7908, lon: -2.2415, name: 'Burnley Manchester Road' },
+  HCT: { lat: 53.7726, lon: -2.3519, name: 'Huncoat' },
+  BRF: { lat: 53.8286, lon: -2.2341, name: 'Brierfield' },
+  NEL: { lat: 53.8347, lon: -2.2110, name: 'Nelson' },
+  CNE: { lat: 53.8551, lon: -2.1757, name: 'Colne' },
+  // Greater Manchester / Merseyside / West Yorkshire
+  MAN: { lat: 53.4774, lon: -2.2309, name: 'Manchester Piccadilly' },
+  MCO: { lat: 53.4745, lon: -2.2426, name: 'Manchester Oxford Road' },
+  MIA: { lat: 53.3654, lon: -2.2727, name: 'Manchester Airport' },
+  DGT: { lat: 53.4740, lon: -2.2503, name: 'Deansgate' },
+  WGN: { lat: 53.5448, lon: -2.6325, name: 'Wigan North Western' },
+  BYN: { lat: 53.5091, lon: -2.6489, name: 'Bryn' },
+  GSW: { lat: 53.4986, lon: -2.6636, name: 'Garswood' },
+  SNH: { lat: 53.4553, lon: -2.7287, name: 'St Helens Central' },
+  PSC: { lat: 53.4299, lon: -2.8015, name: 'Prescot' },
+  HUY: { lat: 53.4133, lon: -2.8393, name: 'Huyton' },
+  ROB: { lat: 53.4048, lon: -2.8517, name: 'Roby' },
+  BGE: { lat: 53.3998, lon: -2.8783, name: 'Broad Green' },
+  WAV: { lat: 53.3949, lon: -2.9001, name: 'Wavertree Technology Park' },
+  EDG: { lat: 53.3947, lon: -2.9173, name: 'Edge Hill' },
+  LIV: { lat: 53.4050, lon: -2.9779, name: 'Liverpool Lime Street' },
+  ECL: { lat: 53.4469, lon: -2.7711, name: 'Eccleston Park' },
+  THH: { lat: 53.4421, lon: -2.7496, name: 'Thatto Heath' },
+  LDS: { lat: 53.7952, lon: -1.5479, name: 'Leeds' },
+  HFX: { lat: 53.7210, lon: -1.8535, name: 'Halifax' },
+  HBD: { lat: 53.7420, lon: -2.0105, name: 'Hebden Bridge' },
+  BDI: { lat: 53.7910, lon: -1.7498, name: 'Bradford Interchange' },
+  // Ormskirk / Southport
+  OMS: { lat: 53.5696, lon: -2.8809, name: 'Ormskirk' },
+  BCJ: { lat: 53.5916, lon: -2.8417, name: 'Burscough Junction' },
+  PBL: { lat: 53.5909, lon: -2.7711, name: 'Parbold' },
+  SOP: { lat: 53.6469, lon: -3.0028, name: 'Southport' },
+  // West Cumbria (extended for Barrow line services)
+  CKL: { lat: 54.5420, lon: -3.5660, name: 'Corkickle' },
+  // Bolton / Chorley line
+  CRL: { lat: 53.6531, lon: -2.6318, name: 'Chorley' },
+  ADL: { lat: 53.6133, lon: -2.6073, name: 'Adlington (Lancashire)' },
+  BSV: { lat: 53.6803, lon: -2.6622, name: 'Buckshaw Parkway' },
+  BLK: { lat: 53.5872, lon: -2.5767, name: 'Blackrod' },
+  HWI: { lat: 53.5634, lon: -2.5419, name: 'Horwich Parkway' },
+  LOT: { lat: 53.5605, lon: -2.5049, name: 'Lostock' },
+  BON: { lat: 53.5782, lon: -2.4297, name: 'Bolton' },
+  SLD: { lat: 53.4866, lon: -2.2747, name: 'Salford Crescent' },
+};
 
 // ─── Railway Graph for track-following train geometry ───
 let railGraph = null;
@@ -53,6 +163,18 @@ function findNearestRailNode(lat, lon) {
   // Convert squared-degree distance to approximate meters for threshold check
   // 1 degree lat ≈ 111km, so 0.005 deg ≈ 555m → sq = 0.000025
   return bestDist < 0.0001 ? bestIdx : -1; // ~1.1km threshold
+}
+
+/**
+ * Resolve station coordinates by CRS code.
+ * First checks the hardcoded STATION_COORDS lookup, which covers all stations
+ * referenced by services through Lancashire. Falls back to database query.
+ */
+function getStationCoords(crs) {
+  if (!crs) return null;
+  const entry = STATION_COORDS[crs.toUpperCase()];
+  if (entry) return { lat: entry.lat, lon: entry.lon };
+  return null;
 }
 
 /**
@@ -127,7 +249,8 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5050),
   database: process.env.DB_NAME || 'group1db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'group1'
+  password: process.env.DB_PASSWORD || 'group1',
+  connectionTimeoutMillis: 5000,  // fail fast when DB is unavailable (e.g. in CI)
 });
 
 // ─── Session management (server-side, stored in PostgreSQL) ───
@@ -242,7 +365,8 @@ app.get('/api/geocode', async (req, res) => {
 
     const data = await new Promise((resolve, reject) => {
       https.get(url, {
-        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' },
+        timeout: 8000
       }, (response) => {
         let body = '';
         response.on('data', chunk => body += chunk);
@@ -251,7 +375,8 @@ app.get('/api/geocode', async (req, res) => {
           catch (e) { reject(e); }
         });
         response.on('error', reject);
-      }).on('error', reject);
+      }).on('error', reject)
+        .on('timeout', function() { this.destroy(); reject(new Error('Nominatim timeout')); });
     });
 
     // Format results
@@ -288,7 +413,8 @@ async function handleReverseGeocode(req, res) {
 
     const data = await new Promise((resolve, reject) => {
       https.get(url, {
-        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' }
+        headers: { 'User-Agent': 'Group1-LancasterTravelPlanner/1.0' },
+        timeout: 8000
       }, (response) => {
         let body = '';
         response.on('data', chunk => body += chunk);
@@ -297,7 +423,8 @@ async function handleReverseGeocode(req, res) {
           catch (e) { reject(e); }
         });
         response.on('error', reject);
-      }).on('error', reject);
+      }).on('error', reject)
+        .on('timeout', function() { this.destroy(); reject(new Error('Nominatim timeout')); });
     });
 
     if (data && data.address) {
@@ -644,7 +771,7 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
     
     const url = `https://transport.scc.lancs.ac.uk/rail/departures/${crs.toUpperCase()}`;
     
-    https.get(url, (response) => {
+    https.get(url, { timeout: 10000 }, (response) => {
       let data = '';
       response.on('data', chunk => data += chunk);
       response.on('end', () => {
@@ -673,15 +800,26 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
                 if (cpList) {
                   const points = Array.isArray(cpList) ? cpList : [cpList];
                   for (const cp of points) {
+                    const cpCrs = cp?.['lt8:crs'] || cp?.['lt4:crs'];
+                    const cpCoords = getStationCoords(cpCrs);
                     callingPoints.push({
                       name: cp?.['lt8:locationName'] || cp?.['lt4:locationName'],
-                      crs: cp?.['lt8:crs'] || cp?.['lt4:crs'],
+                      crs: cpCrs,
                       scheduledTime: cp?.['lt8:st'] || cp?.['lt4:st'],
                       estimatedTime: cp?.['lt8:et'] || cp?.['lt4:et'],
+                      lat: cpCoords?.lat || null,
+                      lon: cpCoords?.lon || null,
                     });
                   }
                 }
                 
+                const originCrs = origin?.['lt4:crs'];
+                const destCrs = dest?.['lt4:crs'];
+                const originCoords = getStationCoords(originCrs);
+                const destCoords = getStationCoords(destCrs);
+                // Also resolve the boarding station coords (the station we queried)
+                const boardingCoords = getStationCoords(crs.toUpperCase());
+
                 services.push({
                   scheduledDeparture: svc?.['lt4:std'],
                   estimatedDeparture: svc?.['lt4:etd'],
@@ -692,11 +830,20 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
                   serviceId: svc?.['lt4:serviceID'],
                   origin: {
                     name: origin?.['lt4:locationName'],
-                    crs: origin?.['lt4:crs']
+                    crs: originCrs,
+                    lat: originCoords?.lat || null,
+                    lon: originCoords?.lon || null,
                   },
                   destination: {
                     name: dest?.['lt4:locationName'],
-                    crs: dest?.['lt4:crs']
+                    crs: destCrs,
+                    lat: destCoords?.lat || null,
+                    lon: destCoords?.lon || null,
+                  },
+                  boardingStation: {
+                    crs: crs.toUpperCase(),
+                    lat: boardingCoords?.lat || null,
+                    lon: boardingCoords?.lon || null,
                   },
                   delayReason: svc?.['lt4:delayReason'] || null,
                   cancelReason: svc?.['lt4:cancelReason'] || null,
@@ -720,6 +867,9 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
       });
     }).on('error', (err) => {
       res.status(500).json({ error: `Failed to fetch departures: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(500).json({ error: 'Rail departures API timed out' });
     });
   } catch (err) {
     console.error(err);
@@ -1205,10 +1355,12 @@ function timeToMinutes(timeStr) {
 
 /**
  * Format minutes since midnight to "HH:MM".
+ * Wraps around midnight (e.g. 1456 → "00:16" not "24:16").
  */
 function minutesToTime(mins) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const wrapped = ((mins % 1440) + 1440) % 1440; // handle negatives too
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
@@ -1468,6 +1620,8 @@ async function enrichLegsWithCoordinates(allRoutes, startStop, endStop) {
       if (leg.boardAtco) atcoCodes.add(leg.boardAtco);
       if (leg.alightAtco) atcoCodes.add(leg.alightAtco);
       if (leg.atco) atcoCodes.add(leg.atco);
+      if (leg.fromAtco) atcoCodes.add(leg.fromAtco);
+      if (leg.toAtco) atcoCodes.add(leg.toAtco);
       if (leg.startCrs) crsCodes.add(leg.startCrs);
       if (leg.endCrs) crsCodes.add(leg.endCrs);
       if (leg.crs) crsCodes.add(leg.crs);
@@ -1529,20 +1683,35 @@ async function enrichLegsWithCoordinates(allRoutes, startStop, endStop) {
       const leg = route.legs[i];
       if (leg.type !== 'walk') continue;
 
+      // Skip if coords already set (e.g. start/end walk legs from coordinate resolution)
+      if (leg.fromCoords && leg.toCoords) continue;
+
       // fromCoords: if first leg use startStop, otherwise use previous leg's toCoords
-      if (i === 0) {
-        leg.fromCoords = coordMap[startStop.atco_code];
-      } else {
-        const prevLeg = route.legs[i - 1];
-        leg.fromCoords = prevLeg.toCoords || null;
+      if (!leg.fromCoords) {
+        if (i === 0) {
+          leg.fromCoords = coordMap[startStop.atco_code];
+        } else {
+          const prevLeg = route.legs[i - 1];
+          leg.fromCoords = prevLeg.toCoords || null;
+        }
       }
 
       // toCoords: if last leg use endStop, otherwise use next leg's fromCoords
-      if (i === route.legs.length - 1) {
-        leg.toCoords = coordMap[endStop.atco_code];
-      } else {
-        const nextLeg = route.legs[i + 1];
-        leg.toCoords = nextLeg.fromCoords || null;
+      if (!leg.toCoords) {
+        if (i === route.legs.length - 1) {
+          leg.toCoords = coordMap[endStop.atco_code];
+        } else {
+          const nextLeg = route.legs[i + 1];
+          leg.toCoords = nextLeg.fromCoords || null;
+        }
+      }
+
+      // Fallback: try to find coords by walk leg's fromAtco/toAtco if provided
+      if (!leg.fromCoords && leg.fromAtco) {
+        leg.fromCoords = coordMap[leg.fromAtco] || null;
+      }
+      if (!leg.toCoords && leg.toAtco) {
+        leg.toCoords = coordMap[leg.toAtco] || null;
       }
     }
   }
@@ -2052,10 +2221,10 @@ async function enrichLegsWithGeometry(allRoutes) {
 
   if (busRequests.length > 0) {
     // Prioritize shorter bus segments for road-following geometry (more visual impact).
-    // For very long segments (>15 waypoints), the stop-to-stop straight lines
+    // For very long segments (>50 waypoints), the stop-to-stop straight lines
     // are already a good approximation, so skip Valhalla to save time.
-    const shortBusRequests = busRequests.filter(r => r.waypoints.length <= 15);
-    const longBusRequests = busRequests.filter(r => r.waypoints.length > 15);
+    const shortBusRequests = busRequests.filter(r => r.waypoints.length <= 50);
+    const longBusRequests = busRequests.filter(r => r.waypoints.length > 50);
     // Clean up long requests (keep straight-line fallback)
     for (const { leg } of longBusRequests) { delete leg._busWaypoints; }
 
@@ -2200,21 +2369,21 @@ app.get('/api/plan', async (req, res) => {
       startPlaceCoords = { lat: sLat, lon: sLon };
       const degDelta = 3.0 / 111.0; // 3km search radius for bus stops
 
-      // Find nearest bus stop with routes (priority)
-      const busNear = await pool.query(`
-        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
-        FROM stops s
-        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
-          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
-      `, [sLon, sLat, degDelta]);
-
-      // Also check rail stations (same radius)
-      const railNear = await pool.query(`
-        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
-        FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
-          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [sLon, sLat, degDelta]);
+      // Find nearest bus stop and rail station in parallel
+      const [busNear, railNear] = await Promise.all([
+        pool.query(`
+          SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+          FROM stops s
+          WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+            AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+            AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+        `, [sLon, sLat, degDelta]),
+        pool.query(`
+          SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+          FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
+            AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+        `, [sLon, sLat, degDelta])
+      ]);
 
       const busWithDist = busNear.rows.map(r => ({
         ...r, dist: haversineDistance(sLat, sLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
@@ -2263,19 +2432,20 @@ app.get('/api/plan', async (req, res) => {
       endPlaceCoords = { lat: eLat, lon: eLon };
       const degDelta = 3.0 / 111.0; // 3km search radius
 
-      const busNear = await pool.query(`
-        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
-        FROM stops s
-        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
-          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
-      `, [eLon, eLat, degDelta]);
-
-      const railNear = await pool.query(`
-        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
-        FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
-          AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
-      `, [eLon, eLat, degDelta]);
+      const [busNear, railNear] = await Promise.all([
+        pool.query(`
+          SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+          FROM stops s
+          WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+            AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+            AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+        `, [eLon, eLat, degDelta]),
+        pool.query(`
+          SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+          FROM stops s WHERE s.coordinates IS NOT NULL AND s.atco_code LIKE '9100%'
+            AND ABS(s.coordinates[0] - $1) < $3 AND ABS(s.coordinates[1] - $2) < $3
+        `, [eLon, eLat, degDelta])
+      ]);
 
       const busWithDist = busNear.rows.map(r => ({
         ...r, dist: haversineDistance(eLat, eLon, parseFloat(r.lat), parseFloat(r.lon)), mode: 'bus'
@@ -2459,87 +2629,87 @@ app.get('/api/plan', async (req, res) => {
 
     // When start or end IS a rail station, find nearby bus stops so bus searches can work
     // (buses don't stop at rail station ATCO codes like 9100PRST)
-    let busEndCodes = [resolvedEnd]; // ATCO codes to use as bus destination
-    let busStartCodes = [resolvedStart]; // ATCO codes to use as bus origin
-    if (endIsRail) {
-      const nearbyBusStops = await pool.query(`
+    // Run both queries in parallel
+    let busEndCodes = [resolvedEnd];
+    let busStartCodes = [resolvedStart];
+    const [endNearbyBusResult, startNearbyBusResult] = await Promise.all([
+      endIsRail ? pool.query(`
         SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
         FROM stops s
         WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
           AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
           AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
-      `, [parseFloat(endStop.lon), parseFloat(endStop.lat)]);
-      const endBusStops = nearbyBusStops.rows.map(r => ({
+      `, [parseFloat(endStop.lon), parseFloat(endStop.lat)]) : null,
+      startIsRail ? pool.query(`
+        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM stops s
+        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
+          AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
+          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
+      `, [parseFloat(startStop.lon), parseFloat(startStop.lat)]) : null
+    ]);
+    if (endNearbyBusResult) {
+      const endBusStops = endNearbyBusResult.rows.map(r => ({
         ...r, dist: haversineDistance(parseFloat(endStop.lat), parseFloat(endStop.lon), parseFloat(r.lat), parseFloat(r.lon))
       })).filter(r => r.dist <= 1.0).sort((a, b) => a.dist - b.dist).slice(0, 5);
-      if (endBusStops.length > 0) {
-        busEndCodes = endBusStops.map(s => s.atco_code);
-      }
+      if (endBusStops.length > 0) busEndCodes = endBusStops.map(s => s.atco_code);
     }
-    if (startIsRail) {
-      const nearbyBusStops = await pool.query(`
-        SELECT s.atco_code, s.common_name, s.coordinates[0] as lon, s.coordinates[1] as lat
-        FROM stops s
-        WHERE s.coordinates IS NOT NULL AND s.atco_code NOT LIKE '9100%'
-          AND ABS(s.coordinates[0] - $1) < 0.008 AND ABS(s.coordinates[1] - $2) < 0.008
-          AND EXISTS (SELECT 1 FROM bus_journey_stops bjs WHERE bjs.atco_code = s.atco_code LIMIT 1)
-      `, [parseFloat(startStop.lon), parseFloat(startStop.lat)]);
-      const startBusStops = nearbyBusStops.rows.map(r => ({
+    if (startNearbyBusResult) {
+      const startBusStops = startNearbyBusResult.rows.map(r => ({
         ...r, dist: haversineDistance(parseFloat(startStop.lat), parseFloat(startStop.lon), parseFloat(r.lat), parseFloat(r.lon))
       })).filter(r => r.dist <= 1.0).sort((a, b) => a.dist - b.dist).slice(0, 5);
-      if (startBusStops.length > 0) {
-        busStartCodes = startBusStops.map(s => s.atco_code);
-      }
+      if (startBusStops.length > 0) busStartCodes = startBusStops.map(s => s.atco_code);
     }
 
-    // === Strategy 3: Direct train (if both near rail stations) ===
-    let directTrain = [];
-    if (startTiplocs.length > 0 && endTiplocs.length > 0) {
-      const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
-      const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
-      directTrain = await findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, 5);
-    }
+    // === Strategies 3 + 2b + 4: Direct train, rail-adjacent bus, and train connections ===
+    // Run Strategy 3 (direct train) concurrently with Strategy 2b (bus near rail stations)
+    const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
+    const trainDepartAfter = (startTiplocs.length > 0 && endTiplocs.length > 0)
+      ? minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00' : null;
 
-    _mark('directTrain');
-
-    // === Strategy 2b: Direct bus to/from bus stops near rail stations ===
-    // When start or end is a rail station, also search for bus routes to/from nearby bus stops
-    let extraDirectBus = [];
+    // Build all Strategy 2b bus searches as parallel promises
+    const extraBusPromises = [];
     if (endIsRail && busEndCodes.length > 0) {
       for (const busEndCode of busEndCodes) {
-        const extra = await findDirectBusJourneys(resolvedStart, busEndCode, departureTime, dayIndex, 3);
-        extraDirectBus.push(...extra);
+        extraBusPromises.push(findDirectBusJourneys(resolvedStart, busEndCode, departureTime, dayIndex, 3));
       }
     }
     if (startIsRail && busStartCodes.length > 0) {
       for (const busStartCode of busStartCodes) {
-        const extra = await findDirectBusJourneys(busStartCode, resolvedEnd, departureTime, dayIndex, 3);
-        extraDirectBus.push(...extra);
+        extraBusPromises.push(findDirectBusJourneys(busStartCode, resolvedEnd, departureTime, dayIndex, 3));
       }
     }
-    // Also search expanded codes for start (bus) -> end near rail
     if (endIsRail && busEndCodes.length > 0 && startIsRail && busStartCodes.length > 0) {
       for (const busStartCode of busStartCodes) {
         for (const busEndCode of busEndCodes) {
-          const extra = await findDirectBusJourneys(busStartCode, busEndCode, departureTime, dayIndex, 3);
-          extraDirectBus.push(...extra);
+          extraBusPromises.push(findDirectBusJourneys(busStartCode, busEndCode, departureTime, dayIndex, 3));
         }
       }
     }
-    // Deduplicate extra bus results
+
+    // Run Strategy 3 + 2b in parallel
+    const [directTrainResult, ...extraBusResults] = await Promise.all([
+      trainDepartAfter ? findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, 5) : [],
+      ...extraBusPromises
+    ]);
+    let directTrain = directTrainResult;
+
+    // Deduplicate extra bus results from Strategy 2b
     const seenBusJourneys = new Set(directBus.map(b => b.journeyId));
-    for (const bus of extraDirectBus) {
-      if (!seenBusJourneys.has(bus.journeyId)) {
-        seenBusJourneys.add(bus.journeyId);
-        directBus.push(bus);
+    for (const extraBuses of extraBusResults) {
+      for (const bus of extraBuses) {
+        if (!seenBusJourneys.has(bus.journeyId)) {
+          seenBusJourneys.add(bus.journeyId);
+          directBus.push(bus);
+        }
       }
     }
+
+    _mark('directTrain');
 
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
     if (startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
-      const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
-      const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
       trainConnections = await findTrainTrainConnections(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
 
@@ -2553,8 +2723,32 @@ app.get('/api/plan', async (req, res) => {
     {
       const busReachableFromStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 5);
 
+      // Also check nearby walkable bus stops for bus→rail connections in parallel
+      // (the nearest stop may not have routes to rail stations, but a stop 0.5km walk away might)
+      const MAX_WALK_TO_BUS = 15;
+      const nearbyForBusRail = nearbyStartStops.filter(s => s.walk_minutes <= MAX_WALK_TO_BUS).slice(0, 6);
+      const nearbyReachableResults = await Promise.all(
+        nearbyForBusRail.map(async (nearbyStop) => {
+          const reachable = await findBusReachableRailStations(nearbyStop.atco_code, dayIndex, departureTime, 3);
+          return { nearbyStop, reachable };
+        })
+      );
+      const nearbyBusReachable = [];
+      for (const { nearbyStop, reachable } of nearbyReachableResults) {
+        for (const station of reachable) {
+          const isDuplicate = busReachableFromStart.some(s => s.tiploc_code === station.tiploc_code)
+            || nearbyBusReachable.some(s => s.station.tiploc_code === station.tiploc_code);
+          if (!isDuplicate) {
+            nearbyBusReachable.push({ station, walkStop: nearbyStop });
+          }
+        }
+      }
+
       // Pre-fetch coordinates for all bus-reachable stations in one query
-      const stationAtcoCodes = busReachableFromStart.flatMap(s => [s.bus_stop_atco, s.atco_code]);
+      const stationAtcoCodes = [
+        ...busReachableFromStart.flatMap(s => [s.bus_stop_atco, s.atco_code]),
+        ...nearbyBusReachable.flatMap(({ station, walkStop }) => [station.bus_stop_atco, station.atco_code, walkStop.atco_code])
+      ];
       const stationCoordsMap = {};
       if (stationAtcoCodes.length > 0) {
         const uniqueCodes = [...new Set(stationAtcoCodes)];
@@ -2568,15 +2762,9 @@ app.get('/api/plan', async (req, res) => {
         }
       }
 
-      // Merge endTiplocs with any rail stations walkable from end
-      let targetTiplocs = [...endTiplocs];
-      // If end IS a rail station, ensure its TIPLOC is included
-      if (endIsRail) {
-        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedEnd]);
-        if (r.rows.length > 0 && !targetTiplocs.includes(r.rows[0].tiploc_code)) {
-          targetTiplocs.unshift(r.rows[0].tiploc_code);
-        }
-      }
+      // targetTiplocs = endTiplocs (already includes the rail station TIPLOC if endIsRail,
+      // resolved earlier when building endTiplocs from endRailResult)
+      const targetTiplocs = [...endTiplocs];
 
       for (const station of busReachableFromStart) {
         // Skip if this station is the end destination itself (already handled by direct train)
@@ -2615,6 +2803,8 @@ app.get('/api/plan', async (req, res) => {
               if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
                 legs.push({
                   type: 'walk',
+                  fromAtco: station.bus_stop_atco,
+                  toAtco: station.atco_code,
                   fromName: station.bus_stop_name || bus.alightName,
                   toName: station.common_name,
                   duration: walkToStationMins,
@@ -2628,6 +2818,8 @@ app.get('/api/plan', async (req, res) => {
               if (walkFromEnd > 0) {
                 legs.push({
                   type: 'walk',
+                  fromAtco: endRailStations[0].atco_code,
+                  toAtco: endStop.atco_code,
                   fromName: endRailStations[0].common_name,
                   toName: endStop.common_name,
                   duration: walkFromEnd,
@@ -2652,6 +2844,8 @@ app.get('/api/plan', async (req, res) => {
                 if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
                   legs.push({
                     type: 'walk',
+                    fromAtco: station.bus_stop_atco,
+                    toAtco: station.atco_code,
                     fromName: station.bus_stop_name || bus.alightName,
                     toName: station.common_name,
                     duration: walkToStationMins,
@@ -2664,6 +2858,144 @@ app.get('/api/plan', async (req, res) => {
                 if (walkFrom > 0 && !endIsRail) {
                   legs.push({
                     type: 'walk',
+                    fromAtco: walkFromStation.atco_code,
+                    toAtco: endStop.atco_code,
+                    fromName: walkFromStation.common_name,
+                    toName: endStop.common_name,
+                    duration: walkFrom,
+                    distance_km: walkFromStation.walk_km
+                  });
+                }
+
+                multiModal.push({ legs });
+              }
+            }
+          }
+        }
+      }
+
+      // 5b-ext: Walk → Bus → Train from nearby walkable bus stops
+      // When the nearest stop doesn't have routes to rail stations, check nearby stops
+      for (const { station, walkStop } of nearbyBusReachable) {
+        if (station.atco_code === resolvedEnd) continue;
+        if (multiModal.length >= 15) break;
+
+        // Find bus journeys from the nearby walkable stop to the bus stop near this rail station
+        const busLegs = await findDirectBusJourneys(walkStop.atco_code, station.bus_stop_atco, departureTime, dayIndex, 3);
+
+        for (const bus of busLegs) {
+          const busStopCoords = stationCoordsMap[station.bus_stop_atco];
+          const railStopCoords = stationCoordsMap[station.atco_code];
+          let walkToStationMins = 2;
+          if (busStopCoords && railStopCoords) {
+            const walkDist = haversineDistance(
+              busStopCoords.lat, busStopCoords.lon,
+              railStopCoords.lat, railStopCoords.lon
+            );
+            walkToStationMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          }
+
+          const arrivalAtStation = timeToMinutes(bus.alightTime) + walkToStationMins;
+          const trainDepartAfter = minutesToTime(arrivalAtStation) + ':00';
+
+          if (targetTiplocs.length > 0) {
+            const trains = await findDirectTrainJourneys([station.tiploc_code], targetTiplocs, trainDepartAfter, 3);
+
+            for (const train of trains) {
+              const walkFromEnd = endRailStations.length > 0 && !endIsRail ? endRailStations[0].walk_minutes : 0;
+              const legs = [];
+
+              // Add walk from start to the nearby bus stop
+              if (walkStop.walk_minutes > 0) {
+                const walkStopCoords = stationCoordsMap[walkStop.atco_code];
+                legs.push({
+                  type: 'walk',
+                  fromName: startPlaceName || startStop.common_name,
+                  toName: walkStop.common_name,
+                  fromCoords: startPlaceCoords || { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) },
+                  toCoords: walkStopCoords || null,
+                  duration: walkStop.walk_minutes,
+                  distance_km: walkStop.walk_km
+                });
+              }
+
+              legs.push(bus);
+
+              if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
+                legs.push({
+                  type: 'walk',
+                  fromAtco: station.bus_stop_atco,
+                  toAtco: station.atco_code,
+                  fromName: station.bus_stop_name || bus.alightName,
+                  toName: station.common_name,
+                  duration: walkToStationMins,
+                  distance_km: Math.round(walkToStationMins * 0.08 * 100) / 100
+                });
+              }
+
+              legs.push(train);
+
+              if (walkFromEnd > 0) {
+                legs.push({
+                  type: 'walk',
+                  fromAtco: endRailStations[0].atco_code,
+                  toAtco: endStop.atco_code,
+                  fromName: endRailStations[0].common_name,
+                  toName: endStop.common_name,
+                  duration: walkFromEnd,
+                  distance_km: endRailStations[0].walk_km
+                });
+              }
+
+              multiModal.push({ legs });
+            }
+
+            // If no direct trains, try train+train connections
+            if (trains.length === 0) {
+              const trainConns = await findTrainTrainConnections([station.tiploc_code], targetTiplocs, trainDepartAfter, 3);
+              for (const conn of trainConns) {
+                const lastTrainLeg = conn.legs[conn.legs.length - 1];
+                const walkFromStation = endRailStations.find(s => s.tiploc_code === lastTrainLeg.endTiploc)
+                  || endRailStations[0] || null;
+                const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
+
+                const legs = [];
+
+                if (walkStop.walk_minutes > 0) {
+                  const walkStopCoords2 = stationCoordsMap[walkStop.atco_code];
+                  legs.push({
+                    type: 'walk',
+                    fromAtco: walkStop.atco_code,
+                    fromName: startPlaceName || startStop.common_name,
+                    toName: walkStop.common_name,
+                    fromCoords: startPlaceCoords || { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) },
+                    toCoords: walkStopCoords2 || null,
+                    duration: walkStop.walk_minutes,
+                    distance_km: walkStop.walk_km
+                  });
+                }
+
+                legs.push(bus);
+
+                if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
+                  legs.push({
+                    type: 'walk',
+                    fromAtco: station.bus_stop_atco,
+                    toAtco: station.atco_code,
+                    fromName: station.bus_stop_name || bus.alightName,
+                    toName: station.common_name,
+                    duration: walkToStationMins,
+                    distance_km: Math.round(walkToStationMins * 0.08 * 100) / 100
+                  });
+                }
+
+                legs.push(...conn.legs);
+
+                if (walkFrom > 0 && !endIsRail) {
+                  legs.push({
+                    type: 'walk',
+                    fromAtco: walkFromStation.atco_code,
+                    toAtco: endStop.atco_code,
                     fromName: walkFromStation.common_name,
                     toName: endStop.common_name,
                     duration: walkFrom,
@@ -2683,13 +3015,8 @@ app.get('/api/plan', async (req, res) => {
     {
       const busReachableFromEnd = await findBusReachableRailStations(resolvedEnd, dayIndex, '00:00:00', 5);
 
-      let sourceTiplocs = [...startTiplocs];
-      if (startIsRail) {
-        const r = await pool.query('SELECT tiploc_code FROM national_rail WHERE atco_code = $1', [resolvedStart]);
-        if (r.rows.length > 0 && !sourceTiplocs.includes(r.rows[0].tiploc_code)) {
-          sourceTiplocs.unshift(r.rows[0].tiploc_code);
-        }
-      }
+      // sourceTiplocs = startTiplocs (already includes rail station TIPLOC if startIsRail)
+      const sourceTiplocs = [...startTiplocs];
 
       // Also try bus-reachable stations from start as source TIPLOCs
       // (in case start isn't within walking distance of a station)
@@ -2734,6 +3061,8 @@ app.get('/api/plan', async (req, res) => {
               if (walkToStart > 0) {
                 legs.push({
                   type: 'walk',
+                  fromAtco: startStop.atco_code,
+                  toAtco: startRailStations[0].atco_code,
                   fromName: startStop.common_name,
                   toName: startRailStations[0].common_name,
                   duration: walkToStart,
@@ -2747,6 +3076,8 @@ app.get('/api/plan', async (req, res) => {
               if (endStation.bus_stop_atco !== endStation.atco_code) {
                 legs.push({
                   type: 'walk',
+                  fromAtco: endStation.atco_code,
+                  toAtco: endStation.bus_stop_atco,
                   fromName: endStation.common_name,
                   toName: endStation.bus_stop_name || 'Bus stop',
                   duration: 3,
@@ -2762,129 +3093,8 @@ app.get('/api/plan', async (req, res) => {
       }
     }
 
-    // 5d: Walk-based multi-modal (original logic for walkable rail stations)
-    if ((startRailStations.length > 0 || endRailStations.length > 0) && multiModal.length < 10) {
-      // Try: walk to rail station, train, then bus from end station
-      for (const endStation of endRailStations.slice(0, 2)) {
-        if (startTiplocs.length === 0) continue;
-        
-        const walkToStart = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
-        const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStart) + ':00';
-        
-        const trains = await findDirectTrainJourneys(startTiplocs, [endStation.tiploc_code], trainDepartAfter, 3);
-        
-        for (const train of trains) {
-          const arrivalMins = timeToMinutes(train.alightTime) + endStation.walk_minutes;
-          const busAfter = minutesToTime(arrivalMins) + ':00';
-          
-          let busLegs = await findDirectBusJourneys(endStation.atco_code, resolvedEnd, busAfter, dayIndex, 2);
-          if (busLegs.length === 0 && endIsRail && busEndCodes.length > 0) {
-            for (const busEndCode of busEndCodes) {
-              const extra = await findDirectBusJourneys(endStation.atco_code, busEndCode, busAfter, dayIndex, 2);
-              busLegs.push(...extra);
-              if (busLegs.length >= 2) break;
-            }
-          }
-          
-          for (const bus of busLegs) {
-            multiModal.push({
-              legs: [
-                ...(walkToStart > 0 ? [{
-                  type: 'walk',
-                  fromName: startStop.common_name,
-                  toName: startRailStations[0].common_name,
-                  duration: walkToStart,
-                  distance_km: startRailStations[0].walk_km
-                }] : []),
-                train,
-                ...(endStation.walk_minutes > 2 ? [{
-                  type: 'walk',
-                  fromName: endStation.common_name,
-                  toName: 'Bus stop',
-                  duration: endStation.walk_minutes,
-                  distance_km: endStation.walk_km
-                }] : []),
-                bus
-              ]
-            });
-          }
-        }
-      }
-
-      // Try: bus from start → walk-reachable rail station, then train (direct or with connection)
-      for (const startStation of startRailStations.slice(0, 2)) {
-        if (endTiplocs.length === 0) continue;
-
-        const nearStart = await findNearbyBusStops(startStation.atco_code, 1.0);
-        for (const nearStop of nearStart.slice(0, 3)) {
-          const busLegs = await findDirectBusJourneys(resolvedStart, nearStop.atco_code, departureTime, dayIndex, 2);
-          
-          for (const bus of busLegs) {
-            const arrivalMins = timeToMinutes(bus.alightTime) + 3;
-            const trainAfter = minutesToTime(arrivalMins) + ':00';
-            
-            // Try direct trains first
-            const trains = await findDirectTrainJourneys([startStation.tiploc_code], endTiplocs, trainAfter, 2);
-            
-            for (const train of trains) {
-              const walkFromEnd = endRailStations.length > 0 ? endRailStations[0].walk_minutes : 0;
-              multiModal.push({
-                legs: [
-                  bus,
-                  {
-                    type: 'walk',
-                    fromName: nearStop.common_name,
-                    toName: startStation.common_name,
-                    duration: nearStop.walk_minutes,
-                    distance_km: nearStop.walk_km
-                  },
-                  train,
-                  ...(walkFromEnd > 0 && !endIsRail ? [{
-                    type: 'walk',
-                    fromName: endRailStations[0].common_name,
-                    toName: endStop.common_name,
-                    duration: walkFromEnd,
-                    distance_km: endRailStations[0].walk_km
-                  }] : [])
-                ]
-              });
-            }
-
-            // If no direct trains found, try train+train connections (e.g. bus→train→transfer→train)
-            if (trains.length === 0) {
-              const trainConns = await findTrainTrainConnections([startStation.tiploc_code], endTiplocs, trainAfter, 3);
-              for (const conn of trainConns) {
-                const lastTrainLeg = conn.legs[conn.legs.length - 1];
-                const walkFromStation = endRailStations.find(s => s.tiploc_code === lastTrainLeg.endTiploc)
-                  || endRailStations[0] || null;
-                const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
-
-                multiModal.push({
-                  legs: [
-                    bus,
-                    {
-                      type: 'walk',
-                      fromName: nearStop.common_name,
-                      toName: startStation.common_name,
-                      duration: nearStop.walk_minutes,
-                      distance_km: nearStop.walk_km
-                    },
-                    ...conn.legs,
-                    ...(walkFrom > 0 && !endIsRail ? [{
-                      type: 'walk',
-                      fromName: walkFromStation.common_name,
-                      toName: endStop.common_name,
-                      duration: walkFrom,
-                      distance_km: walkFromStation.walk_km
-                    }] : [])
-                  ]
-                });
-              }
-            }
-          }
-        }
-      }
-    }
+    // Strategy 5d removed: was redundant with 5b/5c and added ~30-40 sequential DB queries.
+    // All bus→train and train→bus patterns are covered by 5b, 5b-ext, and 5c.
 
     _mark('multiModal');
 
@@ -2893,31 +3103,17 @@ app.get('/api/plan', async (req, res) => {
     // via a nearby stop may offer a faster or more frequent alternative.
     let busTransfers = [];
     {
-      let startCodes = await expandStopCode(resolvedStart);
-      let endCodes = await expandStopCode(resolvedEnd);
-      // Include nearby walkable bus stops in the transfer search
-      // so users can walk to a different stop to catch a connecting service
-      for (const stop of nearbyStartStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
-        const expanded = await expandStopCode(stop.atco_code);
-        startCodes = [...new Set([...startCodes, ...expanded])];
-      }
-      for (const stop of nearbyEndStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
-        const expanded = await expandStopCode(stop.atco_code);
-        endCodes = [...new Set([...endCodes, ...expanded])];
-      }
-      // When start/end is a rail station, include nearby bus stops in the transfer search
-      if (startIsRail && busStartCodes.length > 0) {
-        for (const code of busStartCodes) {
-          const expanded = await expandStopCode(code);
-          startCodes = [...new Set([...startCodes, ...expanded])];
-        }
-      }
-      if (endIsRail && busEndCodes.length > 0) {
-        for (const code of busEndCodes) {
-          const expanded = await expandStopCode(code);
-          endCodes = [...new Set([...endCodes, ...expanded])];
-        }
-      }
+      // Parallelize all expandStopCode calls for Strategy 6
+      const nearbyStartFiltered = nearbyStartStops.filter(s => s.walk_minutes <= 15).slice(0, 5);
+      const nearbyEndFiltered = nearbyEndStops.filter(s => s.walk_minutes <= 15).slice(0, 5);
+      const startExpandCodes = [resolvedStart, ...nearbyStartFiltered.map(s => s.atco_code), ...(startIsRail ? busStartCodes : [])];
+      const endExpandCodes = [resolvedEnd, ...nearbyEndFiltered.map(s => s.atco_code), ...(endIsRail ? busEndCodes : [])];
+      const [startExpandResults, endExpandResults] = await Promise.all([
+        Promise.all(startExpandCodes.map(code => expandStopCode(code))),
+        Promise.all(endExpandCodes.map(code => expandStopCode(code)))
+      ]);
+      let startCodes = [...new Set(startExpandResults.flat())];
+      let endCodes = [...new Set(endExpandResults.flat())];
       const sPlaceholders = startCodes.map((_, i) => `$${i + 1}`).join(',');
       const ePlaceholders = endCodes.map((_, i) => `$${startCodes.length + i + 1}`).join(',');
       const dayPos = dayIndex + 1;
@@ -3033,6 +3229,8 @@ app.get('/api/plan', async (req, res) => {
           if (walkMins > 1) {
             legs.unshift({
               type: 'walk',
+              fromAtco: startStop.atco_code,
+              toAtco: bus.boardAtco,
               fromName: startStop.common_name,
               toName: bus.boardName,
               duration: walkMins,
@@ -3055,6 +3253,8 @@ app.get('/api/plan', async (req, res) => {
           if (walkMins > 1) {
             legs.push({
               type: 'walk',
+              fromAtco: bus.alightAtco,
+              toAtco: endStop.atco_code,
               fromName: bus.alightName,
               toName: endStop.common_name,
               duration: walkMins,
@@ -3088,6 +3288,8 @@ app.get('/api/plan', async (req, res) => {
       if (walkStart) {
         legs.push({
           type: 'walk',
+          fromAtco: startStop.atco_code,
+          toAtco: walkStart.atco_code,
           fromName: startStop.common_name,
           toName: walkStart.common_name,
           duration: walkStart.walk_minutes,
@@ -3102,6 +3304,8 @@ app.get('/api/plan', async (req, res) => {
       if (walkEnd) {
         legs.push({
           type: 'walk',
+          fromAtco: walkEnd.atco_code,
+          toAtco: endStop.atco_code,
           fromName: walkEnd.common_name,
           toName: endStop.common_name,
           duration: walkEnd.walk_minutes,
@@ -3142,6 +3346,8 @@ app.get('/api/plan', async (req, res) => {
       if (walkToStation && !startIsRail) {
         legs.push({
           type: 'walk',
+          fromAtco: startStop.atco_code,
+          toAtco: walkToStation.atco_code,
           fromName: startStop.common_name,
           toName: walkToStation.common_name,
           duration: walkTo,
@@ -3152,6 +3358,8 @@ app.get('/api/plan', async (req, res) => {
       if (walkFromStation && !endIsRail) {
         legs.push({
           type: 'walk',
+          fromAtco: walkFromStation.atco_code,
+          toAtco: endStop.atco_code,
           fromName: walkFromStation.common_name,
           toName: endStop.common_name,
           duration: walkFrom,
@@ -3190,6 +3398,8 @@ app.get('/api/plan', async (req, res) => {
       if (walkToStation && !startIsRail) {
         legs.push({
           type: 'walk',
+          fromAtco: startStop.atco_code,
+          toAtco: walkToStation.atco_code,
           fromName: startStop.common_name,
           toName: walkToStation.common_name,
           duration: walkTo,
@@ -3200,6 +3410,8 @@ app.get('/api/plan', async (req, res) => {
       if (walkFromStation && !endIsRail) {
         legs.push({
           type: 'walk',
+          fromAtco: walkFromStation.atco_code,
+          toAtco: endStop.atco_code,
           fromName: walkFromStation.common_name,
           toName: endStop.common_name,
           duration: walkFrom,
@@ -3534,6 +3746,349 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
+// ─── LIVE BUS TRACKING ──────────────────────────────────────────────────────
+
+/**
+ * Known bus operator NOC codes for the Lancashire area.
+ * These are used to fetch live SIRI vehicle positions from the transport API.
+ */
+const BUS_OPERATOR_NOCS = ['SCCU', 'SCNW', 'SCMY', 'ARCT', 'BLAC'];
+
+/**
+ * Parse SIRI VehicleMonitoringDelivery XML into structured JSON vehicles.
+ * Returns an array of vehicle objects with position, route, bearing, etc.
+ */
+function parseSiriVehicles(xmlData) {
+  const xml2js = require('xml2js');
+  return new Promise((resolve, reject) => {
+    xml2js.parseString(xmlData, { explicitArray: false, ignoreAttrs: false }, (err, result) => {
+      if (err) return reject(err);
+      try {
+        const siri = result?.Siri || result?.['Siri'];
+        const delivery = siri?.ServiceDelivery?.VehicleMonitoringDelivery;
+        if (!delivery) return resolve([]);
+
+        let activities = delivery.VehicleActivity;
+        if (!activities) return resolve([]);
+        if (!Array.isArray(activities)) activities = [activities];
+
+        const vehicles = activities.map(activity => {
+          const journey = activity.MonitoredVehicleJourney || {};
+          const loc = journey.VehicleLocation || {};
+          const ext = activity.Extensions?.VehicleJourney || {};
+          return {
+            vehicleRef: journey.VehicleRef || null,
+            vehicleId: ext?.VehicleUniqueId || journey.VehicleRef || null,
+            lineRef: journey.LineRef || null,
+            lineName: journey.PublishedLineName || journey.LineRef || null,
+            operatorRef: journey.OperatorRef || null,
+            directionRef: journey.DirectionRef || null,
+            originRef: journey.OriginRef || null,
+            originName: (journey.OriginName || '').replace(/_/g, ' '),
+            destinationRef: journey.DestinationRef || null,
+            destinationName: (journey.DestinationName || '').replace(/_/g, ' '),
+            aimedDeparture: journey.OriginAimedDepartureTime || null,
+            aimedArrival: journey.DestinationAimedArrivalTime || null,
+            latitude: loc.Latitude ? parseFloat(loc.Latitude) : null,
+            longitude: loc.Longitude ? parseFloat(loc.Longitude) : null,
+            bearing: journey.Bearing ? parseFloat(journey.Bearing) : null,
+            recordedAt: activity.RecordedAtTime || null,
+            validUntil: activity.ValidUntilTime || null,
+            journeyCode: ext?.Operational?.TicketMachine?.JourneyCode || null,
+          };
+        }).filter(v => v.latitude !== null && v.longitude !== null);
+
+        resolve(vehicles);
+      } catch (parseErr) {
+        reject(parseErr);
+      }
+    });
+  });
+}
+
+/**
+ * GET /api/bus/live/route/:routeNumber
+ * Get live buses for a specific route number across all operators.
+ * Must be defined BEFORE /api/bus/live/:noc to avoid "route" matching as a NOC code.
+ */
+app.get('/api/bus/live/route/:routeNumber', async (req, res) => {
+  try {
+    const { routeNumber } = req.params;
+    const https = require('https');
+
+    // Fetch from all operators simultaneously
+    const fetchOperator = (noc) => new Promise((resolve) => {
+      const url = `https://transport.scc.lancs.ac.uk/bus/live/${noc}`;
+      https.get(url, { timeout: 10000 }, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', async () => {
+          try {
+            const vehicles = await parseSiriVehicles(data);
+            resolve(vehicles);
+          } catch {
+            resolve([]);
+          }
+        });
+      }).on('error', () => resolve([]))
+        .on('timeout', function() { this.destroy(); resolve([]); });
+    });
+
+    const results = await Promise.all(BUS_OPERATOR_NOCS.map(fetchOperator));
+    let allVehicles = results.flat();
+
+    // Filter to the requested route number
+    allVehicles = allVehicles.filter(v =>
+      v.lineName === routeNumber || v.lineRef === routeNumber
+    );
+
+    // Deduplicate
+    const seen = new Set();
+    allVehicles = allVehicles.filter(v => {
+      const key = v.vehicleRef || v.vehicleId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    res.json({
+      routeNumber: routeNumber,
+      timestamp: new Date().toISOString(),
+      count: allVehicles.length,
+      vehicles: allVehicles
+    });
+  } catch (err) {
+    console.error('Bus live route endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/bus/live/:noc
+ * Get live GPS positions for all vehicles of a given operator.
+ * Optional query params: ?line=100 (filter by route number)
+ */
+app.get('/api/bus/live/:noc', async (req, res) => {
+  try {
+    const { noc } = req.params;
+    const lineFilter = req.query.line;
+    const https = require('https');
+
+    const url = `https://transport.scc.lancs.ac.uk/bus/live/${noc.toUpperCase()}`;
+
+    https.get(url, { timeout: 10000 }, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', async () => {
+        try {
+          let vehicles = await parseSiriVehicles(data);
+
+          // Filter by line/route if requested
+          if (lineFilter) {
+            vehicles = vehicles.filter(v =>
+              v.lineName === lineFilter || v.lineRef === lineFilter
+            );
+          }
+
+          res.json({
+            operator: noc.toUpperCase(),
+            timestamp: new Date().toISOString(),
+            count: vehicles.length,
+            vehicles: vehicles
+          });
+        } catch (parseErr) {
+          console.error('Failed to parse bus live data:', parseErr);
+          res.status(500).json({ error: 'Failed to parse live bus data' });
+        }
+      });
+    }).on('error', (err) => {
+      console.error('Bus live fetch error:', err);
+      res.status(500).json({ error: `Failed to fetch live data: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(500).json({ error: 'Transport API timed out' });
+    });
+  } catch (err) {
+    console.error('Bus live endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/bus/live
+ * Get live GPS positions for ALL known operators in the Lancashire area.
+ * Optional query params: ?line=100 (filter by route number)
+ */
+app.get('/api/bus/live', async (req, res) => {
+  try {
+    const https = require('https');
+    const lineFilter = req.query.line;
+
+    const fetchOperator = (noc) => new Promise((resolve) => {
+      const url = `https://transport.scc.lancs.ac.uk/bus/live/${noc}`;
+      https.get(url, { timeout: 10000 }, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', async () => {
+          try {
+            const vehicles = await parseSiriVehicles(data);
+            resolve(vehicles);
+          } catch {
+            resolve([]);
+          }
+        });
+      }).on('error', () => resolve([]))
+        .on('timeout', function() { this.destroy(); resolve([]); });
+    });
+
+    const results = await Promise.all(BUS_OPERATOR_NOCS.map(fetchOperator));
+    let allVehicles = results.flat();
+
+    // Deduplicate by vehicleRef (some operators may overlap)
+    const seen = new Set();
+    allVehicles = allVehicles.filter(v => {
+      const key = v.vehicleRef || v.vehicleId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Filter by line/route if requested
+    if (lineFilter) {
+      allVehicles = allVehicles.filter(v =>
+        v.lineName === lineFilter || v.lineRef === lineFilter
+      );
+    }
+
+    // Filter to Lancashire bounding box (roughly)
+    const LANCASHIRE_BOUNDS = {
+      minLat: 53.5, maxLat: 54.2,
+      minLon: -3.1, maxLon: -2.5
+    };
+    allVehicles = allVehicles.filter(v =>
+      v.latitude >= LANCASHIRE_BOUNDS.minLat && v.latitude <= LANCASHIRE_BOUNDS.maxLat &&
+      v.longitude >= LANCASHIRE_BOUNDS.minLon && v.longitude <= LANCASHIRE_BOUNDS.maxLon
+    );
+
+    res.json({
+      operators: BUS_OPERATOR_NOCS,
+      timestamp: new Date().toISOString(),
+      count: allVehicles.length,
+      vehicles: allVehicles
+    });
+  } catch (err) {
+    console.error('Bus live all endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── ROAD / MOTORWAY VMS SIGNS ──────────────────────────────────────────────
+
+/**
+ * GET /api/road/vms
+ * Get Variable Message Sign data for motorways in the Lancashire area.
+ * Returns active messages from signs on the M6, M55, M65 etc.
+ */
+app.get('/api/road/vms', async (req, res) => {
+  try {
+    const https = require('https');
+    const xml2js = require('xml2js');
+
+    const url = 'https://transport.scc.lancs.ac.uk/road/vms';
+
+    https.get(url, { timeout: 15000 }, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', () => {
+        xml2js.parseString(data, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to parse VMS data' });
+          }
+
+          try {
+            const payload = result?.D2Payload;
+            let controllers = payload?.vmsControllerStatus;
+            if (!controllers) return res.json({ signs: [] });
+            if (!Array.isArray(controllers)) controllers = [controllers];
+
+            // Lancashire area roads of interest
+            const LANCASHIRE_ROADS = ['M6', 'M55', 'M65', 'A6', 'A583', 'A585', 'A588', 'A59'];
+
+            const signs = [];
+            for (const ctrl of controllers) {
+              const status = ctrl?.vmsStatus?.vmsStatus;
+              if (!status) continue;
+
+              const ext = status?.vmsStatusExtensionG;
+              if (!ext) continue;
+
+              // Check if the sign is on a Lancashire road
+              const loc = ext?.vmsLocation?.locPointLocation;
+              const desc = loc?.supplementaryPositionalDescription;
+              const roadName = desc?.roadInformation?.roadName || '';
+              const locationDesc = desc?.locationDescription || '';
+
+              // Filter to Lancashire area roads
+              const isLancashireRoad = LANCASHIRE_ROADS.some(road =>
+                roadName.startsWith(road) || locationDesc.includes(road)
+              );
+              if (!isLancashireRoad) continue;
+
+              // Get coordinates
+              const coords = loc?.pointByCoordinates?.pointCoordinates;
+              const lat = coords?.latitude ? parseFloat(coords.latitude) : null;
+              const lon = coords?.longitude ? parseFloat(coords.longitude) : null;
+
+              // Filter by Lancashire bounding box
+              if (lat && lon) {
+                if (lat < 53.5 || lat > 54.2 || lon < -3.2 || lon > -2.4) continue;
+              }
+
+              // Get message info
+              const msg = status?.vmsMessage?.vmsMessage;
+              const messageText = msg?.reasonForSetting || '';
+              const messageType = msg?.messageInformationType || '';
+              const lastSet = msg?.timeLastSet || '';
+
+              signs.push({
+                id: ext?.externalIdentifier || ctrl?.vmsControllerReference?.idG || null,
+                type: ext?.vmsType || null,
+                description: ext?.description || null,
+                road: roadName,
+                location: locationDesc,
+                direction: desc?.supplementaryPositionalDescriptionExtensionG?.direction || null,
+                latitude: lat,
+                longitude: lon,
+                workingStatus: status?.workingStatus?.trim() || null,
+                messageType: messageType,
+                messageText: messageText,
+                lastUpdated: lastSet,
+              });
+            }
+
+            res.json({
+              timestamp: payload?.publicationTime || new Date().toISOString(),
+              count: signs.length,
+              signs: signs
+            });
+          } catch (parseErr) {
+            console.error('VMS parse error:', parseErr);
+            res.status(500).json({ error: 'Failed to parse VMS data' });
+          }
+        });
+      });
+    }).on('error', (err) => {
+      res.status(500).json({ error: `Failed to fetch VMS data: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(504).json({ error: 'VMS API timed out' });
+    });
+  } catch (err) {
+    console.error('VMS endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -3635,7 +4190,7 @@ async function ensureAuthSchema() {
   }
 }
 
-// Start the server only when run directly (not when imported by tests)
+// ── Start server (only when run directly, not when imported by tests) ──
 if (require.main === module) {
   ensureAuthSchema().then(() => {
     app.listen(PORT, () => {
@@ -3646,7 +4201,8 @@ if (require.main === module) {
 
 module.exports = app;
 
-// Export pure utility functions for unit testing
+// ── Re-export pure functions for unit tests ─────────────────────────
+// Tests access these via  app._test.functionName
 module.exports._test = {
   haversineDistance,
   calculateBearing,
@@ -3655,4 +4211,7 @@ module.exports._test = {
   minutesToTime,
   getDayIndex,
   mergeConsecutiveWalkLegs,
+  getStationCoords,
+  parseSiriVehicles,
+  STATION_COORDS,
 };
