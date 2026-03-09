@@ -253,13 +253,28 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,  // fail fast when DB is unavailable (e.g. in CI)
 });
 
+// Prevent unhandled pool errors from crashing the process (e.g. in CI)
+pool.on('error', (err) => {
+  console.error('PostgreSQL pool error (non-fatal):', err.message);
+});
+
 // ─── Session management (server-side, stored in PostgreSQL) ───
+const sessionStore = new PgSession({
+  pool,
+  tableName: 'user_sessions',
+  createTableIfMissing: true,
+  errorLog: (...args) => {
+    // Suppress noisy PgSession errors when DB is unavailable (e.g. CI)
+    if (process.env.NODE_ENV !== 'test') console.error(...args);
+  }
+});
+// Prevent unhandled 'error' events on the store from crashing the process
+sessionStore.on('error', (err) => {
+  console.error('Session store error (non-fatal):', err.message);
+});
+
 app.use(session({
-  store: new PgSession({
-    pool,
-    tableName: 'user_sessions',
-    createTableIfMissing: true
-  }),
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'lancaster-travel-dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
