@@ -3540,10 +3540,107 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
+// ─── Ensure auth tables exist before accepting requests ───
+async function ensureAuthSchema() {
+  try {
+    const tableCheck = await pool.query(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'users'
+      ) AS exists`
+    );
+    if (!tableCheck.rows[0].exists) {
+      console.log('Auth tables not found – creating them now...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          first_name VARCHAR(100) NOT NULL,
+          last_name VARCHAR(100) NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          email_verified BOOLEAN DEFAULT FALSE,
+          points INTEGER DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+        CREATE TABLE IF NOT EXISTS email_verification_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_email_verification_token ON email_verification_tokens(token);
+
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          used BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+
+        CREATE TABLE IF NOT EXISTS point_transactions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          points INTEGER NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_point_transactions_user ON point_transactions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_point_transactions_created ON point_transactions(created_at);
+
+        CREATE TABLE IF NOT EXISTS user_sessions (
+          sid VARCHAR NOT NULL COLLATE "default",
+          sess JSON NOT NULL,
+          expire TIMESTAMP(6) NOT NULL,
+          PRIMARY KEY (sid)
+        );
+        CREATE INDEX IF NOT EXISTS idx_session_expire ON user_sessions(expire);
+
+        CREATE TABLE IF NOT EXISTS rewards (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          points_cost INTEGER NOT NULL,
+          active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS redeemed_rewards (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          reward_id INTEGER NOT NULL REFERENCES rewards(id) ON DELETE CASCADE,
+          redeemed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        INSERT INTO rewards (name, description, points_cost) VALUES
+          ('10% Off Next Ticket', 'Get 10% discount on your next bus or train ticket', 100),
+          ('Free Day Pass', 'A free day pass for unlimited bus travel in the Lancashire area', 500),
+          ('Priority Seat Booking', 'Book a priority seat on your next journey', 50),
+          ('Monthly Pass Discount', 'Get £5 off a monthly travel pass', 250)
+        ON CONFLICT DO NOTHING;
+      `);
+      console.log('✓ Auth tables created successfully');
+    } else {
+      console.log('Auth tables verified');
+    }
+  } catch (err) {
+    console.error('Failed to ensure auth schema (will retry on next request):', err.message);
+  }
+}
+
 // Start the server only when run directly (not when imported by tests)
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  ensureAuthSchema().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
   });
 }
 

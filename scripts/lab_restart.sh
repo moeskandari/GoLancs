@@ -101,7 +101,7 @@ sleep 8
 echo "  ✓ Containers started and initialized"
 echo ""
 
-# Step 8: Verify containers are healthy
+# Step 8: Verify containers are healthy and apply auth schema
 echo "Step 8: Verifying container health..."
 if podman ps | grep -q ${PROJECT_NAME}db; then
   if podman exec -t ${PROJECT_NAME}db pg_isready -U postgres > /dev/null 2>&1; then
@@ -110,6 +110,11 @@ if podman ps | grep -q ${PROJECT_NAME}db; then
     echo "  ⚠ Database not responding yet, waiting..."
     sleep 5
   fi
+
+  # Always apply auth schema to ensure auth tables exist
+  echo "  Applying auth schema..."
+  podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < "${REPO_ROOT}/postgres/auth_schema.sql" > /dev/null 2>&1
+  echo "  ✓ Auth schema applied"
 fi
 
 if podman ps | grep -q ${PROJECT_NAME}-backend; then
