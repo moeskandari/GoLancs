@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import './SearchBar.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';

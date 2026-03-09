@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
@@ -66,7 +66,7 @@ function App() {
   const [authView, setAuthView] = useState(null);
   const [resetToken, setResetToken] = useState(null);
   const [verifyToken, setVerifyToken] = useState(null);
-  const { isLoggedIn, loading: authLoading } = useAuth();
+  const { isLoggedIn } = useAuth();
 
   // Check URL for verification or reset tokens on mount
   useEffect(() => {
