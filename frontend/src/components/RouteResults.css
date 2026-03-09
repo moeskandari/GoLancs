@@ -11,7 +11,51 @@
   z-index: 1100;
   overflow-y: auto;
   padding: 16px;
+  padding-top: 0;
   transition: max-height 0.3s ease;
+}
+
+/* ===== Toggle / minimize button ===== */
+.route-results-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 0 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toggle-handle {
+  width: 36px;
+  height: 4px;
+  background: #ccc;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+.route-results-toggle:hover .toggle-handle {
+  background: #999;
+}
+
+.minimized-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2196F3;
+}
+
+/* ===== Minimized state ===== */
+.route-results.minimized {
+  max-height: 52px;
+  overflow: hidden;
+  padding: 0 16px;
+}
+
+.route-results.minimized .route-results-toggle {
+  padding: 12px 0;
 }
 
 /* ===== Header ===== */
@@ -61,6 +105,8 @@
   background: #f8f9fa;
   cursor: pointer;
   font-weight: 500;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
 }
 
 /* ===== Route List ===== */
@@ -83,6 +129,12 @@
 .route-card:hover {
   background: #eef4ff;
   border-color: #c0d8ff;
+}
+
+.route-card:active {
+  background: #dce8ff;
+  border-color: #90bfff;
+  transform: scale(0.99);
 }
 
 .route-card.selected {
@@ -350,12 +402,39 @@
   line-height: 1.5;
 }
 
+/* (Toggle button replaces the old ::before drag handle) */
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .route-results {
-    max-height: 55vh;
+    max-height: 40vh;
     padding: 12px;
+    padding-top: 0;
     bottom: 60px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Panel itself doesn't scroll */
+  }
+
+  .route-results.minimized {
+    max-height: 48px;
+    padding: 0 12px;
+  }
+
+  /* Keep header fixed at top of panel */
+  .results-header {
+    flex-shrink: 0;
+  }
+
+  /* Route list scrolls independently */
+  .route-list,
+  .no-routes {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+    padding-bottom: 8px;
   }
 
   .departure, .arrival {
@@ -374,6 +453,58 @@
 
   .timeline-connector {
     width: 30px;
+  }
+
+  .leg-content {
+    padding-bottom: 10px;
+  }
+
+  .route-expanded {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+}
+
+/* Very small screens: further reduce panel to keep map visible */
+@media (max-width: 480px) {
+  .route-results {
+    max-height: 35vh;
+    padding: 10px;
+    padding-top: 0;
+    bottom: 55px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .route-results.minimized {
+    max-height: 46px;
+    padding: 0 10px;
+  }
+
+  .results-title {
+    font-size: 15px;
+  }
+
+  .results-meta {
+    font-size: 12px;
+  }
+
+  .departure, .arrival {
+    font-size: 16px;
+  }
+
+  .route-duration {
+    font-size: 13px;
+    padding: 2px 8px;
+  }
+
+  .mode-chip {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .sort-select {
+    font-size: 12px;
+    padding: 4px 8px;
   }
 }
 
@@ -409,6 +540,12 @@
   background: #fff3e0;
   border-color: #e65100;
   transform: scale(1.03);
+}
+
+.track-btn:active {
+  background: #ffe0b2;
+  border-color: #bf360c;
+  transform: scale(0.97);
 }
 
 .track-btn.tracking {

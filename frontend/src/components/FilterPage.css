@@ -47,6 +47,11 @@
   background: #e3f2fd;
 }
 
+.filter-back-btn:active {
+  background: #bbdefb;
+  transform: scale(0.95);
+}
+
 .filter-page-title {
   font-size: 20px;
   font-weight: 700;
@@ -63,6 +68,9 @@
 .filter-body {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -112,6 +120,12 @@
 .filter-option-btn:hover {
   border-color: #90caf9;
   background: #f0f7ff;
+}
+
+.filter-option-btn:active {
+  border-color: #64b5f6;
+  background: #e3eeff;
+  transform: scale(0.98);
 }
 
 /* Selected / highlighted state */
@@ -174,10 +188,19 @@
 }
 
 .filter-submit-btn:active {
-  transform: translateY(0);
+  background: #1565c0;
+  transform: scale(0.97);
 }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  .filter-page {
+    /* Ensure full-screen with safe area insets */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @media (max-width: 480px) {
   .filter-top-bar {
     padding: 12px 14px;
