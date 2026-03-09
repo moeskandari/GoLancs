@@ -149,7 +149,6 @@
 
 .auth-submit-btn:active:not(:disabled) {
   transform: translateY(0);
-.auth-submit-btn:active {
   background: #1565c0;
   transform: scale(0.98);
 }
