@@ -1,16 +1,17 @@
 #!/bin/bash
 
-# Lancaster Travel Routes - Lab Machine Restart Script
+# Lancaster Travel Routes - Lab Machine Restart Script (Optimised)
 # Complete restart: stops containers, backs up database, rebuilds, restarts everything
 # Usage: ./scripts/lab_restart.sh
 #
-# This script handles the lab machine restart scenario:
-# 1. Backup current database (if running)
-# 2. Stop all containers
-# 3. Remove old containers
-# 4. Rebuild container images
-# 5. Start database, wait for healthy, restore backup
-# 6. Start backend and frontend with correct port mappings
+# Speed optimisations over the original:
+#   - Parallel container stops with reduced timeout (saves ~25s)
+#   - Parallel frontend + backend image builds (saves build time of the faster one)
+#   - DB restore file prep runs concurrently with image builds
+#   - postgres image uses --pull=missing to skip registry checks
+#   - Hard sleeps replaced with active health polling (saves ~5s)
+#   - Health check interval reduced from 10s to 5s for faster DB readiness
+#   - Total time printed at end for benchmarking
 #
 # Ports:
 #   Frontend:  http://localhost:5001
@@ -23,66 +24,97 @@ PROJECT_NAME="group1"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_FILE="${REPO_ROOT}/postgres/group1db_backup.sql"
 NETWORK_NAME="scc200_${PROJECT_NAME}-net"
+START_TIME=$(date +%s)
 
 echo "================================"
-echo "Lab Machine Restart Sequence"
+echo "Lab Machine Restart (Optimised)"
 echo "================================"
 echo ""
 
 # Step 1: Backup existing database (if container running)
 echo "Step 1: Backing up current database..."
-if podman ps | grep -q ${PROJECT_NAME}db; then
+if podman ps --format '{{.Names}}' 2>/dev/null | grep -q "^${PROJECT_NAME}db$"; then
   echo "  Database running - creating backup..."
   podman exec -t ${PROJECT_NAME}db pg_dumpall -c -U postgres > "${BACKUP_FILE}" 2>/dev/null || true
-  echo "  ✓ Database backed up to ${BACKUP_FILE}"
+  echo "  ✓ Database backed up"
 else
   echo "  No running database container found - skipping backup"
 fi
 echo ""
 
-# Step 2: Stop and remove all containers
-echo "Step 2: Stopping and removing containers..."
+# Step 2: Stop and remove all containers IN PARALLEL with short timeout
+# Original: sequential stops with 10s default timeout each = up to 30s
+# Optimised: parallel stops with 2s timeout = ~2s total
+echo "Step 2: Stopping and removing containers (parallel, 2s timeout)..."
 for ctr in ${PROJECT_NAME}-frontend ${PROJECT_NAME}-backend ${PROJECT_NAME}db; do
-  podman stop "$ctr" 2>/dev/null || true
-  podman rm -f "$ctr" 2>/dev/null || true
+  ( podman stop -t 2 "$ctr" 2>/dev/null; podman rm -f "$ctr" 2>/dev/null ) &
 done
+wait
 echo "  ✓ Old containers removed"
 echo ""
 
 # Step 3: Ensure network exists
 echo "Step 3: Setting up network..."
-if ! podman network exists "${NETWORK_NAME}" 2>/dev/null; then
-  podman network create "${NETWORK_NAME}" 2>/dev/null || true
-fi
+podman network exists "${NETWORK_NAME}" 2>/dev/null || podman network create "${NETWORK_NAME}" 2>/dev/null || true
 echo "  ✓ Network '${NETWORK_NAME}' ready"
 echo ""
 
-# Step 4: Rebuild application images
-echo "Step 4: Rebuilding application images..."
-podman build -t localhost/${PROJECT_NAME}-backend:latest "${REPO_ROOT}/backend"
-podman build -t localhost/${PROJECT_NAME}-frontend:latest "${REPO_ROOT}/frontend"
-echo "  ✓ Application images rebuilt"
-echo ""
+# Step 4: Rebuild images IN PARALLEL + prepare DB restore files concurrently
+echo "Step 4: Rebuilding images (parallel) + preparing DB files..."
 
-# Step 5: Prepare database restore files
-echo "Step 5: Preparing database restore files..."
-if [ -f "$BACKUP_FILE" ]; then
-  awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
-    "$BACKUP_FILE" > /tmp/group1db_backup.sql 2>/dev/null || true
-  chmod 644 /tmp/group1db_backup.sql 2>/dev/null || true
-  echo "  ✓ Backup file prepared ($(du -h /tmp/group1db_backup.sql 2>/dev/null | cut -f1 || echo 'unknown size'))"
+# --- Background job: prepare database restore files ---
+(
+  if [ -f "$BACKUP_FILE" ]; then
+    awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
+      "$BACKUP_FILE" > /tmp/group1db_backup.sql 2>/dev/null || true
+    chmod 644 /tmp/group1db_backup.sql 2>/dev/null || true
+  else
+    touch /tmp/group1db_backup.sql
+  fi
+  cp "${REPO_ROOT}/postgres/post_restore.sql" /tmp/post_restore.sql 2>/dev/null || true
+  chmod 644 /tmp/post_restore.sql 2>/dev/null || true
+) &
+DB_PREP_PID=$!
+
+# --- Background job: build backend image ---
+echo "  Building backend..."
+podman build -q -t localhost/${PROJECT_NAME}-backend:latest "${REPO_ROOT}/backend" > /tmp/build_backend.log 2>&1 &
+BACKEND_BUILD_PID=$!
+
+# --- Background job: build frontend image ---
+echo "  Building frontend..."
+podman build -q -t localhost/${PROJECT_NAME}-frontend:latest "${REPO_ROOT}/frontend" > /tmp/build_frontend.log 2>&1 &
+FRONTEND_BUILD_PID=$!
+
+# Wait for DB file prep (usually instant)
+wait $DB_PREP_PID
+echo "  ✓ DB restore files prepared"
+
+# Wait for builds and report results
+BUILDS_OK=true
+if wait $BACKEND_BUILD_PID; then
+  echo "  ✓ Backend image built"
 else
-  echo "  ⚠ No backup file found - will start with empty database"
-  touch /tmp/group1db_backup.sql
+  echo "  ✗ Backend build FAILED - check /tmp/build_backend.log"
+  BUILDS_OK=false
 fi
 
-cp "${REPO_ROOT}/postgres/post_restore.sql" /tmp/post_restore.sql 2>/dev/null || true
-chmod 644 /tmp/post_restore.sql 2>/dev/null || true
-echo "  ✓ Schema migration scripts prepared"
+if wait $FRONTEND_BUILD_PID; then
+  echo "  ✓ Frontend image built"
+else
+  echo "  ✗ Frontend build FAILED - check /tmp/build_frontend.log"
+  BUILDS_OK=false
+fi
+
+if [ "$BUILDS_OK" = false ]; then
+  echo ""
+  echo "ERROR: One or more builds failed. Aborting."
+  exit 1
+fi
 echo ""
 
-# Step 6: Start database container
-echo "Step 6: Starting database..."
+# Step 5: Start database container (--pull=missing skips registry check if image cached)
+echo "Step 5: Starting database..."
 podman run -d --name ${PROJECT_NAME}db \
   --network "${NETWORK_NAME}" \
   -e POSTGRES_USER=postgres \
@@ -93,16 +125,17 @@ podman run -d --name ${PROJECT_NAME}db \
   -v /tmp/group1db_backup.sql:/docker-entrypoint-initdb.d/01_restore.sql:ro \
   -v /tmp/post_restore.sql:/docker-entrypoint-initdb.d/02_post_restore.sql:ro \
   --health-cmd "pg_isready -U postgres" \
-  --health-interval 10s \
-  --health-timeout 5s \
+  --health-interval 5s \
+  --health-timeout 3s \
   --health-retries 5 \
   --restart unless-stopped \
+  --pull missing \
   docker.io/library/postgres:16-alpine
 
 echo "  Waiting for database to become healthy..."
 for i in $(seq 1 30); do
   if podman exec ${PROJECT_NAME}db pg_isready -U postgres > /dev/null 2>&1; then
-    echo "  ✓ Database ready"
+    echo "  ✓ Database ready (${i}s)"
     break
   fi
   if [ "$i" -eq 30 ]; then
@@ -117,8 +150,8 @@ podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < "${REPO_ROOT}/po
 echo "  ✓ Auth schema applied"
 echo ""
 
-# Step 7: Start backend container
-echo "Step 7: Starting backend (port 5000)..."
+# Step 6: Start backend and frontend containers
+echo "Step 6: Starting backend (port 5000) + frontend (port 5001)..."
 podman run -d --name ${PROJECT_NAME}-backend \
   --network "${NETWORK_NAME}" \
   -e PORT=5000 \
@@ -132,24 +165,37 @@ podman run -d --name ${PROJECT_NAME}-backend \
   --restart unless-stopped \
   localhost/${PROJECT_NAME}-backend:latest
 
-sleep 3
-echo "  ✓ Backend started"
-echo ""
-
-# Step 8: Start frontend container
-echo "Step 8: Starting frontend (port 5001)..."
 podman run -d --name ${PROJECT_NAME}-frontend \
   --network "${NETWORK_NAME}" \
   -p 5001:3000 \
   --restart unless-stopped \
   localhost/${PROJECT_NAME}-frontend:latest
 
-sleep 2
-echo "  ✓ Frontend started"
+# Poll for backend health instead of blind sleep (max 15s)
+echo "  Waiting for backend..."
+for i in $(seq 1 15); do
+  if curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+    echo "  ✓ Backend healthy (${i}s)"
+    break
+  fi
+  [ "$i" -eq 15 ] && echo "  ⚠ Backend not responding yet - may still be starting"
+  sleep 1
+done
+
+# Poll for frontend (max 10s)
+echo "  Waiting for frontend..."
+for i in $(seq 1 10); do
+  if curl -sf http://localhost:5001 > /dev/null 2>&1; then
+    echo "  ✓ Frontend healthy (${i}s)"
+    break
+  fi
+  [ "$i" -eq 10 ] && echo "  ⚠ Frontend not responding yet - may still be starting"
+  sleep 1
+done
 echo ""
 
-# Step 9: Verify everything is working
-echo "Step 9: Verifying services..."
+# Step 7: Verify everything is working
+echo "Step 7: Verifying services..."
 echo ""
 
 podman ps --format "  {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep ${PROJECT_NAME}
@@ -170,10 +216,12 @@ echo ""
 TABLE_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c \
   "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null | xargs || echo "0")
 echo "  Database tables: ${TABLE_COUNT}"
-echo ""
 
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+echo ""
 echo "================================"
-echo "✓ Lab Restart Complete!"
+echo "✓ Lab Restart Complete! (${ELAPSED}s)"
 echo "================================"
 echo ""
 echo "Services available at:"
