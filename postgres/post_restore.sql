@@ -182,7 +182,20 @@ CREATE INDEX IF NOT EXISTS idx_bus_journeys_operator ON public.bus_journeys(oper
 -- Stop code prefix index for expandStopCode lookups
 CREATE INDEX IF NOT EXISTS idx_stops_atco_prefix ON public.stops(substring(atco_code from 1 for 7));
 
+-- Rail schedule indexes (schedule_points can have 20k+ rows with multi-way self-joins)
+CREATE INDEX IF NOT EXISTS idx_sp_tiploc ON public.schedule_points(tiploc_code);
+CREATE INDEX IF NOT EXISTS idx_sp_train_uid ON public.schedule_points(train_uid);
+CREATE INDEX IF NOT EXISTS idx_sp_departure ON public.schedule_points(departure_time);
+CREATE INDEX IF NOT EXISTS idx_sp_train_seq ON public.schedule_points(train_uid, sequence_order);
+CREATE INDEX IF NOT EXISTS idx_sp_tiploc_train ON public.schedule_points(tiploc_code, train_uid);
+
+-- National rail lookup indexes
+CREATE INDEX IF NOT EXISTS idx_nr_atco ON public.national_rail(atco_code);
+CREATE INDEX IF NOT EXISTS idx_nr_crs ON public.national_rail(crs_code);
+
 -- Run ANALYZE so the query planner uses the new indexes effectively
 ANALYZE public.bus_journey_stops;
 ANALYZE public.bus_journeys;
 ANALYZE public.stops;
+ANALYZE public.schedule_points;
+ANALYZE public.national_rail;

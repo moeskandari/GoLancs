@@ -277,12 +277,15 @@ router.get('/api/plan', async (req, res) => {
     _mark('init');
 
     // === Strategy 1 & 2: Parallel searches ===
+    // Scale limits based on direct distance – longer journeys need more results
+    const busLimit = directDistance > 10 ? 10 : 5;
+    const nearbyRadius = directDistance > 10 ? 1.5 : 1.0;
     const [directBus, startRailStations, endRailStations, nearbyStartStops, nearbyEndStops] = await Promise.all([
-      findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, 5),
+      findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, busLimit),
       findNearbyRailStations(resolvedStart, 5.0),
       findNearbyRailStations(resolvedEnd, 5.0),
-      findNearbyBusStops(resolvedStart, 1.0),
-      findNearbyBusStops(resolvedEnd, 1.0)
+      findNearbyBusStops(resolvedStart, nearbyRadius),
+      findNearbyBusStops(resolvedEnd, nearbyRadius)
     ]);
     _mark('directBus+nearbyRail');
 
@@ -362,13 +365,16 @@ router.get('/api/plan', async (req, res) => {
     }
 
     // === Strategy 3: Direct train ===
+    // Only search for trains if the journey is long enough to warrant it (> 3km)
+    const useTrainStrategies = directDistance > 3.0;
     let directTrain = [];
-    if (startTiplocs.length > 0 && endTiplocs.length > 0) {
+    if (useTrainStrategies && startTiplocs.length > 0 && endTiplocs.length > 0) {
       const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
       const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
       directTrain = await findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
     _mark('directTrain');
+    _checkTimeout();
 
     // === Strategy 2b: Direct bus to/from bus stops near rail stations ===
     let extraDirectBus = [];
@@ -402,16 +408,18 @@ router.get('/api/plan', async (req, res) => {
 
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
-    if (startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
+    if (useTrainStrategies && startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
       const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
       const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
       trainConnections = await findTrainTrainConnections(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
     _mark('trainConnections');
+    _checkTimeout();
 
     // === Strategy 5: Multi-modal (bus+train, train+bus) ===
-    _checkTimeout();
     let multiModal = [];
+
+    if (useTrainStrategies) {
 
     // 5b: Bus → Train
     {
@@ -622,6 +630,7 @@ router.get('/api/plan', async (req, res) => {
         }
       }
     }
+    } // end useTrainStrategies guard
     _mark('multiModal');
 
     // === Strategy 6: Bus → Bus transfer ===
@@ -935,20 +944,32 @@ router.get('/api/plan', async (req, res) => {
     // === Filter unreasonable routes ===
     const reasonableMinMinutes = Math.max(directDistance * 2, 15);
     const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
-    const maxWalkLegMinutes = 30;
+    // Scale max walk leg with journey distance: 15 min for short trips, up to 40 min for long ones
+    const maxWalkLegMinutes = Math.min(40, Math.max(15, Math.ceil(directDistance * 1.5)));
     const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / 0.08)) : null;
     const filteredRoutes = allRoutes.filter(r => {
-      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) return false;
+      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) {
+        console.log(`[FILTER] ${r.id}: REJECTED duration=${r.durationMinutes}min (max=${maxReasonableDuration})`);
+        return false;
+      }
       if (r.id !== 'walk-only') {
         const walkLegs = r.legs.filter(l => l.type === 'walk');
         const maxWalk = Math.max(...walkLegs.map(l => l.duration || 0), 0);
-        if (maxWalk > maxWalkLegMinutes) return false;
+        if (maxWalk > maxWalkLegMinutes) {
+          console.log(`[FILTER] ${r.id}: REJECTED maxWalk=${maxWalk}min (limit=${maxWalkLegMinutes})`);
+          return false;
+        }
       }
+      // Only apply walk-vs-transit comparison for short walkable distances
       if (walkOnlyDuration !== null && r.id !== 'walk-only') {
-        if (r.durationMinutes > walkOnlyDuration * 2) return false;
+        if (r.durationMinutes > walkOnlyDuration * 2.5) {
+          console.log(`[FILTER] ${r.id}: REJECTED slower than 2.5x walking (${r.durationMinutes} vs ${walkOnlyDuration * 2.5})`);
+          return false;
+        }
       }
       return true;
     });
+    console.log(`[FILTER] directDist=${directDistance.toFixed(1)}km maxWalk=${maxWalkLegMinutes}min maxDuration=${maxReasonableDuration}min | ${allRoutes.length} candidates → ${filteredRoutes.length} after filter`);
 
     // === Deduplicate ===
     const uniqueRoutes = [];
