@@ -334,6 +334,42 @@
   min-width: 40px;
 }
 
+/* Departure time: highlighted green pill */
+.stop-time.depart-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 8px;
+  padding: 1px 7px 1px 5px;
+  min-width: unset;
+  color: #1b5e20;
+}
+
+.depart-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #388e3c;
+  margin-right: 1px;
+}
+
+.arrive-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #888;
+  margin-right: 1px;
+}
+
+.stop-time-placeholder {
+  min-width: 40px;
+  display: inline-block;
+}
+
 .stop-name {
   font-size: 13px;
   color: #444;
@@ -363,11 +399,107 @@
   margin-left: 2px;
 }
 
+/* ===== Wait Badge (between non-transfer legs) ===== */
+.wait-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px 0 4px 0;
+}
+
+.wait-badge-spacer {
+  width: 36px;
+  flex-shrink: 0;
+  /* aligns the pill with the leg content, under the timeline line */
+}
+
+.wait-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0f4ff;
+  border: 1.5px dashed #aac0e8;
+  border-radius: 10px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #2d4e8a;
+}
+
+.wait-badge-icon {
+  font-size: 13px;
+}
+
+.wait-badge-duration {
+  font-weight: 700;
+}
+
+.wait-badge-at {
+  color: #5577aa;
+  font-weight: 400;
+  font-style: italic;
+}
+
 .changeover-station {
   font-size: 14px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+/* Wait time window: shows arrive time → next departure time */
+.changeover-times {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+  padding: 5px 8px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  border-left: 3px solid #9E9E9E;
+}
+
+.changeover-time-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.changeover-time-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #888;
+}
+
+.changeover-time-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  font-variant-numeric: tabular-nums;
+}
+
+.changeover-time-sep {
+  font-size: 16px;
+  color: #bbb;
+  font-weight: 700;
+  padding: 0 2px;
+  align-self: center;
+  margin-top: 8px;
+}
+
+.changeover-wait-pill {
+  margin-left: auto;
+  background: #e3f2fd;
+  color: #1565c0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .changeover-tip {

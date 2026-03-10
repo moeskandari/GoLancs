@@ -734,7 +734,7 @@ router.get('/api/plan', async (req, res) => {
         busTransfers.push({
           legs: [
             { type: 'bus', journeyId: r.j1_id, routeNumber: r.route1, operator: r.op1, operatorName: r.op1_name, boardAtco: r.board_atco, boardName: r.board_name, boardTime: r.board_time, alightAtco: r.transfer_atco, alightName: r.transfer_name, alightTime: r.transfer_arrive },
-            { type: 'transfer', stop: r.transfer_name, atco: r.transfer_atco, waitMinutes: timeToMinutes(r.transfer_depart) - timeToMinutes(r.transfer_arrive) },
+            { type: 'transfer', stop: r.transfer_name, atco: r.transfer_atco, waitMinutes: timeToMinutes(r.transfer_depart) - timeToMinutes(r.transfer_arrive), arrivalTime: r.transfer_arrive, nextDepartureTime: r.transfer_depart },
             { type: 'bus', journeyId: r.j2_id, routeNumber: r.route2, operator: r.op2, operatorName: r.op2_name, boardAtco: r.transfer_atco, boardName: r.transfer_name, boardTime: r.transfer_depart, alightAtco: r.alight_atco, alightName: r.alight_name, alightTime: r.alight_time }
           ]
         });
@@ -796,7 +796,11 @@ router.get('/api/plan', async (req, res) => {
       const walkFromStation = endRailStations.find(s => s.tiploc_code === train.endTiploc) || endRailStations[0] || null;
       const walkTo = walkToStation ? walkToStation.walk_minutes : 0;
       const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
-      const depMins = timeToMinutes(departureTime);
+      // actualDepartureTime = when the user physically leaves: train boardTime minus any walk to station
+      const actualDepartureTime = (walkTo > 0 && !startIsRail)
+        ? minutesToTime(timeToMinutes(train.boardTime) - walkTo)
+        : train.boardTime;
+      const depMins = timeToMinutes(actualDepartureTime);
       const arrMins = timeToMinutes(train.alightTime) + walkFrom;
       const legs = [];
       if (walkToStation && !startIsRail) {
@@ -816,7 +820,7 @@ router.get('/api/plan', async (req, res) => {
           duration: walkFrom, distance_km: walkFromStation.walk_km
         });
       }
-      allRoutes.push({ id: `train-direct-${train.trainUid}`, summary: `Train ${train.operator || ''} direct`, modes: walkTo > 0 || walkFrom > 0 ? ['walk', 'train'] : ['train'], departureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
+      allRoutes.push({ id: `train-direct-${train.trainUid}`, summary: `Train ${train.operator || ''} direct`, modes: walkTo > 0 || walkFrom > 0 ? ['walk', 'train'] : ['train'], departureTime: actualDepartureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
     }
 
     // Train + Train connections
@@ -827,7 +831,11 @@ router.get('/api/plan', async (req, res) => {
       const walkFromStation = endRailStations.find(s => s.tiploc_code === lastTrainLeg.endTiploc) || endRailStations[0] || null;
       const walkTo = walkToStation ? walkToStation.walk_minutes : 0;
       const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
-      const depMins = timeToMinutes(departureTime);
+      // actualDepartureTime = when the user physically leaves: first train boardTime minus any walk
+      const actualDepartureTime = (walkTo > 0 && !startIsRail)
+        ? minutesToTime(timeToMinutes(firstTrainLeg.boardTime) - walkTo)
+        : firstTrainLeg.boardTime;
+      const depMins = timeToMinutes(actualDepartureTime);
       const lastLeg = conn.legs[conn.legs.length - 1];
       const arrMins = timeToMinutes(lastLeg.alightTime) + walkFrom;
       const legs = [];
@@ -848,20 +856,30 @@ router.get('/api/plan', async (req, res) => {
           duration: walkFrom, distance_km: walkFromStation.walk_km
         });
       }
-      allRoutes.push({ id: `train-conn-${conn.legs[0].trainUid}-${lastLeg.trainUid}`, summary: `Train via ${conn.legs[1].station || 'connection'}`, modes: ['walk', 'train'], departureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
+      allRoutes.push({ id: `train-conn-${conn.legs[0].trainUid}-${lastLeg.trainUid}`, summary: `Train via ${conn.legs[1].station || 'connection'}`, modes: ['walk', 'train'], departureTime: actualDepartureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
     }
 
     // Multi-modal routes
     for (const mm of multiModal) {
       const firstLeg = mm.legs[0];
       const lastLeg = mm.legs[mm.legs.length - 1];
-      const depMins = timeToMinutes(firstLeg.type === 'walk' ? departureTime : firstLeg.boardTime);
+      // Compute actual departure: first transport boardTime minus any leading walk duration
+      let actualDepartureTime;
+      if (firstLeg.type === 'walk') {
+        const firstTransport = mm.legs.find(l => l.boardTime);
+        actualDepartureTime = firstTransport
+          ? minutesToTime(timeToMinutes(firstTransport.boardTime) - firstLeg.duration)
+          : departureTime;
+      } else {
+        actualDepartureTime = firstLeg.boardTime;
+      }
+      const depMins = timeToMinutes(actualDepartureTime);
       const arrTime = lastLeg.type === 'walk'
         ? minutesToTime(timeToMinutes(mm.legs[mm.legs.length - 2].alightTime) + lastLeg.duration)
         : lastLeg.alightTime;
       const arrMins = timeToMinutes(arrTime);
       const modes = [...new Set(mm.legs.map(l => l.type).filter(t => t !== 'transfer'))];
-      allRoutes.push({ id: `multi-${allRoutes.length}`, summary: modes.join(' + '), modes, departureTime: firstLeg.type === 'walk' ? departureTime : firstLeg.boardTime, arrivalTime: arrTime.includes(':') && arrTime.length <= 5 ? arrTime + ':00' : arrTime, durationMinutes: arrMins >= depMins ? arrMins - depMins : arrMins + 1440 - depMins, legs: mm.legs });
+      allRoutes.push({ id: `multi-${allRoutes.length}`, summary: modes.join(' + '), modes, departureTime: actualDepartureTime, arrivalTime: arrTime.includes(':') && arrTime.length <= 5 ? arrTime + ':00' : arrTime, durationMinutes: arrMins >= depMins ? arrMins - depMins : arrMins + 1440 - depMins, legs: mm.legs });
     }
 
     // Bus + Bus transfers
@@ -913,6 +931,8 @@ router.get('/api/plan', async (req, res) => {
           } else {
             route.legs.unshift({ ...startWalkLeg });
             route.durationMinutes += startWalkLeg.duration;
+            // Update departure time to reflect the walk start
+            route.departureTime = minutesToTime(timeToMinutes(route.departureTime) - startWalkLeg.duration);
           }
         }
         if (endWalkLeg) {
@@ -947,9 +967,15 @@ router.get('/api/plan', async (req, res) => {
     // Scale max walk leg with journey distance: 15 min for short trips, up to 40 min for long ones
     const maxWalkLegMinutes = Math.min(40, Math.max(15, Math.ceil(directDistance * 1.5)));
     const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / 0.08)) : null;
+    const queryDepMins = timeToMinutes(departureTime);
     const filteredRoutes = allRoutes.filter(r => {
       if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) {
         console.log(`[FILTER] ${r.id}: REJECTED duration=${r.durationMinutes}min (max=${maxReasonableDuration})`);
+        return false;
+      }
+      // Reject routes that require leaving before the requested departure time
+      if (timeToMinutes(r.departureTime) < queryDepMins) {
+        console.log(`[FILTER] ${r.id}: REJECTED departs ${r.departureTime} before requested ${departureTime}`);
         return false;
       }
       if (r.id !== 'walk-only') {

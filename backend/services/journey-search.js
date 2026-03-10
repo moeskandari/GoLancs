@@ -186,7 +186,9 @@ async function findTrainTrainConnections(startTiplocs, endTiplocs, departureTime
           type: 'transfer',
           station: r.change_name,
           tiploc: r.change_tiploc,
-          waitMinutes: timeToMinutes(r.train2_depart) - timeToMinutes(r.train1_arrive)
+          waitMinutes: timeToMinutes(r.train2_depart) - timeToMinutes(r.train1_arrive),
+          arrivalTime: r.train1_arrive,
+          nextDepartureTime: r.train2_depart
         },
         {
           type: 'train',
