@@ -54,11 +54,16 @@ async function geocodeText(text) {
 }
 
 router.get('/api/plan', async (req, res) => {
+  const REQUEST_TIMEOUT_MS = 30000;
+  const abortController = new AbortController();
+  const requestTimer = setTimeout(() => abortController.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     let { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
     const _t0 = Date.now();
     const _timers = {};
     const _mark = (label) => { _timers[label] = Date.now() - _t0; };
+    const _checkTimeout = () => { if (abortController.signal.aborted) throw new Error('Request timeout: route planning took too long'); };
 
     // ── Geocode plain text start/end if not ATCO codes or coords ──
     const isAtcoCode = (s) => /^(\d{3,}|9100)/.test(s);
@@ -288,16 +293,16 @@ router.get('/api/plan', async (req, res) => {
       const nearbyStartFiltered = nearbyStartStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
       const nearbyEndFiltered = nearbyEndStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
 
-      const startPromises = nearbyStartFiltered.slice(0, 6).map(async (stop) => {
+      const startPromises = nearbyStartFiltered.slice(0, 4).map(async (stop) => {
         const buses = await findDirectBusJourneys(stop.atco_code, resolvedEnd, departureTime, dayIndex, 3);
         return buses.map(bus => ({ bus, walkStart: stop, walkEnd: null }));
       });
-      const endPromises = nearbyEndFiltered.slice(0, 6).map(async (stop) => {
+      const endPromises = nearbyEndFiltered.slice(0, 4).map(async (stop) => {
         const buses = await findDirectBusJourneys(resolvedStart, stop.atco_code, departureTime, dayIndex, 3);
         return buses.map(bus => ({ bus, walkStart: null, walkEnd: stop }));
       });
-      const crossPromises = nearbyStartFiltered.slice(0, 4).flatMap(startStop2 =>
-        nearbyEndFiltered.slice(0, 4).map(async (endStop2) => {
+      const crossPromises = nearbyStartFiltered.slice(0, 3).flatMap(startStop2 =>
+        nearbyEndFiltered.slice(0, 3).map(async (endStop2) => {
           const buses = await findDirectBusJourneys(startStop2.atco_code, endStop2.atco_code, departureTime, dayIndex, 2);
           return buses.map(bus => ({ bus, walkStart: startStop2, walkEnd: endStop2 }));
         })
@@ -405,6 +410,7 @@ router.get('/api/plan', async (req, res) => {
     _mark('trainConnections');
 
     // === Strategy 5: Multi-modal (bus+train, train+bus) ===
+    _checkTimeout();
     let multiModal = [];
 
     // 5b: Bus → Train
@@ -620,35 +626,54 @@ router.get('/api/plan', async (req, res) => {
 
     // === Strategy 6: Bus → Bus transfer ===
     let busTransfers = [];
+    _checkTimeout();
     {
       let startCodes = await expandStopCode(resolvedStart);
       let endCodes = await expandStopCode(resolvedEnd);
-      for (const stop of nearbyStartStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
-        const expanded = await expandStopCode(stop.atco_code);
+
+      // Expand nearby stops in parallel, limit to 3 nearby stops (was 5)
+      const nearbyStartExpansions = await Promise.all(
+        nearbyStartStops.filter(s => s.walk_minutes <= 10).slice(0, 3)
+          .map(stop => expandStopCode(stop.atco_code))
+      );
+      for (const expanded of nearbyStartExpansions) {
         startCodes = [...new Set([...startCodes, ...expanded])];
       }
-      for (const stop of nearbyEndStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
-        const expanded = await expandStopCode(stop.atco_code);
+      const nearbyEndExpansions = await Promise.all(
+        nearbyEndStops.filter(s => s.walk_minutes <= 10).slice(0, 3)
+          .map(stop => expandStopCode(stop.atco_code))
+      );
+      for (const expanded of nearbyEndExpansions) {
         endCodes = [...new Set([...endCodes, ...expanded])];
       }
+
       if (startIsRail && busStartCodes.length > 0) {
-        for (const code of busStartCodes) {
-          const expanded = await expandStopCode(code);
+        const railExpansions = await Promise.all(busStartCodes.map(code => expandStopCode(code)));
+        for (const expanded of railExpansions) {
           startCodes = [...new Set([...startCodes, ...expanded])];
         }
       }
       if (endIsRail && busEndCodes.length > 0) {
-        for (const code of busEndCodes) {
-          const expanded = await expandStopCode(code);
+        const railExpansions = await Promise.all(busEndCodes.map(code => expandStopCode(code)));
+        for (const expanded of railExpansions) {
           endCodes = [...new Set([...endCodes, ...expanded])];
         }
       }
+
+      // Cap the number of codes to prevent combinatorial explosion
+      const MAX_TRANSFER_CODES = 20;
+      if (startCodes.length > MAX_TRANSFER_CODES) startCodes = startCodes.slice(0, MAX_TRANSFER_CODES);
+      if (endCodes.length > MAX_TRANSFER_CODES) endCodes = endCodes.slice(0, MAX_TRANSFER_CODES);
 
       const sPlaceholders = startCodes.map((_, i) => `$${i + 1}`).join(',');
       const ePlaceholders = endCodes.map((_, i) => `$${startCodes.length + i + 1}`).join(',');
       const dayPos = dayIndex + 1;
 
-      const transferResult = await pool.query(`
+      // Set a per-query timeout for the expensive transfer query (8 seconds)
+      await pool.query('SET statement_timeout = 8000');
+      let transferResult;
+      try {
+        transferResult = await pool.query(`
         SELECT
           bj1.journey_id as j1_id, bj1.route_number as route1, bj1.operator_code as op1,
           o1.name as op1_name,
@@ -685,6 +710,12 @@ router.get('/api/plan', async (req, res) => {
         ORDER BY bjs1_start.departure_time, bjs2_start.departure_time
         LIMIT 15
       `, [...startCodes, ...endCodes, departureTime]);
+      } catch (transferErr) {
+        console.warn(`[PERF] Bus transfer query timed out or failed (startCodes=${startCodes.length}, endCodes=${endCodes.length}):`, transferErr.message);
+        transferResult = { rows: [] };
+      }
+      await pool.query('RESET statement_timeout').catch(() => {});
+      _checkTimeout();
 
       const seenTransfers = new Set();
       for (const r of transferResult.rows) {
@@ -844,6 +875,7 @@ router.get('/api/plan', async (req, res) => {
     _mark('busTransfers');
 
     // === Enrich coordinates ===
+    _checkTimeout();
     await enrichLegsWithCoordinates(allRoutes, startStop, endStop);
     _mark('enrichCoords');
 
@@ -947,6 +979,7 @@ router.get('/api/plan', async (req, res) => {
     await enrichLegsWithGeometry(topRoutes);
     _mark('enrichGeometry');
 
+    clearTimeout(requestTimer);
     _mark('done');
     console.log(`[PERF] /api/plan total=${_timers.done}ms | candidates=${allRoutes.length} filtered=${uniqueRoutes.length} displayed=${topRoutes.length} |`, Object.entries(_timers).map(([k, v]) => `${k}=${v}ms`).join(' '));
 
@@ -1051,6 +1084,15 @@ router.get('/api/plan', async (req, res) => {
     });
 
   } catch (err) {
+    clearTimeout(requestTimer);
+    if (err.message && err.message.includes('Request timeout')) {
+      console.error(`[PERF] Route planning timed out after ${REQUEST_TIMEOUT_MS}ms`);
+      return res.status(504).json({ error: 'Route planning took too long. Try locations closer to major bus stops or rail stations.' });
+    }
+    if (err.message && err.message.includes('statement timeout')) {
+      console.error('[PERF] Database query timed out (statement_timeout)');
+      return res.status(504).json({ error: 'Route search took too long. Try a different start or end location.' });
+    }
     console.error('Route planner error:', err);
     res.status(500).json({ error: 'Failed to plan route', details: err.message });
   }

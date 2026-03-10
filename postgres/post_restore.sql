@@ -167,3 +167,22 @@ CREATE TABLE IF NOT EXISTS public.bus_journey_stops (
 CREATE INDEX IF NOT EXISTS idx_bjs_journey ON public.bus_journey_stops(journey_id);
 CREATE INDEX IF NOT EXISTS idx_bjs_atco ON public.bus_journey_stops(atco_code);
 CREATE INDEX IF NOT EXISTS idx_bjs_departure ON public.bus_journey_stops(departure_time);
+
+-- ── Performance indexes (always run, even if tables pre-exist from backup) ──
+
+-- Composite indexes for bus transfer and direct bus query patterns
+CREATE INDEX IF NOT EXISTS idx_bjs_atco_journey_seq ON public.bus_journey_stops(atco_code, journey_id, stop_sequence);
+CREATE INDEX IF NOT EXISTS idx_bjs_journey_seq ON public.bus_journey_stops(journey_id, stop_sequence);
+
+-- Bus journeys indexes (may already exist from CREATE TABLE above, IF NOT EXISTS is safe)
+CREATE INDEX IF NOT EXISTS idx_bus_journeys_route ON public.bus_journeys(route_id);
+CREATE INDEX IF NOT EXISTS idx_bus_journeys_departure ON public.bus_journeys(departure_time);
+CREATE INDEX IF NOT EXISTS idx_bus_journeys_operator ON public.bus_journeys(operator_code);
+
+-- Stop code prefix index for expandStopCode lookups
+CREATE INDEX IF NOT EXISTS idx_stops_atco_prefix ON public.stops(substring(atco_code from 1 for 7));
+
+-- Run ANALYZE so the query planner uses the new indexes effectively
+ANALYZE public.bus_journey_stops;
+ANALYZE public.bus_journeys;
+ANALYZE public.stops;
