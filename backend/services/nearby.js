@@ -121,7 +121,7 @@ async function findBusReachableRailStations(atcoCode, dayIndex, departureTime, l
       await client.query('SET statement_timeout = 6000');
       const result = await client.query(`
         SELECT DISTINCT ON (nr.tiploc_code)
-          s_rail.atco_code, nr.tiploc_code, s_rail.common_name,
+          s_rail.atco_code, nr.tiploc_code, nr.crs_code, s_rail.common_name,
           s_bus.atco_code as bus_stop_atco, s_bus.common_name as bus_stop_name,
           s_rail.coordinates[0] as rail_lon, s_rail.coordinates[1] as rail_lat,
           s_bus.coordinates[0] as bus_lon, s_bus.coordinates[1] as bus_lat
@@ -142,9 +142,12 @@ async function findBusReachableRailStations(atcoCode, dayIndex, departureTime, l
         LIMIT $${startCodes.length + 2}
       `, [...startCodes, departureTime, limit]);
 
+      console.log(`[findBusReachableRailStations] atco=${atcoCode} expandedTo=${startCodes.length} found=${result.rows.length} tiplocs=${result.rows.map(r => r.tiploc_code).join(',')}`);
+      
       return result.rows.map(r => ({
         atco_code: r.atco_code,
         tiploc_code: r.tiploc_code,
+        crs_code: r.crs_code,
         common_name: r.common_name,
         bus_stop_atco: r.bus_stop_atco,
         bus_stop_name: r.bus_stop_name,

@@ -998,15 +998,71 @@ router.get('/api/plan', async (req, res) => {
     console.log(`[FILTER] directDist=${directDistance.toFixed(1)}km maxWalk=${maxWalkLegMinutes}min maxDuration=${maxReasonableDuration}min | ${allRoutes.length} candidates → ${filteredRoutes.length} after filter`);
 
     // === Deduplicate ===
+    // Two-phase deduplication:
+    // 1. Exact duplicates (same transport legs with same times)
+    // 2. Near-duplicates (same route pattern but different departure times for same service)
     const uniqueRoutes = [];
-    const seenKeys = new Set();
+    const seenExactKeys = new Set();
+    const patternGroups = new Map(); // Groups routes by their journey pattern (ignoring specific times)
+    
     for (const r of filteredRoutes) {
-      const transportKey = r.legs
+      // Phase 1: Exact deduplication (same vehicles, same times)
+      const exactKey = r.legs
         .filter(l => l.type === 'bus' || l.type === 'train')
         .map(l => l.type === 'bus' ? `bus:${l.routeNumber}:${l.boardTime}` : `train:${l.trainUid}`)
         .join('→');
-      const key = transportKey || `${r.departureTime}-${r.arrivalTime}-${r.summary}`;
-      if (!seenKeys.has(key)) { seenKeys.add(key); uniqueRoutes.push(r); }
+      const fullExactKey = exactKey || `${r.departureTime}-${r.arrivalTime}-${r.summary}`;
+      
+      if (seenExactKeys.has(fullExactKey)) continue;
+      seenExactKeys.add(fullExactKey);
+      
+      // Phase 2: Pattern-based grouping (same route numbers and interchange points, different times)
+      // This catches near-identical routes like "Bus 42 → Train from Poulton" at different times
+      const patternKey = r.legs
+        .filter(l => l.type === 'bus' || l.type === 'train')
+        .map(l => {
+          if (l.type === 'bus') return `bus:${l.routeNumber}:${l.boardName}→${l.alightName}`;
+          if (l.type === 'train') return `train:${l.boardName}→${l.alightName}`;
+          return '';
+        })
+        .join('|');
+      
+      console.log(`[DEDUP] Route ${r.id} pattern: ${patternKey}`);
+      
+      if (!patternGroups.has(patternKey)) {
+        patternGroups.set(patternKey, []);
+      }
+      patternGroups.get(patternKey).push(r);
+    }
+    
+    console.log(`[DEDUP] Pattern groups: ${patternGroups.size}, routes per group:`, [...patternGroups.entries()].map(([k, v]) => `${k.substring(0, 50)}...: ${v.length}`));
+    
+    // From each pattern group, keep the best route (earliest departure that arrives soonest)
+    // and optionally one alternative if times differ significantly (>30 min)
+    for (const [pattern, routes] of patternGroups) {
+      if (routes.length === 0) continue;
+      
+      // Sort by departure time, then by duration
+      routes.sort((a, b) => {
+        const depDiff = timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime);
+        if (depDiff !== 0) return depDiff;
+        return a.durationMinutes - b.durationMinutes;
+      });
+      
+      // Always add the first (earliest) route
+      uniqueRoutes.push(routes[0]);
+      
+      // Add one more if it departs significantly later (>30 min) and is meaningfully different
+      if (routes.length > 1) {
+        const firstDepMins = timeToMinutes(routes[0].departureTime);
+        for (let i = 1; i < routes.length; i++) {
+          const thisDepMins = timeToMinutes(routes[i].departureTime);
+          if (thisDepMins - firstDepMins >= 30) {
+            uniqueRoutes.push(routes[i]);
+            break; // Only add one alternative per pattern
+          }
+        }
+      }
     }
 
     // === Sort ===
@@ -1146,3 +1202,4 @@ router.get('/api/plan', async (req, res) => {
 });
 
 module.exports = router;
+

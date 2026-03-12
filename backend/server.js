@@ -1314,6 +1314,8 @@ async function findBusReachableRailStations(atcoCode, dayIndex, departAfter, lim
   const placeholders = expandedCodes.map((_, i) => `$${i + 1}`).join(',');
   const dayPos = dayIndex + 1;
 
+  console.log(`[findBusReachableRailStations] atco=${atcoCode} expanded=${expandedCodes.length} day=${dayPos} after=${departAfter} limit=${limit}`);
+
   // Find rail stations where a bus journey from the origin stop also stops
   // at a bus stop near the rail station (within ~300m / 0.004 degrees)
   const result = await pool.query(`
@@ -1347,6 +1349,8 @@ async function findBusReachableRailStations(atcoCode, dayIndex, departAfter, lim
     LIMIT $${expandedCodes.length + 2}
   `, [...expandedCodes, departAfter, limit * 2]);
 
+  console.log(`[findBusReachableRailStations] found=${result.rows.length} tiplocs=${result.rows.map(r => r.tiploc_code).join(',')}`);
+  
   return result.rows.map(r => ({
     tiploc_code: r.tiploc_code,
     crs_code: r.crs_code,
@@ -2750,14 +2754,18 @@ app.get('/api/plan', async (req, res) => {
       );
       const nearbyBusReachable = [];
       for (const { nearbyStop, reachable } of nearbyReachableResults) {
+        console.log(`[5b-DEBUG] Nearby stop ${nearbyStop.atco_code} found reachable stations: ${reachable.map(s => s.tiploc_code).join(', ')}`);
         for (const station of reachable) {
-          const isDuplicate = busReachableFromStart.some(s => s.tiploc_code === station.tiploc_code)
-            || nearbyBusReachable.some(s => s.station.tiploc_code === station.tiploc_code);
-          if (!isDuplicate) {
+          const isDuplicateStart = busReachableFromStart.some(s => s.tiploc_code === station.tiploc_code);
+          const isDuplicateNearby = nearbyBusReachable.some(s => s.station.tiploc_code === station.tiploc_code);
+          console.log(`[5b-DEBUG] Station ${station.tiploc_code}: isDuplicateStart=${isDuplicateStart}, isDuplicateNearby=${isDuplicateNearby}`);
+          if (!isDuplicateStart && !isDuplicateNearby) {
             nearbyBusReachable.push({ station, walkStop: nearbyStop });
           }
         }
       }
+      console.log(`[5b-DEBUG] Nearby bus-reachable stations: ${nearbyBusReachable.map(x => x.station.tiploc_code).join(', ')}`);
+      console.log(`[5b-DEBUG] Nearby start stops checked: ${nearbyForBusRail.map(s => s.atco_code).join(', ')}`);
 
       // Pre-fetch coordinates for all bus-reachable stations in one query
       const stationAtcoCodes = [
@@ -2780,15 +2788,19 @@ app.get('/api/plan', async (req, res) => {
       // targetTiplocs = endTiplocs (already includes the rail station TIPLOC if endIsRail,
       // resolved earlier when building endTiplocs from endRailResult)
       const targetTiplocs = [...endTiplocs];
+      console.log(`[5b-DEBUG] Bus-reachable stations: ${busReachableFromStart.map(s => s.tiploc_code).join(', ')}`);
+      console.log(`[5b-DEBUG] Target tiplocs: ${targetTiplocs.join(', ')}`);
 
       for (const station of busReachableFromStart) {
         // Skip if this station is the end destination itself (already handled by direct train)
         if (station.atco_code === resolvedEnd) continue;
         // Cap total multi-modal results to avoid excessive searching
         if (multiModal.length >= 10) break;
+        console.log(`[5b-DEBUG] Processing station ${station.tiploc_code} (${station.common_name}), bus_stop=${station.bus_stop_atco}`);
 
         // Find the actual bus journey from origin to the bus stop near this rail station
         const busLegs = await findDirectBusJourneys(resolvedStart, station.bus_stop_atco, departureTime, dayIndex, 3);
+        console.log(`[5b-DEBUG] Found ${busLegs.length} bus legs to ${station.tiploc_code}`);
 
         for (const bus of busLegs) {
           // Use pre-fetched coordinates for walk time calculation
@@ -3582,24 +3594,66 @@ app.get('/api/plan', async (req, res) => {
       console.log(`[arriveBy] target=${arriveBy} (${arriveByTarget}min) candidates=${filteredRoutes.length}`);
     }
 
-    // Deduplicate routes by their actual transport legs (same times + route = same journey)
+    // Deduplicate routes using two-phase approach:
+    // 1. Exact duplicates (same transport legs with same times)
+    // 2. Near-duplicates (same route pattern but different departure times for same service)
     const uniqueRoutes = [];
-    const seenKeys = new Set();
+    const seenExactKeys = new Set();
+    const patternGroups = new Map(); // Groups routes by their journey pattern (ignoring specific times)
+    
     for (const r of filteredRoutes) {
-      // Build a key from the actual transport legs (ignore walk/transfer legs)
-      // Use route number + board time for buses and trainUid for trains
-      // This collapses routes that differ only by which nearby stop they use
-      const transportKey = r.legs
+      // Phase 1: Exact deduplication (same vehicles, same times)
+      const exactKey = r.legs
+        .filter(l => l.type === 'bus' || l.type === 'train')
+        .map(l => l.type === 'bus' ? `bus:${l.routeNumber}:${l.boardTime}` : `train:${l.trainUid}`)
+        .join('→');
+      const fullExactKey = exactKey || `${r.departureTime}-${r.arrivalTime}-${r.summary}`;
+      
+      if (seenExactKeys.has(fullExactKey)) continue;
+      seenExactKeys.add(fullExactKey);
+      
+      // Phase 2: Pattern-based grouping (same route numbers and interchange points, different times)
+      // This catches near-identical routes like "Bus 42 → Train from Poulton" at different times
+      const patternKey = r.legs
         .filter(l => l.type === 'bus' || l.type === 'train')
         .map(l => {
-          if (l.type === 'bus') return `bus:${l.routeNumber}:${l.boardTime}`;
-          return `train:${l.trainUid}`;
+          if (l.type === 'bus') return `bus:${l.routeNumber}:${l.boardName}→${l.alightName}`;
+          if (l.type === 'train') return `train:${l.boardName}→${l.alightName}`;
+          return '';
         })
-        .join('→');
-      const key = transportKey || `${r.departureTime}-${r.arrivalTime}-${r.summary}`;
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-        uniqueRoutes.push(r);
+        .join('|');
+      
+      if (!patternGroups.has(patternKey)) {
+        patternGroups.set(patternKey, []);
+      }
+      patternGroups.get(patternKey).push(r);
+    }
+    
+    // From each pattern group, keep the best route (earliest departure that arrives soonest)
+    // and optionally one alternative if times differ significantly (>30 min)
+    for (const [pattern, routes] of patternGroups) {
+      if (routes.length === 0) continue;
+      
+      // Sort by departure time, then by duration
+      routes.sort((a, b) => {
+        const depDiff = timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime);
+        if (depDiff !== 0) return depDiff;
+        return a.durationMinutes - b.durationMinutes;
+      });
+      
+      // Always add the first (earliest) route
+      uniqueRoutes.push(routes[0]);
+      
+      // Add one more if it departs significantly later (>30 min) and is meaningfully different
+      if (routes.length > 1) {
+        const firstDepMins = timeToMinutes(routes[0].departureTime);
+        for (let i = 1; i < routes.length; i++) {
+          const thisDepMins = timeToMinutes(routes[i].departureTime);
+          if (thisDepMins - firstDepMins >= 30) {
+            uniqueRoutes.push(routes[i]);
+            break; // Only add one alternative per pattern
+          }
+        }
       }
     }
 
