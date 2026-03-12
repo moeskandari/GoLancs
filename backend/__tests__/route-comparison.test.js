@@ -1,13 +1,13 @@
 /**
  * Route comparison tests.
  *
- * Tests a variety of routes across the Lancashire/North West England area
- * and validates the routing logic against expected behaviour (comparable
- * to Google Maps / Traveline results).
+ * Tests a variety of routes within the Lancaster – Preston – Blackpool /
+ * Fylde & Wyre coast area and validates the routing logic against expected
+ * behaviour (comparable to Google Maps / Traveline results).
  *
  * Categories:
  *   1. Midnight-crossing duration calculations (safeDuration)
- *   2. Station coordinate coverage
+ *   2. Station coordinate coverage (boundary-scoped)
  *   3. Walking speed and walk-only threshold
  *   4. Route planner endpoint integration tests for diverse routes
  *   5. Duration and timing sanity checks
@@ -27,6 +27,7 @@ const {
 
 // ─────────────────────────────────────────────────────────
 // Coordinates for test routes (real-world reference points)
+// All within the Lancaster – Preston – coast boundary
 // ─────────────────────────────────────────────────────────
 const LOCATIONS = {
   LANCASTER_UNI:     { lat: 54.0104, lon: -2.7877, name: 'Lancaster University' },
@@ -41,14 +42,11 @@ const LOCATIONS = {
   FLEETWOOD:         { lat: 53.9220, lon: -3.0090, name: 'Fleetwood' },
   GARSTANG:          { lat: 53.8990, lon: -2.7740, name: 'Garstang' },
   LYTHAM:            { lat: 53.7393, lon: -2.9642, name: 'Lytham' },
-  BURNLEY:           { lat: 53.7878, lon: -2.2490, name: 'Burnley' },
-  BLACKBURN:         { lat: 53.7485, lon: -2.4806, name: 'Blackburn' },
-  MANCHESTER_PIC:    { lat: 53.4774, lon: -2.2309, name: 'Manchester Piccadilly' },
-  CHORLEY:           { lat: 53.6531, lon: -2.6318, name: 'Chorley' },
-  BARROW:            { lat: 54.1177, lon: -3.2263, name: 'Barrow-in-Furness' },
-  ULVERSTON:         { lat: 54.1938, lon: -3.0942, name: 'Ulverston' },
-  WIGAN:             { lat: 53.5448, lon: -2.6325, name: 'Wigan' },
-  BOLTON:            { lat: 53.5782, lon: -2.4297, name: 'Bolton' },
+  POULTON:           { lat: 53.8483, lon: -2.9897, name: 'Poulton-le-Fylde' },
+  KIRKHAM:           { lat: 53.7869, lon: -2.8834, name: 'Kirkham & Wesham' },
+  LEYLAND:           { lat: 53.6986, lon: -2.6866, name: 'Leyland' },
+  ST_ANNES:          { lat: 53.7534, lon: -3.0249, name: 'St Annes-on-the-Sea' },
+  SILVERDALE:        { lat: 54.1702, lon: -2.8076, name: 'Silverdale' },
 };
 
 // ─────────────────────────────────────────────────────────
@@ -98,49 +96,49 @@ describe('safeDuration – midnight crossing handling', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 2. Station coordinate coverage
+// 2. Station coordinate coverage (boundary-scoped)
 // ─────────────────────────────────────────────────────────
-describe('Station coordinate coverage – Furness/Cumbria line', () => {
-  it('should contain Furness line stations (Barrow to Whitehaven)', () => {
-    const furnessStations = ['BIF', 'ROO', 'DLT', 'ULV', 'CAK', 'KBK', 'GOS', 'ARN',
-                             'ASK', 'KBF', 'FXF', 'GNR', 'MBR', 'SIL', 'BKC',
-                             'RVN', 'DRG', 'SEN', 'SLL', 'BSB', 'NET', 'STB', 'WHV', 'CKL'];
-    furnessStations.forEach(crs => {
+describe('Station coordinate coverage – Lancaster/Preston/coast area', () => {
+  it('should contain Lancaster area stations', () => {
+    ['LAN', 'MCM', 'BAR', 'CNF', 'HHB', 'SVR'].forEach(crs => {
       expect(STATION_COORDS).toHaveProperty(crs);
     });
   });
 
-  it('should contain West Coast Main Line stations through Lancashire', () => {
-    const wcmlStations = ['LAN', 'PRE', 'OXN', 'PNR', 'CAR'];
-    wcmlStations.forEach(crs => {
+  it('should contain Preston area stations', () => {
+    ['PRE', 'LEY', 'EBA', 'BMB', 'LOH', 'CSO', 'RUF'].forEach(crs => {
       expect(STATION_COORDS).toHaveProperty(crs);
     });
   });
 
-  it('should contain Manchester corridor stations', () => {
-    const manchesterCorridor = ['MAN', 'MCO', 'MVA', 'SLD', 'SFD', 'BON', 'WGN', 'WGW'];
-    manchesterCorridor.forEach(crs => {
+  it('should contain Blackpool & Fylde coast stations', () => {
+    ['BPN', 'BPS', 'BPB', 'SQU', 'SAS', 'LTM', 'AFV', 'MOS', 'KKM', 'SAL', 'PFY', 'LAY'].forEach(crs => {
       expect(STATION_COORDS).toHaveProperty(crs);
     });
   });
 
-  it('new stations should have valid coordinates within UK bounds', () => {
-    const newStations = ['ASK', 'KBF', 'FXF', 'GNR', 'MBR', 'SIL', 'BKC',
-                         'RVN', 'DRG', 'SEN', 'SLL', 'BSB', 'NET', 'STB', 'WHV',
-                         'WBQ', 'PNR', 'CAR', 'WGW', 'MVA', 'SFD', 'TOD', 'SKI', 'KGT', 'SHY'];
-    newStations.forEach(crs => {
-      const station = STATION_COORDS[crs];
-      expect(station).toBeDefined();
-      expect(station.lat).toBeGreaterThan(50.0);
-      expect(station.lat).toBeLessThan(56.0);
-      expect(station.lon).toBeGreaterThan(-6.0);
-      expect(station.lon).toBeLessThan(2.0);
+  it('should NOT contain stations outside the Lancaster–Preston–coast boundary', () => {
+    // Manchester, Liverpool, Barrow, Cumbria, East Lancashire, etc.
+    ['MAN', 'MCO', 'LIV', 'LDS', 'BIF', 'CAR', 'BON', 'WGN', 'BBN', 'BNC'].forEach(crs => {
+      expect(STATION_COORDS).not.toHaveProperty(crs);
+    });
+  });
+
+  it('all stations should have valid coordinates within the service area', () => {
+    Object.entries(STATION_COORDS).forEach(([crs, station]) => {
+      // Roughly: lat 53.6–54.2, lon -3.1 to -2.6 (with small margin)
+      expect(station.lat).toBeGreaterThan(53.5);
+      expect(station.lat).toBeLessThan(54.3);
+      expect(station.lon).toBeGreaterThan(-3.2);
+      expect(station.lon).toBeLessThan(-2.5);
       expect(station.name.length).toBeGreaterThan(0);
     });
   });
 
-  it('station count should be at least 100 (was ~89)', () => {
-    expect(Object.keys(STATION_COORDS).length).toBeGreaterThanOrEqual(100);
+  it('should contain exactly the stations within the service area', () => {
+    const count = Object.keys(STATION_COORDS).length;
+    expect(count).toBeGreaterThanOrEqual(20);
+    expect(count).toBeLessThanOrEqual(35);
   });
 });
 
@@ -189,7 +187,7 @@ describe('Walking speed and distance calculations', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 4. Route planner integration tests for diverse routes
+// 4. Route planner integration tests – within service area
 // ─────────────────────────────────────────────────────────
 
 // Helper to test a route and validate basic structure
@@ -210,7 +208,6 @@ describe('Route: Lancaster University → Lancaster City Centre (~4km)', () => {
     const res = await testRoute(LOCATIONS.LANCASTER_UNI, LOCATIONS.LANCASTER_CENTRE);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
-      // Should have transit routes (bus likely)
       const hasTransit = res.body.routes.some(r => r.modes.includes('bus') || r.modes.includes('train'));
       expect(hasTransit).toBe(true);
     } else {
@@ -240,7 +237,6 @@ describe('Route: Lancaster → Morecambe (~5km, short rail/bus)', () => {
     const res = await testRoute(LOCATIONS.LANCASTER_STATION, LOCATIONS.MORECAMBE);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
-      // Walk-only should NOT appear for 5km distance
       const walkOnly = res.body.routes.find(r => r.id === 'walk-only');
       expect(walkOnly).toBeUndefined();
     } else {
@@ -258,22 +254,6 @@ describe('Route: Preston → Blackpool North (~27km, rail/bus)', () => {
       for (const route of res.body.routes) {
         expect(route.durationMinutes).toBeGreaterThan(0);
         expect(route.durationMinutes).toBeLessThan(180);
-      }
-    } else {
-      expect([200, 404, 500]).toContain(res.statusCode);
-    }
-  }, 60000);
-});
-
-describe('Route: Lancaster → Blackburn (~50km, rail/bus)', () => {
-  it('should return multi-modal or direct routes', async () => {
-    const res = await testRoute(LOCATIONS.LANCASTER_STATION, LOCATIONS.BLACKBURN);
-    if (res.statusCode === 200) {
-      expect(res.body.routes.length).toBeGreaterThan(0);
-      // Google Maps: ~1h by train (via Preston), ~2h by bus
-      for (const route of res.body.routes) {
-        expect(route.durationMinutes).toBeGreaterThan(0);
-        expect(route.durationMinutes).toBeLessThan(300);
       }
     } else {
       expect([200, 404, 500]).toContain(res.statusCode);
@@ -304,7 +284,7 @@ describe('Route: Lancaster → Carnforth (~10km, short rail/bus)', () => {
 });
 
 describe('Route: Lancaster → Heysham (~11km, bus)', () => {
-  it('should return bus routes (no rail to Heysham Harbour typically)', async () => {
+  it('should return bus routes', async () => {
     const res = await testRoute(LOCATIONS.LANCASTER_CENTRE, LOCATIONS.HEYSHAM);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
@@ -319,7 +299,6 @@ describe('Route: Garstang → Preston (~15km, bus)', () => {
     const res = await testRoute(LOCATIONS.GARSTANG, LOCATIONS.PRESTON_STATION);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
-      // No rail at Garstang, so most routes should involve bus
       const busRoutes = res.body.routes.filter(r => r.modes.includes('bus'));
       expect(busRoutes.length).toBeGreaterThan(0);
     } else {
@@ -328,14 +307,62 @@ describe('Route: Garstang → Preston (~15km, bus)', () => {
   }, 60000);
 });
 
-describe('Route: Lancaster → Barrow-in-Furness (~50km, rail)', () => {
-  it('should return train routes via Furness line', async () => {
-    const res = await testRoute(LOCATIONS.LANCASTER_STATION, LOCATIONS.BARROW);
+describe('Route: Poulton-le-Fylde → Blackpool North (~5km, rail)', () => {
+  it('should return short rail routes along the Fylde line', async () => {
+    const res = await testRoute(LOCATIONS.POULTON, LOCATIONS.BLACKPOOL_NORTH);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
-      // Google Maps: ~1h by train via Furness line
+      // Very short rail trip: ~5 min by train
       for (const route of res.body.routes) {
-        expect(route.durationMinutes).toBeLessThan(300);
+        expect(route.durationMinutes).toBeLessThan(60);
+      }
+    } else {
+      expect([200, 404, 500]).toContain(res.statusCode);
+    }
+  }, 60000);
+});
+
+describe('Route: Preston → Kirkham & Wesham (~13km, rail/bus)', () => {
+  it('should return routes towards the Fylde', async () => {
+    const res = await testRoute(LOCATIONS.PRESTON_STATION, LOCATIONS.KIRKHAM);
+    if (res.statusCode === 200) {
+      expect(res.body.routes.length).toBeGreaterThan(0);
+    } else {
+      expect([200, 404, 500]).toContain(res.statusCode);
+    }
+  }, 60000);
+});
+
+describe('Route: Morecambe → Heysham (~5km, bus)', () => {
+  it('should return bus or walking routes along the coast', async () => {
+    const res = await testRoute(LOCATIONS.MORECAMBE, LOCATIONS.HEYSHAM);
+    if (res.statusCode === 200) {
+      expect(res.body.routes.length).toBeGreaterThan(0);
+    } else {
+      expect([200, 404, 500]).toContain(res.statusCode);
+    }
+  }, 60000);
+});
+
+describe('Route: Fleetwood → Preston (Wyre coast, bus)', () => {
+  it('should find bus routes from the Wyre coast', async () => {
+    const res = await testRoute(LOCATIONS.FLEETWOOD, LOCATIONS.PRESTON_STATION);
+    if (res.statusCode === 200) {
+      expect(res.body.routes.length).toBeGreaterThan(0);
+    } else {
+      expect([200, 404, 500]).toContain(res.statusCode);
+    }
+  }, 60000);
+});
+
+describe('Route: St Annes → Lancaster (~50km, Fylde to Lancaster)', () => {
+  it('should return multi-leg routes across the service area', async () => {
+    const res = await testRoute(LOCATIONS.ST_ANNES, LOCATIONS.LANCASTER_STATION);
+    if (res.statusCode === 200) {
+      expect(res.body.routes.length).toBeGreaterThan(0);
+      for (const route of res.body.routes) {
+        expect(route.durationMinutes).toBeGreaterThan(0);
+        expect(route.durationMinutes).toBeLessThan(240);
       }
     } else {
       expect([200, 404, 500]).toContain(res.statusCode);
@@ -403,7 +430,7 @@ describe('Duration and timing sanity checks', () => {
   }, 60000);
 
   it('transfer legs should have non-negative wait times', async () => {
-    const res = await testRoute(LOCATIONS.LANCASTER_STATION, LOCATIONS.BLACKBURN);
+    const res = await testRoute(LOCATIONS.LANCASTER_STATION, LOCATIONS.BLACKPOOL_NORTH);
     if (res.statusCode === 200) {
       for (const route of res.body.routes) {
         for (const leg of route.legs) {
@@ -461,21 +488,20 @@ describe('Edge cases and regressions', () => {
     }
   }, 60000);
 
-  it('very long distance (Lancaster → Manchester) should still return results', async () => {
-    const res = await testRoute(LOCATIONS.LANCASTER_STATION, LOCATIONS.MANCHESTER_PIC);
+  it('Leyland → Preston (short south-of-Preston route)', async () => {
+    const res = await testRoute(LOCATIONS.LEYLAND, LOCATIONS.PRESTON_STATION);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
-      // Google Maps: ~1h by train, ~2-3h by bus
       for (const route of res.body.routes) {
-        expect(route.durationMinutes).toBeLessThan(360);
+        expect(route.durationMinutes).toBeLessThan(60);
       }
     } else {
-      expect([200, 404, 500, 504]).toContain(res.statusCode);
+      expect([200, 404, 500]).toContain(res.statusCode);
     }
   }, 60000);
 
-  it('Fleetwood → Preston (bus-only town) should find bus routes', async () => {
-    const res = await testRoute(LOCATIONS.FLEETWOOD, LOCATIONS.PRESTON_STATION);
+  it('Silverdale → Lancaster (northern boundary of service area)', async () => {
+    const res = await testRoute(LOCATIONS.SILVERDALE, LOCATIONS.LANCASTER_STATION);
     if (res.statusCode === 200) {
       expect(res.body.routes.length).toBeGreaterThan(0);
     } else {
