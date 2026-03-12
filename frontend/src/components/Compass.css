@@ -84,6 +84,25 @@
   transform: translateY(-50%);
 }
 
+/* Permission button for iOS compass activation */
+.compass-permission-btn {
+  cursor: pointer;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compass-permission-btn:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+.compass-enable-label {
+  font-size: 32px;
+  line-height: 1;
+}
+
 @media (max-width: 768px) {
   .compass-container {
     top: 10px;
@@ -109,5 +128,9 @@
   
   .compass-labels span {
     font-size: 12px;
+  }
+
+  .compass-enable-label {
+    font-size: 24px;
   }
 }
