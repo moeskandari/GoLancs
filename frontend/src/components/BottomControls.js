@@ -61,17 +61,6 @@ function BottomControls({ onFilterClick, onAccountClick, pinMode, onPinToggle })
         <span>Filter</span>
       </button>
       
-      <button className="control-btn" title="Center on My Location">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="3" strokeWidth="2"/>
-          <line x1="12" y1="2" x2="12" y2="6" strokeWidth="2"/>
-          <line x1="12" y1="18" x2="12" y2="22" strokeWidth="2"/>
-          <line x1="2" y1="12" x2="6" y2="12" strokeWidth="2"/>
-          <line x1="18" y1="12" x2="22" y2="12" strokeWidth="2"/>
-        </svg>
-        <span>My Location</span>
-      </button>
-      
       <button
         className="control-btn"
         title="Account"
