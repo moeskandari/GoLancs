@@ -20,7 +20,7 @@
 const { Router } = require('express');
 const pool = require('../db/pool');
 const { haversineDistance } = require('../utils/geo');
-const { timeToMinutes, minutesToTime, getDayIndex } = require('../utils/time');
+const { timeToMinutes, minutesToTime, getDayIndex, safeDuration } = require('../utils/time');
 const { expandStopCode } = require('../utils/stop-utils');
 const { findNearbyRailStations, findNearbyBusStops, findBusReachableRailStations } = require('../services/nearby');
 const { findDirectBusJourneys, findDirectTrainJourneys, findTrainTrainConnections } = require('../services/journey-search');
@@ -471,11 +471,14 @@ router.get('/api/plan', async (req, res) => {
               const walkFromEnd = endRailStations.length > 0 && !endIsRail ? endRailStations[0].walk_minutes : 0;
               const legs = [bus];
               if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
-                legs.push({ type: 'walk', fromName: station.bus_stop_name || bus.alightName, toName: station.common_name, duration: walkToStationMins, distance_km: Math.round(walkToStationMins * 0.08 * 100) / 100 });
+                const bsCoords = stationCoordsMap[station.bus_stop_atco];
+                const rsCoords = stationCoordsMap[station.atco_code];
+                const walkDist = (bsCoords && rsCoords) ? haversineDistance(bsCoords.lat, bsCoords.lon, rsCoords.lat, rsCoords.lon) : walkToStationMins * 0.08;
+                legs.push({ type: 'walk', fromName: station.bus_stop_name || bus.alightName, toName: station.common_name, fromCoords: bsCoords || null, toCoords: rsCoords || null, duration: walkToStationMins, distance_km: Math.round(walkDist * 1000) / 1000 });
               }
               legs.push(train);
               if (walkFromEnd > 0) {
-                legs.push({ type: 'walk', fromName: endRailStations[0].common_name, toName: endStop.common_name, duration: walkFromEnd, distance_km: endRailStations[0].walk_km });
+                legs.push({ type: 'walk', fromName: endRailStations[0].common_name, toName: endStop.common_name, fromCoords: { lat: endRailStations[0].lat, lon: endRailStations[0].lon }, toCoords: { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) }, duration: walkFromEnd, distance_km: endRailStations[0].walk_km });
               }
               multiModal.push({ legs });
             }
@@ -488,11 +491,14 @@ router.get('/api/plan', async (req, res) => {
                 const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
                 const legs = [bus];
                 if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
-                  legs.push({ type: 'walk', fromName: station.bus_stop_name || bus.alightName, toName: station.common_name, duration: walkToStationMins, distance_km: Math.round(walkToStationMins * 0.08 * 100) / 100 });
+                  const bsCoords = stationCoordsMap[station.bus_stop_atco];
+                  const rsCoords = stationCoordsMap[station.atco_code];
+                  const walkDist = (bsCoords && rsCoords) ? haversineDistance(bsCoords.lat, bsCoords.lon, rsCoords.lat, rsCoords.lon) : walkToStationMins * 0.08;
+                  legs.push({ type: 'walk', fromName: station.bus_stop_name || bus.alightName, toName: station.common_name, fromCoords: bsCoords || null, toCoords: rsCoords || null, duration: walkToStationMins, distance_km: Math.round(walkDist * 1000) / 1000 });
                 }
                 legs.push(...conn.legs);
                 if (walkFrom > 0 && !endIsRail) {
-                  legs.push({ type: 'walk', fromName: walkFromStation.common_name, toName: endStop.common_name, duration: walkFrom, distance_km: walkFromStation.walk_km });
+                  legs.push({ type: 'walk', fromName: walkFromStation.common_name, toName: endStop.common_name, fromCoords: walkFromStation ? { lat: walkFromStation.lat, lon: walkFromStation.lon } : null, toCoords: { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) }, duration: walkFrom, distance_km: walkFromStation.walk_km });
                 }
                 multiModal.push({ legs });
               }
@@ -541,11 +547,11 @@ router.get('/api/plan', async (req, res) => {
             for (const bus of busLegs) {
               const legs = [];
               if (walkToStart > 0) {
-                legs.push({ type: 'walk', fromName: startStop.common_name, toName: startRailStations[0].common_name, duration: walkToStart, distance_km: startRailStations[0].walk_km });
+                legs.push({ type: 'walk', fromName: startStop.common_name, toName: startRailStations[0].common_name, fromCoords: { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) }, toCoords: { lat: startRailStations[0].lat, lon: startRailStations[0].lon }, duration: walkToStart, distance_km: startRailStations[0].walk_km });
               }
               legs.push(train);
               if (endStation.bus_stop_atco !== endStation.atco_code) {
-                legs.push({ type: 'walk', fromName: endStation.common_name, toName: endStation.bus_stop_name || 'Bus stop', duration: 3, distance_km: 0.2 });
+                legs.push({ type: 'walk', fromName: endStation.common_name, toName: endStation.bus_stop_name || 'Bus stop', fromCoords: { lat: endStation.lat, lon: endStation.lon }, toCoords: null, duration: 3, distance_km: 0.2 });
               }
               legs.push(bus);
               multiModal.push({ legs });
@@ -699,7 +705,9 @@ router.get('/api/plan', async (req, res) => {
         JOIN bus_journeys bj1 ON bjs1_start.journey_id = bj1.journey_id
         JOIN bus_journey_stops bjs1_end ON bj1.journey_id = bjs1_end.journey_id
           AND bjs1_end.stop_sequence > bjs1_start.stop_sequence
-        JOIN bus_journey_stops bjs2_start ON bjs2_start.atco_code = bjs1_end.atco_code
+        JOIN bus_journey_stops bjs2_start ON
+              (bjs2_start.atco_code = bjs1_end.atco_code
+               OR SUBSTRING(bjs2_start.atco_code FROM 1 FOR 7) = SUBSTRING(bjs1_end.atco_code FROM 1 FOR 7))
           AND bjs2_start.journey_id != bj1.journey_id
           AND bjs2_start.departure_time >= bjs1_end.arrival_time + INTERVAL '2 minutes'
           AND bjs2_start.departure_time <= bjs1_end.arrival_time + INTERVAL '45 minutes'
@@ -734,7 +742,7 @@ router.get('/api/plan', async (req, res) => {
         busTransfers.push({
           legs: [
             { type: 'bus', journeyId: r.j1_id, routeNumber: r.route1, operator: r.op1, operatorName: r.op1_name, boardAtco: r.board_atco, boardName: r.board_name, boardTime: r.board_time, alightAtco: r.transfer_atco, alightName: r.transfer_name, alightTime: r.transfer_arrive },
-            { type: 'transfer', stop: r.transfer_name, atco: r.transfer_atco, waitMinutes: timeToMinutes(r.transfer_depart) - timeToMinutes(r.transfer_arrive), arrivalTime: r.transfer_arrive, nextDepartureTime: r.transfer_depart },
+            { type: 'transfer', stop: r.transfer_name, atco: r.transfer_atco, waitMinutes: safeDuration(r.transfer_arrive, r.transfer_depart), arrivalTime: r.transfer_arrive, nextDepartureTime: r.transfer_depart },
             { type: 'bus', journeyId: r.j2_id, routeNumber: r.route2, operator: r.op2, operatorName: r.op2_name, boardAtco: r.transfer_atco, boardName: r.transfer_name, boardTime: r.transfer_depart, alightAtco: r.alight_atco, alightName: r.alight_name, alightTime: r.alight_time }
           ]
         });

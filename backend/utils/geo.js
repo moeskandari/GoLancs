@@ -101,6 +101,26 @@ const STATION_COORDS = {
   SOP: { lat: 53.6469, lon: -3.0028, name: 'Southport' },
   // West Cumbria (extended for Barrow line services)
   CKL: { lat: 54.5420, lon: -3.5660, name: 'Corkickle' },
+  // Furness line intermediate stations
+  ASK: { lat: 54.1963, lon: -3.2052, name: 'Askam' },
+  KBF: { lat: 54.2306, lon: -3.1800, name: 'Kirkby-in-Furness' },
+  FXF: { lat: 54.2660, lon: -3.2100, name: 'Foxfield' },
+  GNR: { lat: 54.2945, lon: -3.2318, name: 'Green Road' },
+  MBR: { lat: 54.3270, lon: -3.2580, name: 'Millom' },
+  SIL: { lat: 54.3526, lon: -3.2784, name: 'Silecroft' },
+  BKC: { lat: 54.3838, lon: -3.3177, name: 'Bootle (Cumbria)' },
+  RVN: { lat: 54.4119, lon: -3.3980, name: 'Ravenglass' },
+  DRG: { lat: 54.4290, lon: -3.4400, name: 'Drigg' },
+  SEN: { lat: 54.4410, lon: -3.4910, name: 'Seascale' },
+  SLL: { lat: 54.4460, lon: -3.5010, name: 'Sellafield' },
+  BSB: { lat: 54.4730, lon: -3.5430, name: 'Braystones' },
+  NET: { lat: 54.4880, lon: -3.5580, name: 'Nethertown' },
+  STB: { lat: 54.5000, lon: -3.5700, name: 'St Bees' },
+  WHV: { lat: 54.5500, lon: -3.5880, name: 'Whitehaven' },
+  // West Coast Main Line intermediate stations
+  WBQ: { lat: 54.4100, lon: -2.7760, name: 'Tebay' },
+  PNR: { lat: 54.5260, lon: -2.7530, name: 'Penrith' },
+  CAR: { lat: 54.8900, lon: -2.9350, name: 'Carlisle' },
   // Bolton / Chorley line
   CRL: { lat: 53.6531, lon: -2.6318, name: 'Chorley' },
   ADL: { lat: 53.6133, lon: -2.6073, name: 'Adlington (Lancashire)' },
@@ -110,6 +130,16 @@ const STATION_COORDS = {
   LOT: { lat: 53.5605, lon: -2.5049, name: 'Lostock' },
   BON: { lat: 53.5782, lon: -2.4297, name: 'Bolton' },
   SLD: { lat: 53.4866, lon: -2.2747, name: 'Salford Crescent' },
+  // Manchester-Preston corridor additional stations
+  WGW: { lat: 53.5437, lon: -2.6360, name: 'Wigan Wallgate' },
+  MVA: { lat: 53.4726, lon: -2.2548, name: 'Manchester Victoria' },
+  SFD: { lat: 53.4870, lon: -2.2910, name: 'Salford Central' },
+  // Todmorden / Calder Valley
+  TOD: { lat: 53.7130, lon: -2.0982, name: 'Todmorden' },
+  // Skipton / Airedale
+  SKI: { lat: 53.9600, lon: -2.0240, name: 'Skipton' },
+  KGT: { lat: 53.8870, lon: -2.0530, name: 'Keighley' },
+  SHY: { lat: 53.8470, lon: -1.7760, name: 'Shipley' },
 };
 
 /**

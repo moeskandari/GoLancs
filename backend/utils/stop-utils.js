@@ -32,7 +32,8 @@ async function expandStopCode(atcoCode) {
     return result.rows.length > 0
       ? result.rows.map(r => r.atco_code)
       : [atcoCode];
-  } catch {
+  } catch (err) {
+    console.warn(`[STOP-UTILS] Stop code expansion failed for ${atcoCode}:`, err.message);
     return [atcoCode];
   }
 }

@@ -32,6 +32,18 @@ function minutesToTime(m) {
 }
 
 /**
+ * Calculate the duration in minutes between two time strings,
+ * correctly handling midnight crossings (e.g. 23:50 → 00:10 = 20 min).
+ */
+function safeDuration(boardTime, alightTime) {
+  const board = timeToMinutes(boardTime);
+  const alight = timeToMinutes(alightTime);
+  if (board === null || alight === null) return 0;
+  const diff = alight - board;
+  return diff >= 0 ? diff : diff + 1440;
+}
+
+/**
  * Convert a day name or numeric index to a 0-based index.
  * Accepts: "monday", "tue", 0, "3", etc.
  * Monday = 0, Sunday = 6.  Defaults to the current day if input is unrecognised.
@@ -47,4 +59,4 @@ function getDayIndex(day) {
   return (new Date().getDay() + 6) % 7;
 }
 
-module.exports = { timeToMinutes, minutesToTime, getDayIndex };
+module.exports = { timeToMinutes, minutesToTime, getDayIndex, safeDuration };

@@ -50,7 +50,8 @@ async function findNearbyRailStations(atcoCode, maxDistanceKm = 3.0) {
       })
       .filter(s => s.walk_km <= maxDistanceKm)
       .sort((a, b) => a.walk_km - b.walk_km);
-  } catch {
+  } catch (err) {
+    console.warn(`[NEARBY] Rail station search failed for ${atcoCode}:`, err.message);
     return [];
   }
 }
@@ -98,7 +99,8 @@ async function findNearbyBusStops(atcoCode, maxDistanceKm = 1.0) {
       })
       .filter(s => s.walk_km <= maxDistanceKm)
       .sort((a, b) => a.walk_km - b.walk_km);
-  } catch {
+  } catch (err) {
+    console.warn(`[NEARBY] Bus stop search failed for ${atcoCode}:`, err.message);
     return [];
   }
 }
@@ -161,7 +163,8 @@ async function findBusReachableRailStations(atcoCode, dayIndex, departureTime, l
       await client.query('RESET statement_timeout').catch(() => {});
       client.release();
     }
-  } catch {
+  } catch (err) {
+    console.warn(`[NEARBY] Bus-reachable rail search failed for ${atcoCode}:`, err.message);
     return [];
   }
 }
