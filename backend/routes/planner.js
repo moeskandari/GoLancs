@@ -705,6 +705,8 @@ router.get('/api/plan', async (req, res) => {
         JOIN bus_journeys bj1 ON bjs1_start.journey_id = bj1.journey_id
         JOIN bus_journey_stops bjs1_end ON bj1.journey_id = bjs1_end.journey_id
           AND bjs1_end.stop_sequence > bjs1_start.stop_sequence
+        -- Match transfer stops by exact ATCO code or same 7-char cluster prefix
+        -- (NaPTAN ATCO codes share a 7-character base for stops in the same cluster/locality)
         JOIN bus_journey_stops bjs2_start ON
               (bjs2_start.atco_code = bjs1_end.atco_code
                OR SUBSTRING(bjs2_start.atco_code FROM 1 FOR 7) = SUBSTRING(bjs1_end.atco_code FROM 1 FOR 7))

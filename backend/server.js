@@ -17,6 +17,7 @@ require('dotenv').config();
 
 const createAuthRoutes = require('./routes/auth');
 const { securityHeaders, sanitiseInput } = require('./middleware/security');
+const { safeDuration } = require('./utils/time');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -1426,18 +1427,6 @@ function getDayIndex(day) {
     if (idx !== undefined) return idx;
   }
   return (new Date().getDay() + 6) % 7; // JS: 0=Sun, convert to 0=Mon
-}
-
-/**
- * Calculate the duration in minutes between two time strings,
- * correctly handling midnight crossings (e.g. 23:50 → 00:10 = 20 min).
- */
-function safeDuration(boardTime, alightTime) {
-  const board = timeToMinutes(boardTime);
-  const alight = timeToMinutes(alightTime);
-  if (board === null || alight === null) return 0;
-  const diff = alight - board;
-  return diff >= 0 ? diff : diff + 1440;
 }
 
 /**
