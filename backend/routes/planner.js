@@ -28,6 +28,9 @@ const { enrichLegsWithCoordinates, enrichLegsWithGeometry, mergeConsecutiveWalkL
 
 const router = Router();
 
+/** Average walking speed: ~4.8 km/h ≈ 0.08 km/min */
+const WALKING_SPEED_KM_PER_MIN = 0.08;
+
 /**
  * Geocode a plain-text location name to lat/lon via Nominatim.
  * Returns { lat, lon, name } or null.
@@ -146,7 +149,7 @@ router.get('/api/plan', async (req, res) => {
           toName: nearest.common_name,
           fromCoords: { lat: sLat, lon: sLon },
           toCoords: { lat: parseFloat(nearest.lat), lon: parseFloat(nearest.lon) },
-          duration: Math.ceil(nearest.dist / 0.08),
+          duration: Math.ceil(nearest.dist / WALKING_SPEED_KM_PER_MIN),
           distance_km: Math.round(nearest.dist * 1000) / 1000
         };
       }
@@ -203,7 +206,7 @@ router.get('/api/plan', async (req, res) => {
           toName: endPlaceName || 'Destination',
           fromCoords: { lat: parseFloat(nearest.lat), lon: parseFloat(nearest.lon) },
           toCoords: { lat: eLat, lon: eLon },
-          duration: Math.ceil(nearest.dist / 0.08),
+          duration: Math.ceil(nearest.dist / WALKING_SPEED_KM_PER_MIN),
           distance_km: Math.round(nearest.dist * 1000) / 1000
         };
       }
@@ -223,7 +226,7 @@ router.get('/api/plan', async (req, res) => {
       : null;
 
     if (pinToPin !== null && pinToPin < 0.8) {
-      const walkMinutes = Math.max(1, Math.ceil(pinToPin / 0.08));
+      const walkMinutes = Math.max(1, Math.ceil(pinToPin / WALKING_SPEED_KM_PER_MIN));
       const depTime = departureTime;
       const arrTime = minutesToTime(timeToMinutes(depTime) + walkMinutes) + ':00';
 
@@ -458,7 +461,7 @@ router.get('/api/plan', async (req, res) => {
           let walkToStationMins = 2;
           if (busStopCoords && railStopCoords) {
             const walkDist = haversineDistance(busStopCoords.lat, busStopCoords.lon, railStopCoords.lat, railStopCoords.lon);
-            walkToStationMins = Math.max(1, Math.ceil(walkDist / 0.08));
+            walkToStationMins = Math.max(1, Math.ceil(walkDist / WALKING_SPEED_KM_PER_MIN));
           }
 
           const arrivalAtStation = timeToMinutes(bus.alightTime) + walkToStationMins;
@@ -473,7 +476,7 @@ router.get('/api/plan', async (req, res) => {
               if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
                 const bsCoords = stationCoordsMap[station.bus_stop_atco];
                 const rsCoords = stationCoordsMap[station.atco_code];
-                const walkDist = (bsCoords && rsCoords) ? haversineDistance(bsCoords.lat, bsCoords.lon, rsCoords.lat, rsCoords.lon) : walkToStationMins * 0.08;
+                const walkDist = (bsCoords && rsCoords) ? haversineDistance(bsCoords.lat, bsCoords.lon, rsCoords.lat, rsCoords.lon) : walkToStationMins * WALKING_SPEED_KM_PER_MIN;
                 legs.push({ type: 'walk', fromName: station.bus_stop_name || bus.alightName, toName: station.common_name, fromCoords: bsCoords || null, toCoords: rsCoords || null, duration: walkToStationMins, distance_km: Math.round(walkDist * 1000) / 1000 });
               }
               legs.push(train);
@@ -493,7 +496,7 @@ router.get('/api/plan', async (req, res) => {
                 if (walkToStationMins > 1 && station.bus_stop_atco !== station.atco_code) {
                   const bsCoords = stationCoordsMap[station.bus_stop_atco];
                   const rsCoords = stationCoordsMap[station.atco_code];
-                  const walkDist = (bsCoords && rsCoords) ? haversineDistance(bsCoords.lat, bsCoords.lon, rsCoords.lat, rsCoords.lon) : walkToStationMins * 0.08;
+                  const walkDist = (bsCoords && rsCoords) ? haversineDistance(bsCoords.lat, bsCoords.lon, rsCoords.lat, rsCoords.lon) : walkToStationMins * WALKING_SPEED_KM_PER_MIN;
                   legs.push({ type: 'walk', fromName: station.bus_stop_name || bus.alightName, toName: station.common_name, fromCoords: bsCoords || null, toCoords: rsCoords || null, duration: walkToStationMins, distance_km: Math.round(walkDist * 1000) / 1000 });
                 }
                 legs.push(...conn.legs);
@@ -706,7 +709,7 @@ router.get('/api/plan', async (req, res) => {
         JOIN bus_journey_stops bjs1_end ON bj1.journey_id = bjs1_end.journey_id
           AND bjs1_end.stop_sequence > bjs1_start.stop_sequence
         -- Match transfer stops by exact ATCO code or same 7-char cluster prefix
-        -- (NaPTAN ATCO codes share a 7-character base for stops in the same cluster/locality)
+        -- (heuristic: NaPTAN ATCO codes often share a 7-char base for stops in the same locality)
         JOIN bus_journey_stops bjs2_start ON
               (bjs2_start.atco_code = bjs1_end.atco_code
                OR SUBSTRING(bjs2_start.atco_code FROM 1 FOR 7) = SUBSTRING(bjs1_end.atco_code FROM 1 FOR 7))
@@ -769,7 +772,7 @@ router.get('/api/plan', async (req, res) => {
         const busStopCoords = await pool.query('SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1', [bus.boardAtco]);
         if (busStopCoords.rows[0]) {
           const walkDist = haversineDistance(parseFloat(startStop.lat), parseFloat(startStop.lon), parseFloat(busStopCoords.rows[0].lat), parseFloat(busStopCoords.rows[0].lon));
-          const walkMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          const walkMins = Math.max(1, Math.ceil(walkDist / WALKING_SPEED_KM_PER_MIN));
           if (walkMins > 1) { legs.unshift({ type: 'walk', fromName: startStop.common_name, toName: bus.boardName, duration: walkMins, distance_km: Math.round(walkDist * 1000) / 1000 }); totalDuration += walkMins; }
         }
       }
@@ -777,7 +780,7 @@ router.get('/api/plan', async (req, res) => {
         const busStopCoords = await pool.query('SELECT coordinates[0] as lon, coordinates[1] as lat FROM stops WHERE atco_code = $1', [bus.alightAtco]);
         if (busStopCoords.rows[0]) {
           const walkDist = haversineDistance(parseFloat(busStopCoords.rows[0].lat), parseFloat(busStopCoords.rows[0].lon), parseFloat(endStop.lat), parseFloat(endStop.lon));
-          const walkMins = Math.max(1, Math.ceil(walkDist / 0.08));
+          const walkMins = Math.max(1, Math.ceil(walkDist / WALKING_SPEED_KM_PER_MIN));
           if (walkMins > 1) { legs.push({ type: 'walk', fromName: bus.alightName, toName: endStop.common_name, duration: walkMins, distance_km: Math.round(walkDist * 1000) / 1000 }); totalDuration += walkMins; }
         }
       }
@@ -904,7 +907,7 @@ router.get('/api/plan', async (req, res) => {
     // === Strategy 0: Walking only (short distances) ===
     const walkDistance = (pinToPin !== null) ? pinToPin : directDistance;
     if (walkDistance <= 3.0) {
-      const walkMinutes = Math.max(1, Math.ceil(walkDistance / 0.08));
+      const walkMinutes = Math.max(1, Math.ceil(walkDistance / WALKING_SPEED_KM_PER_MIN));
       const walkFrom = startPlaceCoords || { lat: parseFloat(startStop.lat), lon: parseFloat(startStop.lon) };
       const walkTo = endPlaceCoords || { lat: parseFloat(endStop.lat), lon: parseFloat(endStop.lon) };
       allRoutes.push({ id: 'walk-only', summary: 'Walk', modes: ['walk'], departureTime, arrivalTime: minutesToTime(timeToMinutes(departureTime) + walkMinutes) + ':00', durationMinutes: walkMinutes, legs: [{ type: 'walk', fromName: startPlaceName || startStop.common_name, toName: endPlaceName || endStop.common_name, fromCoords: walkFrom, toCoords: walkTo, duration: walkMinutes, distance_km: Math.round(walkDistance * 1000) / 1000 }] });
@@ -929,7 +932,7 @@ router.get('/api/plan', async (req, res) => {
             // Recalculate distance and duration for the combined walk
             if (firstLeg.fromCoords && firstLeg.toCoords) {
               const dist = haversineDistance(firstLeg.fromCoords.lat, firstLeg.fromCoords.lon, firstLeg.toCoords.lat, firstLeg.toCoords.lon);
-              const newDuration = Math.max(1, Math.ceil(dist / 0.08));
+              const newDuration = Math.max(1, Math.ceil(dist / WALKING_SPEED_KM_PER_MIN));
               route.durationMinutes += newDuration - (firstLeg.duration || 0);
               firstLeg.duration = newDuration;
               firstLeg.distance_km = Math.round(dist * 1000) / 1000;
@@ -954,7 +957,7 @@ router.get('/api/plan', async (req, res) => {
             lastLeg.toCoords = endWalkLeg.toCoords;
             if (lastLeg.fromCoords && lastLeg.toCoords) {
               const dist = haversineDistance(lastLeg.fromCoords.lat, lastLeg.fromCoords.lon, lastLeg.toCoords.lat, lastLeg.toCoords.lon);
-              const newDuration = Math.max(1, Math.ceil(dist / 0.08));
+              const newDuration = Math.max(1, Math.ceil(dist / WALKING_SPEED_KM_PER_MIN));
               route.durationMinutes += newDuration - (lastLeg.duration || 0);
               lastLeg.duration = newDuration;
               lastLeg.distance_km = Math.round(dist * 1000) / 1000;
@@ -976,7 +979,7 @@ router.get('/api/plan', async (req, res) => {
     const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
     // Scale max walk leg with journey distance: 15 min for short trips, up to 40 min for long ones
     const maxWalkLegMinutes = Math.min(40, Math.max(15, Math.ceil(directDistance * 1.5)));
-    const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / 0.08)) : null;
+    const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / WALKING_SPEED_KM_PER_MIN)) : null;
     const queryDepMins = timeToMinutes(departureTime);
     const filteredRoutes = allRoutes.filter(r => {
       if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) {

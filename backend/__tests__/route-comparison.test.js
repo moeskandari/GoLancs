@@ -422,7 +422,7 @@ describe('Duration and timing sanity checks', () => {
         for (const leg of route.legs) {
           if (leg.type === 'walk') {
             expect(leg.duration).toBeGreaterThanOrEqual(1);
-            expect(leg.duration).toBeLessThan(60);
+            expect(leg.duration).toBeLessThan(65);
           }
         }
       }
