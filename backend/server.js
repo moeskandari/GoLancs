@@ -2173,29 +2173,40 @@ async function enrichLegsWithGeometry(allRoutes) {
   }
 
   if (busRequests.length > 0) {
-    // Prioritize shorter bus segments for road-following geometry (more visual impact).
-    // For very long segments (>50 waypoints), the stop-to-stop straight lines
-    // are already a good approximation, so skip Valhalla to save time.
-    const shortBusRequests = busRequests.filter(r => r.waypoints.length <= 50);
-    const longBusRequests = busRequests.filter(r => r.waypoints.length > 50);
-    // Clean up long requests (keep straight-line fallback)
-    for (const { leg } of longBusRequests) { delete leg._busWaypoints; }
+    console.log(`Valhalla bus route queue: ${busRequests.length} requests`);
 
-    if (shortBusRequests.length > 0) {
-      console.log(`Valhalla bus route queue: ${shortBusRequests.length} requests (${longBusRequests.length} skipped, >15 stops)`);
-
-    // Process bus route geometry in batches of 4 with minimal delay
     const BUS_BATCH = 4;
-    for (let i = 0; i < shortBusRequests.length; i += BUS_BATCH) {
-      const batch = shortBusRequests.slice(i, i + BUS_BATCH);
+    const MAX_CHUNK = 15;
+    for (let i = 0; i < busRequests.length; i += BUS_BATCH) {
+      const batch = busRequests.slice(i, i + BUS_BATCH);
 
       await Promise.allSettled(batch.map(async ({ leg, waypoints, cacheKey }) => {
-        // Try Valhalla first for best quality road-following geometry
-        let geometry = await fetchValhallaBusGeometry(waypoints);
+        let geometry = null;
 
-        // Fallback to OSRM if Valhalla fails
-        if (!geometry || geometry.length < 2) {
-          geometry = await fetchOSRMGeometry(waypoints, 'driving');
+        if (waypoints.length <= MAX_CHUNK) {
+          // Short route: fetch in one go
+          geometry = await fetchValhallaBusGeometry(waypoints);
+          if (!geometry || geometry.length < 2) {
+            geometry = await fetchOSRMGeometry(waypoints, 'driving');
+          }
+        } else {
+          // Long route: chunk into overlapping segments of MAX_CHUNK stops,
+          // fetch road-following geometry for each, and stitch together
+          const allPts = [];
+          for (let s = 0; s < waypoints.length - 1; s += MAX_CHUNK - 1) {
+            const chunk = waypoints.slice(s, s + MAX_CHUNK);
+            if (chunk.length < 2) break;
+            let chunkGeo = await fetchValhallaBusGeometry(chunk);
+            if (!chunkGeo || chunkGeo.length < 2) {
+              chunkGeo = await fetchOSRMGeometry(chunk, 'driving');
+            }
+            if (chunkGeo && chunkGeo.length >= 2) {
+              if (allPts.length > 0) chunkGeo.shift(); // skip duplicate join point
+              allPts.push(...chunkGeo);
+            }
+            if (s + MAX_CHUNK < waypoints.length) await delay(80);
+          }
+          if (allPts.length >= 2) geometry = allPts;
         }
 
         // Cache result
@@ -2210,17 +2221,14 @@ async function enrichLegsWithGeometry(allRoutes) {
         if (geometry && geometry.length >= 2) {
           leg.geometry = geometry;
         }
-        // else: keeps the straight-line stop waypoints as fallback
 
         delete leg._busWaypoints;
       }));
 
-      // Small delay between batches to respect rate limits
-      if (i + BUS_BATCH < shortBusRequests.length) {
+      if (i + BUS_BATCH < busRequests.length) {
         await delay(80);
       }
     }
-    } // end if shortBusRequests.length > 0
   }
 
   // Clean up any remaining temporary waypoints
