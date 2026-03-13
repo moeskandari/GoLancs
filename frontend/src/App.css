@@ -88,6 +88,29 @@
   gap: 6px;
 }
 
+.time-mode-toggle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #2196F3;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 72px;
+  transition: background 0.2s;
+}
+
+.time-mode-toggle:hover {
+  background: #1976D2;
+}
+
+.time-mode-toggle:focus {
+  outline: 2px solid #1565C0;
+  outline-offset: 2px;
+}
+
 .time-label {
   font-size: 12px;
   font-weight: 600;
@@ -216,9 +239,10 @@
     gap: 4px;
   }
 
-  .time-label {
+  .time-mode-toggle {
     font-size: 11px;
-    min-width: 50px;
+    min-width: 60px;
+    padding: 5px 8px;
   }
 
   .time-input {
