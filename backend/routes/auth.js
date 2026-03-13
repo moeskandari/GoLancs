@@ -16,7 +16,9 @@ const {
   signInValidation,
   profileUpdateValidation,
   forgotPasswordValidation,
-  resetPasswordValidation
+  resetPasswordValidation,
+  changePasswordValidation,
+  settingsValidation
 } = require('../middleware/validation');
 const { sanitiseInput, createRateLimiter } = require('../middleware/security');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
@@ -64,6 +66,14 @@ function createAuthRoutes(pool) {
         `INSERT INTO point_transactions (user_id, points, type, description)
          VALUES ($1, $2, 'signup_bonus', 'Welcome bonus for creating an account')`,
         [user.id, SIGNUP_BONUS_POINTS]
+      );
+
+      // Create default user settings row
+      await pool.query(
+        `INSERT INTO user_settings (user_id, theme, font_size)
+         VALUES ($1, 'light', 'medium')
+         ON CONFLICT (user_id) DO NOTHING`,
+        [user.id]
       );
 
       // Generate email verification token
@@ -593,6 +603,130 @@ function createAuthRoutes(pool) {
     } catch (err) {
       console.error('Redeem reward error:', err);
       res.status(500).json({ error: 'Failed to redeem reward.' });
+    }
+  });
+
+  // ─── GET /api/auth/settings ──────────────────────────────────
+  /**
+   * Returns the current user's settings.
+   * Creates a default settings row if one does not exist yet.
+   */
+  router.get('/settings', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      // Upsert ensures a row always exists even for legacy accounts
+      const result = await pool.query(
+        `INSERT INTO user_settings (user_id, theme, font_size)
+         VALUES ($1, 'light', 'medium')
+         ON CONFLICT (user_id) DO UPDATE SET updated_at = user_settings.updated_at
+         RETURNING theme, font_size`,
+        [userId]
+      );
+      const row = result.rows[0];
+      res.json({ theme: row.theme, fontSize: row.font_size });
+    } catch (err) {
+      console.error('Get settings error:', err);
+      res.status(500).json({ error: 'Failed to load settings.' });
+    }
+  });
+
+  // ─── PUT /api/auth/settings ──────────────────────────────────
+  /**
+   * Updates one or more settings fields for the current user.
+   * Called on every individual setting change so the UI can apply immediately.
+   */
+  router.put('/settings', requireAuth, sanitiseInput, settingsValidation, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { theme, fontSize } = req.body;
+
+      // Ensure a row exists
+      await pool.query(
+        `INSERT INTO user_settings (user_id, theme, font_size)
+         VALUES ($1, 'light', 'medium')
+         ON CONFLICT (user_id) DO NOTHING`,
+        [userId]
+      );
+
+      // Build dynamic update
+      const updates = [];
+      const values = [];
+      let paramIdx = 1;
+
+      if (theme !== undefined) {
+        updates.push(`theme = $${paramIdx++}`);
+        values.push(theme);
+      }
+      if (fontSize !== undefined) {
+        updates.push(`font_size = $${paramIdx++}`);
+        values.push(fontSize);
+      }
+
+      if (updates.length === 0) {
+        // Nothing to update – return current row
+        const current = await pool.query(
+          'SELECT theme, font_size FROM user_settings WHERE user_id = $1',
+          [userId]
+        );
+        const row = current.rows[0];
+        return res.json({ theme: row.theme, fontSize: row.font_size });
+      }
+
+      updates.push(`updated_at = NOW()`);
+      values.push(userId);
+
+      const result = await pool.query(
+        `UPDATE user_settings SET ${updates.join(', ')} WHERE user_id = $${paramIdx} RETURNING theme, font_size`,
+        values
+      );
+
+      const row = result.rows[0];
+      res.json({ theme: row.theme, fontSize: row.font_size });
+    } catch (err) {
+      console.error('Update settings error:', err);
+      res.status(500).json({ error: 'Failed to update settings.' });
+    }
+  });
+
+  // ─── POST /api/auth/change-password ──────────────────────────
+  /**
+   * Changes the user's password while they are logged in.
+   * Verifies the current password, hashes the new one, and invalidates
+   * all other sessions (but keeps the current session active).
+   */
+  router.post('/change-password', requireAuth, sanitiseInput, changePasswordValidation, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.id;
+
+      // Fetch stored hash
+      const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found.' });
+      }
+
+      const { password_hash } = result.rows[0];
+
+      // Validate current password
+      const isValid = await bcrypt.compare(currentPassword, password_hash);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+
+      // Hash and store new password
+      const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, userId]);
+
+      // Invalidate all other sessions for this user (keep current session)
+      await pool.query(
+        `DELETE FROM user_sessions WHERE (sess->>'userId')::int = $1 AND sid != $2`,
+        [userId, req.session.id]
+      );
+
+      res.json({ message: 'Password changed successfully.' });
+    } catch (err) {
+      console.error('Change password error:', err);
+      res.status(500).json({ error: 'Failed to change password.' });
     }
   });
 
