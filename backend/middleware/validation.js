@@ -133,11 +133,62 @@ const resetPasswordValidation = [
   handleValidationErrors
 ];
 
+/**
+ * Validation rules for changing password (while logged in).
+ */
+const changePasswordValidation = [
+  body('currentPassword')
+    .notEmpty().withMessage('Current password is required'),
+
+  body('newPassword')
+    .notEmpty().withMessage('New password is required')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain at least one special character')
+    .custom((value, { req }) => {
+      if (value === req.body.currentPassword) {
+        throw new Error('New password must be different from your current password');
+      }
+      return true;
+    }),
+
+  body('confirmPassword')
+    .notEmpty().withMessage('Please confirm your new password')
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    }),
+
+  handleValidationErrors
+];
+
+/**
+ * Validation rules for updating user settings (theme, fontSize).
+ * All fields are optional – only provided fields are updated.
+ */
+const settingsValidation = [
+  body('theme')
+    .optional()
+    .isIn(['light', 'dark']).withMessage("Theme must be 'light' or 'dark'"),
+
+  body('fontSize')
+    .optional()
+    .isIn(['small', 'medium', 'large']).withMessage("Font size must be 'small', 'medium', or 'large'"),
+
+  handleValidationErrors
+];
+
 module.exports = {
   handleValidationErrors,
   signUpValidation,
   signInValidation,
   profileUpdateValidation,
   forgotPasswordValidation,
-  resetPasswordValidation
+  resetPasswordValidation,
+  changePasswordValidation,
+  settingsValidation
 };

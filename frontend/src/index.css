@@ -7,6 +7,8 @@
 html {
   /* Safe area insets for notched devices (iPhone X+) */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Default root font-size (overridden by html[data-font-size] below) */
+  font-size: 16px;
 }
 
 body {
@@ -87,4 +89,469 @@ img[loading="lazy"] {
     background: rgba(0, 0, 0, 0.15);
     border-radius: 4px;
   }
+}
+
+/* ── Font size (controlled via html[data-font-size] set by AuthContext) ── */
+html[data-font-size="small"]  { font-size: 14px; }
+html[data-font-size="medium"] { font-size: 16px; }
+html[data-font-size="large"]  { font-size: 18px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE  –  html[data-theme="dark"]
+   Applied globally by AuthContext.applySettingsToDocument().
+   Covers: body, main map page, search panel, route results, filter page,
+           weather sidebar, auth forms, profile page, settings page.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base ── */
+html[data-theme="dark"] body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   MAIN PAGE CONTROLS ONLY (map visuals unchanged)
+   Requested: bottom icons, weather icon, search bars, departure/arrive,
+              and flip icon should be dark in dark mode.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Start/end search bars */
+html[data-theme="dark"] .search-bar {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+html[data-theme="dark"] .search-input {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+html[data-theme="dark"] .search-input::placeholder {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .search-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .dropdown-section-header {
+  background: #0f172a;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .item-name {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .item-detail,
+html[data-theme="dark"] .stop-code,
+html[data-theme="dark"] .dropdown-empty {
+  color: #94a3b8;
+}
+
+/* Departure / arrival controls */
+html[data-theme="dark"] .time-input {
+  background: #0f172a;
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] .time-label {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .time-hint {
+  color: #94a3b8;
+}
+
+/* Flip icon */
+html[data-theme="dark"] .swap-btn {
+  background: #1e293b;
+  color: #93c5fd;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .swap-btn:hover {
+  background: #334155;
+}
+
+/* Bottom controls icons */
+html[data-theme="dark"] .bottom-controls {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .control-btn {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .control-btn:hover {
+  background: #334155;
+}
+
+/* Ensure SVG stroke/fill follows button text colour */
+html[data-theme="dark"] .control-btn svg {
+  color: inherit;
+}
+
+/* Weather icon button */
+html[data-theme="dark"] .weather-icon-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .weather-temp {
+  color: #e2e8f0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FILTER PAGE  (FilterPage.css classes)
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .filter-page {
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .filter-top-bar {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .filter-page-title {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .filter-back-btn {
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] .filter-back-btn:hover {
+  background: #1e3a5f;
+}
+
+html[data-theme="dark"] .filter-body {
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .filter-category {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .filter-category-title {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .filter-option-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .filter-option-btn:hover {
+  background: #162032;
+  border-color: #475569;
+}
+
+html[data-theme="dark"] .filter-option-btn.selected {
+  background: #0d2340;
+  border-color: #2196F3;
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] .filter-submit-bar {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   WEATHER SIDEBAR  (WeatherSidebar.css classes)
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .weather-sidebar {
+  background: #1e293b;
+}
+
+html[data-theme="dark"] .weather-sidebar-header {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .weather-sidebar-header h2 {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .weather-sidebar-close {
+  background: #0f172a;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .weather-sidebar-close:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .weather-sidebar-content {
+  background: #1e293b;
+}
+
+html[data-theme="dark"] .weather-card {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .weather-card h3 {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .weather-card-temp {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .weather-card-desc {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .weather-card-location {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .detail-label {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .detail-value {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .weather-recommendation {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .weather-recommendation h3 {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .recommendation-mode-label {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .recommendation-mode-label strong {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .recommendation-tips {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .skeleton-line {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   AUTH FORMS  (SignIn, SignUp, ForgotPassword, etc.)
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .auth-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .auth-input {
+  background: #0f172a;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .auth-input::placeholder {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .auth-label {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .auth-title,
+html[data-theme="dark"] .auth-subtitle {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .auth-divider {
+  color: #475569;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .auth-error {
+  background: #2d1a1a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .auth-success-inline {
+  background: #0a2a0a;
+  border-color: #166534;
+  color: #86efac;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   PROFILE PAGE  (Profile.js / Auth.css classes)
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .profile-page {
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .profile-content {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .profile-header {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .profile-title,
+html[data-theme="dark"] .profile-email {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .profile-member-since,
+html[data-theme="dark"] .profile-placeholder-text,
+html[data-theme="dark"] .danger-desc {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .profile-tabs {
+  border-color: #334155;
+  background: #0f172a;
+}
+
+html[data-theme="dark"] .profile-tab {
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .profile-tab.active {
+  background: #2196F3;
+  color: #fff;
+}
+
+html[data-theme="dark"] .profile-section {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .profile-section-title {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .profile-info-item {
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .profile-info-label {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .profile-info-value {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .profile-back-btn,
+html[data-theme="dark"] .profile-logout-btn {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .profile-verification-banner {
+  background: #1e3a5f;
+  border-color: #1d4ed8;
+  color: #93c5fd;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   SETTINGS TAB
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .settings-section {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .settings-section-title {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .settings-toggle-label {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .settings-radio-label {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .settings-radio-option input:checked + .settings-radio-label {
+  background: #172554;
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] .settings-radio-label .font-label {
+  color: inherit;
+}
+
+html[data-theme="dark"] .settings-danger-zone {
+  background: #1e293b;
+  border-color: #7f1d1d;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   POINTS & REWARDS TAB
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .transaction-item {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .transaction-desc {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .transaction-date {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .reward-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .reward-name {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .reward-desc {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .points-summary {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .points-total-label {
+  color: #94a3b8;
 }

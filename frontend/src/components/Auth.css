@@ -56,7 +56,7 @@
   right: 12px;
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 1.25rem;
   cursor: pointer;
   color: #666;
   width: 44px;
@@ -81,7 +81,7 @@
 
 /* ---------- Title ---------- */
 .auth-title {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #222;
   text-align: center;
@@ -96,7 +96,7 @@
 }
 
 .auth-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #444;
   margin-bottom: -4px;
@@ -106,7 +106,7 @@
   padding: 12px 14px;
   border: 1.5px solid #d0d0d0;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: #333;
   background: #fafafa;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -136,7 +136,7 @@
   border-radius: 10px;
   background: #2196F3;
   color: #fff;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.25s, transform 0.15s;
@@ -164,7 +164,7 @@
   background: none;
   border: none;
   color: #2196F3;
-  font-size: 14px;
+  font-size: 0.875rem;
   cursor: pointer;
   padding: 4px 0;
   text-decoration: none;
@@ -185,14 +185,14 @@
 /* ---------- Helper text ---------- */
 .auth-switch-text,
 .auth-terms-text {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #666;
   text-align: center;
   margin-top: 6px;
 }
 
 .auth-description {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #555;
   text-align: center;
   margin: 0 0 8px;
@@ -205,7 +205,7 @@
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #dc2626;
   margin-bottom: 4px;
 }
@@ -228,11 +228,11 @@
 }
 
 .auth-success-icon {
-  font-size: 48px;
+  font-size: 3rem;
 }
 
 .auth-loading-spinner {
-  font-size: 48px;
+  font-size: 3rem;
   animation: spin 1s linear infinite;
 }
 
@@ -246,14 +246,14 @@
   border: 1px solid #bbf7d0;
   border-radius: 8px;
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #16a34a;
   text-align: center;
   margin-bottom: 8px;
 }
 
 .auth-hint {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #888;
 }
 
@@ -266,7 +266,7 @@
 }
 
 .pw-check {
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 2px 0;
   transition: color 0.2s;
 }
@@ -301,7 +301,7 @@
   border: none;
   padding: 10px 18px;
   border-radius: 25px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #333;
   cursor: pointer;
@@ -323,7 +323,7 @@
   border: 1px solid #e5e7eb;
   padding: 10px 18px;
   border-radius: 25px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #dc2626;
   cursor: pointer;
@@ -371,20 +371,20 @@
 }
 
 .profile-title {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #222;
   margin: 0;
 }
 
 .profile-email {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #666;
   margin: 0;
 }
 
 .profile-member-since {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #999;
   margin: 0;
 }
@@ -397,7 +397,7 @@
   border: 1px solid #fde68a;
   border-radius: 8px;
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #92400e;
 }
 
@@ -413,16 +413,16 @@
 }
 
 .points-icon {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .points-value {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
 .points-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   opacity: 0.9;
 }
 
@@ -442,7 +442,7 @@
   border: none;
   padding: 10px 8px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #666;
   cursor: pointer;
@@ -470,7 +470,7 @@
 }
 
 .profile-section-title {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   color: #333;
   margin: 16px 0 12px;
@@ -493,13 +493,13 @@
 }
 
 .profile-info-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #888;
   font-weight: 500;
 }
 
 .profile-info-value {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #333;
   font-weight: 600;
 }
@@ -545,13 +545,13 @@
 }
 
 .points-total-value {
-  font-size: 48px;
+  font-size: 3rem;
   font-weight: 800;
   color: #f59e0b;
 }
 
 .points-total-label {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #888;
   font-weight: 500;
 }
@@ -579,18 +579,18 @@
 }
 
 .transaction-desc {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #333;
   font-weight: 500;
 }
 
 .transaction-date {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #999;
 }
 
 .transaction-points {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -628,20 +628,20 @@
 }
 
 .reward-name {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #333;
   margin: 0;
 }
 
 .reward-desc {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #666;
   margin: 0;
 }
 
 .reward-cost {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #f59e0b;
   font-weight: 600;
 }
@@ -652,7 +652,7 @@
   border: none;
   padding: 10px 16px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -677,15 +677,160 @@
   margin-top: 8px;
 }
 
+/* ---------- Settings sections ---------- */
+.settings-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 14px;
+}
+
+.settings-section-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 14px;
+  letter-spacing: 0.01em;
+}
+
+/* ── Dark / Light mode toggle ── */
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-toggle-label {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #cbd5e1;
+  border-radius: 28px;
+  transition: background 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: #2196F3;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(22px);
+}
+
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid #2196F3;
+  outline-offset: 2px;
+}
+
+/* ── Font size radio group ── */
+.settings-radio-group {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-radio-option {
+  flex: 1;
+  position: relative;
+}
+
+.settings-radio-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-radio-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 8px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+  user-select: none;
+}
+
+.settings-radio-label:hover {
+  border-color: #93c5fd;
+  background: #f0f9ff;
+}
+
+.settings-radio-option input:checked + .settings-radio-label {
+  border-color: #2196F3;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.settings-radio-option input:focus-visible + .settings-radio-label {
+  outline: 2px solid #2196F3;
+  outline-offset: 2px;
+}
+
+.font-preview {
+  font-weight: 700;
+  color: inherit;
+  line-height: 1;
+}
+
+.font-preview-small  { font-size: 0.875rem; }
+.font-preview-medium { font-size: 1.125rem; }
+.font-preview-large  { font-size: 1.375rem; }
+
+.font-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
 .danger-title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #dc2626;
   margin: 0 0 8px;
 }
 
 .danger-desc {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #666;
   margin: 0 0 16px;
   line-height: 1.5;
@@ -697,7 +842,7 @@
   border: none;
   padding: 12px 20px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -714,7 +859,7 @@
 }
 
 .delete-confirm-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #dc2626;
   margin: 0 0 12px;
 }
@@ -731,7 +876,7 @@
   border: none;
   padding: 12px 20px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -747,7 +892,7 @@
 }
 
 .profile-placeholder-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #888;
   text-align: center;
   padding: 20px 0;
@@ -792,34 +937,34 @@
     right: 16px;
     width: 40px;
     height: 40px;
-    font-size: 22px;
+    font-size: 1.375rem;
     z-index: 10;
   }
 
   .auth-title {
-    font-size: 22px;
+    font-size: 1.375rem;
     margin-bottom: 20px;
   }
 
   .auth-input {
     padding: 14px 16px;
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   .auth-submit-btn {
     padding: 14px;
-    font-size: 16px;
+    font-size: 1rem;
     margin-top: 12px;
   }
 
   .auth-link-btn {
-    font-size: 15px;
+    font-size: 0.9375rem;
     padding: 8px 0;
   }
 
   .auth-switch-text,
   .auth-terms-text {
-    font-size: 14px;
+    font-size: 0.875rem;
     margin-top: 12px;
   }
 
@@ -844,7 +989,7 @@
   }
 
   .profile-tab {
-    font-size: 12px;
+    font-size: 0.75rem;
     padding: 8px 4px;
   }
 

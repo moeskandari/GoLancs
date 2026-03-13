@@ -42,7 +42,7 @@
 }
 
 .minimized-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #2196F3;
 }
@@ -73,14 +73,14 @@
 }
 
 .results-title {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
   margin: 0;
   color: #1a1a2e;
 }
 
 .results-meta {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #666;
 }
 
@@ -101,7 +101,7 @@
   padding: 5px 10px;
   border-radius: 10px;
   border: 1px solid #ddd;
-  font-size: 13px;
+  font-size: 0.8125rem;
   background: #f8f9fa;
   cursor: pointer;
   font-weight: 500;
@@ -158,18 +158,18 @@
 }
 
 .departure, .arrival {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #1a1a2e;
 }
 
 .route-arrow {
   color: #999;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .route-duration {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #2196F3;
   background: #e3f2fd;
@@ -186,7 +186,7 @@
 }
 
 .mode-chip {
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 600;
@@ -199,7 +199,7 @@
 
 .mode-separator {
   color: #bbb;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   margin: 0 2px;
 }
@@ -240,7 +240,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 1rem;
   flex-shrink: 0;
   z-index: 1;
 }
@@ -278,7 +278,7 @@
 }
 
 .leg-mode-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   padding: 2px 10px;
   border-radius: 8px;
@@ -288,13 +288,13 @@
 .transfer-label { background: #fce4ec; color: #c62828; }
 
 .leg-operator {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #555;
   font-weight: 500;
 }
 
 .leg-duration {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #2196F3;
   font-weight: 700;
   margin-left: auto;
@@ -308,7 +308,7 @@
   display: inline-block;
   padding: 2px 10px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -328,7 +328,7 @@
 }
 
 .stop-time {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #1a1a2e;
   min-width: 40px;
@@ -348,7 +348,7 @@
 }
 
 .depart-label {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -357,7 +357,7 @@
 }
 
 .arrive-label {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -371,24 +371,24 @@
 }
 
 .stop-name {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #444;
 }
 
 .crs-code {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #999;
   font-weight: 500;
 }
 
 .leg-arrow {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #999;
   padding: 2px 0 2px 48px;
 }
 
 .leg-extra {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #888;
   margin-top: 4px;
   padding-left: 2px;
@@ -421,12 +421,12 @@
   border: 1.5px dashed #aac0e8;
   border-radius: 10px;
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #2d4e8a;
 }
 
 .wait-badge-icon {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .wait-badge-duration {
@@ -440,7 +440,7 @@
 }
 
 .changeover-station {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #333;
   margin-bottom: 6px;
@@ -467,7 +467,7 @@
 }
 
 .changeover-time-label {
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -475,14 +475,14 @@
 }
 
 .changeover-time-value {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #1a1a2e;
   font-variant-numeric: tabular-nums;
 }
 
 .changeover-time-sep {
-  font-size: 16px;
+  font-size: 1rem;
   color: #bbb;
   font-weight: 700;
   padding: 0 2px;
@@ -494,7 +494,7 @@
   margin-left: auto;
   background: #e3f2fd;
   color: #1565c0;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 10px;
@@ -503,7 +503,7 @@
 }
 
 .changeover-tip {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #666;
   font-style: italic;
 }
@@ -516,7 +516,7 @@
 }
 
 .no-routes-icon {
-  font-size: 32px;
+  font-size: 2rem;
   margin-bottom: 8px;
 }
 
@@ -570,7 +570,7 @@
   }
 
   .departure, .arrival {
-    font-size: 18px;
+    font-size: 1.125rem;
   }
 
   .route-card {
@@ -580,7 +580,7 @@
   .timeline-dot {
     width: 28px;
     height: 28px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .timeline-connector {
@@ -613,29 +613,29 @@
   }
 
   .results-title {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .results-meta {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .departure, .arrival {
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   .route-duration {
-    font-size: 13px;
+    font-size: 0.8125rem;
     padding: 2px 8px;
   }
 
   .mode-chip {
-    font-size: 11px;
+    font-size: 0.6875rem;
     padding: 2px 6px;
   }
 
   .sort-select {
-    font-size: 12px;
+    font-size: 0.75rem;
     padding: 4px 8px;
   }
 }
@@ -661,7 +661,7 @@
   border-radius: 10px;
   background: #fff8f0;
   color: #e65100;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -697,7 +697,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #2e7d32;
   margin: 2px 0 4px 0;
 }
@@ -753,7 +753,7 @@
   gap: 6px;
   padding: 3px 10px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
   margin: 3px 0 4px 0;
 }
@@ -788,7 +788,7 @@
   color: #fff;
   padding: 1px 6px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.3px;
   margin-left: 4px;
@@ -821,7 +821,7 @@
 }
 
 .calling-points-title {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: #1976d2;
   margin-bottom: 4px;
@@ -832,7 +832,7 @@
   align-items: center;
   gap: 8px;
   padding: 2px 0;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #333;
   border-bottom: 1px solid #eee;
 }
@@ -857,7 +857,7 @@
 }
 
 .cp-est {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
   color: #e65100;
   background: #fff3e0;
@@ -871,7 +871,7 @@
 }
 
 .cp-your-stop {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   color: #1976d2;
   background: #e3f2fd;
@@ -895,7 +895,7 @@
 .route-delay-banner {
   background: #fff3e0;
   color: #e65100;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 6px;
@@ -943,7 +943,7 @@
 .header-cancelled-badge {
   background: #c62828;
   color: #fff;
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 4px;
@@ -968,7 +968,7 @@
 .leg-delay-warning {
   background: #fff3e0;
   color: #e65100;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 6px;
@@ -979,7 +979,7 @@
 .leg-cancelled-warning {
   background: #ffebee;
   color: #c62828;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 6px;

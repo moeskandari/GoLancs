@@ -12,9 +12,10 @@ import './Auth.css';
  */
 function Profile({ onBack, onLogout }) {
   const {
-    user, points, transactions, rewards,
+    user, points, transactions, rewards, settings,
     signOut, updateProfile, deleteAccount,
-    loadPoints, loadRewards, redeemReward, resendVerification
+    loadPoints, loadRewards, redeemReward, resendVerification,
+    updateSettings, changePassword
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'points', 'rewards', 'settings'
@@ -28,6 +29,10 @@ function Profile({ onBack, onLogout }) {
   const [verificationSent, setVerificationSent] = useState(false);
   const [redeemingId, setRedeemingId] = useState(null);
   const [rewardMessage, setRewardMessage] = useState('');
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   // Load points and rewards data when those tabs are shown
   useEffect(() => {
@@ -114,6 +119,41 @@ function Profile({ onBack, onLogout }) {
       setRewardMessage(err.message || 'Failed to redeem reward.');
     } finally {
       setRedeemingId(null);
+    }
+  };
+
+  // Settings handlers – apply immediately, no save button needed
+  const handleThemeChange = (theme) => {
+    updateSettings({ theme }).catch(() => {});
+  };
+
+  const handleFontSizeChange = (fontSize) => {
+    updateSettings({ fontSize }).catch(() => {});
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordMessage('');
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const data = await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword
+      });
+      setPasswordMessage(data.message || 'Password changed successfully!');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setPasswordError(err.message || 'Failed to change password.');
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -387,8 +427,104 @@ function Profile({ onBack, onLogout }) {
           {/* ─── Settings tab ─── */}
           {activeTab === 'settings' && (
             <div className="profile-section">
-              <h3 className="profile-section-title">Account Settings</h3>
 
+              {/* Appearance */}
+              <div className="settings-section">
+                <h4 className="settings-section-title">🌗 Appearance</h4>
+                <div className="settings-toggle-row">
+                  <span className="settings-toggle-label">
+                    {settings.theme === 'dark' ? '🌙 Dark mode' : '☀️ Light mode'}
+                  </span>
+                  <label className="toggle-switch" aria-label="Toggle dark mode">
+                    <input
+                      type="checkbox"
+                      checked={settings.theme === 'dark'}
+                      onChange={(e) => handleThemeChange(e.target.checked ? 'dark' : 'light')}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Text size */}
+              <div className="settings-section">
+                <h4 className="settings-section-title">🔤 Text Size</h4>
+                <div className="settings-radio-group" role="radiogroup" aria-label="Font size">
+                  {[['small', 'A', 'Small'], ['medium', 'Aa', 'Medium'], ['large', 'AA', 'Large']].map(
+                    ([value, preview, label]) => (
+                      <label key={value} className="settings-radio-option">
+                        <input
+                          type="radio"
+                          name="fontSize"
+                          value={value}
+                          checked={settings.fontSize === value}
+                          onChange={() => handleFontSizeChange(value)}
+                        />
+                        <span className="settings-radio-label">
+                          <span className={`font-preview font-preview-${value}`}>{preview}</span>
+                          <span className="font-label">{label}</span>
+                        </span>
+                      </label>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Change password */}
+              <div className="settings-section">
+                <h4 className="settings-section-title">🔑 Change Password</h4>
+                {passwordMessage && (
+                  <div className="auth-success-inline" role="status">{passwordMessage}</div>
+                )}
+                {passwordError && (
+                  <div className="auth-error" role="alert">
+                    <span className="auth-error-icon">⚠️</span> {passwordError}
+                  </div>
+                )}
+                <form className="auth-form" onSubmit={handlePasswordChange}>
+                  <label className="auth-label" htmlFor="current-password">Current password</label>
+                  <input
+                    id="current-password"
+                    className="auth-input"
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    required
+                    disabled={passwordSaving}
+                    autoComplete="current-password"
+                  />
+
+                  <label className="auth-label" htmlFor="new-password">New password</label>
+                  <input
+                    id="new-password"
+                    className="auth-input"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    required
+                    disabled={passwordSaving}
+                    autoComplete="new-password"
+                  />
+
+                  <label className="auth-label" htmlFor="confirm-password">Confirm new password</label>
+                  <input
+                    id="confirm-password"
+                    className="auth-input"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    required
+                    disabled={passwordSaving}
+                    autoComplete="new-password"
+                  />
+
+                  <button type="submit" className="auth-submit-btn" disabled={passwordSaving}>
+                    {passwordSaving ? '⏳ Changing...' : 'Change Password'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Danger zone */}
               <div className="settings-danger-zone">
                 <h4 className="danger-title">⚠️ Danger Zone</h4>
                 <p className="danger-desc">

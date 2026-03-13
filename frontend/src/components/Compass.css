@@ -54,7 +54,7 @@
 
 .compass-labels span {
   position: absolute;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: bold;
   color: #333;
 }
@@ -99,7 +99,7 @@
 }
 
 .compass-enable-label {
-  font-size: 32px;
+  font-size: 2rem;
   line-height: 1;
 }
 
@@ -127,10 +127,10 @@
   }
   
   .compass-labels span {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .compass-enable-label {
-    font-size: 24px;
+    font-size: 1.5rem;
   }
 }

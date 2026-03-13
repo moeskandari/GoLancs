@@ -11,7 +11,7 @@
 }
 
 .leaflet-control-attribution {
-  font-size: 10px;
+  font-size: 0.625rem;
   background: rgba(255, 255, 255, 0.8);
 }
 
@@ -52,7 +52,7 @@
 }
 
 .pin-drop-icon .pin-emoji {
-  font-size: 24px;
+  font-size: 1.5rem;
   line-height: 24px;
   text-align: center;
 }
@@ -163,7 +163,7 @@
 
 .live-bus-number {
   color: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.3px;
   line-height: 1;
@@ -211,7 +211,7 @@
   color: #fff;
   padding: 6px 16px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -231,7 +231,7 @@
 .live-tracking-badge .live-count {
   color: #aaa;
   font-weight: 400;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 @keyframes dot-blink {
@@ -270,7 +270,7 @@
 
 .live-train-label {
   color: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   white-space: nowrap;
   line-height: 1;
@@ -308,7 +308,7 @@
   color: #fff;
   padding: 8px 20px;
   border-radius: 20px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
   pointer-events: none;

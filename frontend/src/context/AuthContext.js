@@ -10,6 +10,20 @@ const AuthContext = createContext(null);
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+/** Default settings applied when no user is logged in. */
+const DEFAULT_SETTINGS = { theme: 'light', fontSize: 'medium' };
+
+/**
+ * Writes theme and fontSize attributes to the <html> element so that
+ * CSS selectors like html[data-theme="dark"] and html[data-font-size="large"]
+ * take effect immediately across the whole app.
+ */
+function applySettingsToDocument(settings) {
+  const s = settings || DEFAULT_SETTINGS;
+  document.documentElement.setAttribute('data-theme', s.theme || 'light');
+  document.documentElement.setAttribute('data-font-size', s.fontSize || 'medium');
+}
+
 /**
  * Helper for fetch calls with credentials (cookies).
  */
@@ -38,6 +52,7 @@ export function AuthProvider({ children }) {
   const [points, setPoints] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [rewards, setRewards] = useState([]);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   // Check if user has an active session on mount
   useEffect(() => {
@@ -48,10 +63,23 @@ export function AuthProvider({ children }) {
         if (!cancelled) {
           setUser(data.user);
           setPoints(data.user.points || 0);
+          // Load and apply this user's saved settings
+          try {
+            const settingsData = await authFetch(`${API_URL}/api/auth/settings`);
+            if (!cancelled) {
+              setSettings(settingsData);
+              applySettingsToDocument(settingsData);
+            }
+          } catch {
+            if (!cancelled) applySettingsToDocument(DEFAULT_SETTINGS);
+          }
         }
       } catch {
         // No session – that's fine
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setUser(null);
+          applySettingsToDocument(DEFAULT_SETTINGS);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -70,6 +98,14 @@ export function AuthProvider({ children }) {
     });
     setUser(data.user);
     setPoints(data.user.points || 0);
+    // Load and apply default settings created during signup
+    try {
+      const settingsData = await authFetch(`${API_URL}/api/auth/settings`);
+      setSettings(settingsData);
+      applySettingsToDocument(settingsData);
+    } catch {
+      applySettingsToDocument(DEFAULT_SETTINGS);
+    }
     return data;
   }, []);
 
@@ -83,6 +119,14 @@ export function AuthProvider({ children }) {
     });
     setUser(data.user);
     setPoints(data.user.points || 0);
+    // Load and apply this user's saved settings
+    try {
+      const settingsData = await authFetch(`${API_URL}/api/auth/settings`);
+      setSettings(settingsData);
+      applySettingsToDocument(settingsData);
+    } catch {
+      applySettingsToDocument(DEFAULT_SETTINGS);
+    }
     return data;
   }, []);
 
@@ -99,6 +143,8 @@ export function AuthProvider({ children }) {
     setPoints(0);
     setTransactions([]);
     setRewards([]);
+    setSettings(DEFAULT_SETTINGS);
+    applySettingsToDocument(DEFAULT_SETTINGS);
   }, []);
 
   /**
@@ -216,6 +262,49 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  /**
+   * Fetch the current user's settings from the server and apply them.
+   */
+  const loadSettings = useCallback(async () => {
+    const data = await authFetch(`${API_URL}/api/auth/settings`);
+    setSettings(data);
+    applySettingsToDocument(data);
+    return data;
+  }, []);
+
+  /**
+   * Update one or more settings fields.
+   * Applies changes IMMEDIATELY to the document before the network request
+   * so the UI reacts without any perceptible delay.
+   */
+  const updateSettings = useCallback(async (updates) => {
+    // Apply to UI immediately (optimistic update)
+    setSettings(prev => {
+      const next = { ...prev, ...updates };
+      applySettingsToDocument(next);
+      return next;
+    });
+    // Persist to backend
+    const data = await authFetch(`${API_URL}/api/auth/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+    // Sync with server's authoritative response
+    setSettings(data);
+    applySettingsToDocument(data);
+    return data;
+  }, []);
+
+  /**
+   * Change the user's password while logged in.
+   */
+  const changePassword = useCallback(async ({ currentPassword, newPassword, confirmPassword }) => {
+    return authFetch(`${API_URL}/api/auth/change-password`, {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+    });
+  }, []);
+
   const value = {
     user,
     loading,
@@ -223,6 +312,7 @@ export function AuthProvider({ children }) {
     points,
     transactions,
     rewards,
+    settings,
     signUp,
     signIn,
     signOut,
@@ -235,7 +325,10 @@ export function AuthProvider({ children }) {
     loadPoints,
     loadRewards,
     redeemReward,
-    earnPoints
+    earnPoints,
+    loadSettings,
+    updateSettings,
+    changePassword
   };
 
   return (

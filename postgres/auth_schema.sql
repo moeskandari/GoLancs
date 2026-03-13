@@ -91,3 +91,20 @@ INSERT INTO rewards (name, description, points_cost) VALUES
   ('Priority Seat Booking', 'Book a priority seat on your next journey', 50),
   ('Monthly Pass Discount', 'Get £5 off a monthly travel pass', 250)
 ON CONFLICT DO NOTHING;
+
+-- User settings (theme and font size preferences, synced across sessions)
+CREATE TABLE IF NOT EXISTS user_settings (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  theme VARCHAR(10) NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark')),
+  font_size VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (font_size IN ('small', 'medium', 'large')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id);
+
+-- Ensure user_sessions has a unique constraint on sid (required for connect-pg-simple ON CONFLICT upserts).
+-- The PRIMARY KEY declared above is sufficient for new installs; this index handles DB restores
+-- where the PK constraint may not have been recreated.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_sid_unique ON user_sessions(sid);

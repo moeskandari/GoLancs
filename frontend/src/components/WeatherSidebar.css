@@ -50,7 +50,7 @@
 
 .weather-sidebar-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #1a1a2e;
 }
@@ -62,7 +62,7 @@
   border: none;
   background: #f0f0f3;
   color: #555;
-  font-size: 16px;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -100,7 +100,7 @@
 
 .weather-card h3 {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #666;
   text-transform: uppercase;
@@ -115,7 +115,7 @@
 }
 
 .weather-card-emoji {
-  font-size: 40px;
+  font-size: 2.5rem;
   line-height: 1;
 }
 
@@ -125,21 +125,21 @@
 }
 
 .weather-card-temp {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #1a1a2e;
   line-height: 1.1;
 }
 
 .weather-card-desc {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #666;
   text-transform: capitalize;
   margin-top: 2px;
 }
 
 .weather-card-location {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #888;
   margin-bottom: 10px;
 }
@@ -161,14 +161,14 @@
 }
 
 .detail-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #999;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .detail-value {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #333;
 }
@@ -176,7 +176,7 @@
 /* ── Empty / loading states ── */
 .weather-card-empty .weather-no-data {
   color: #aaa;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-style: italic;
   margin: 8px 0 0;
 }
@@ -221,7 +221,7 @@
 
 .weather-recommendation h3 {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #666;
   text-transform: uppercase;
@@ -239,12 +239,12 @@
 }
 
 .recommendation-mode-icon {
-  font-size: 28px;
+  font-size: 1.75rem;
   line-height: 1;
 }
 
 .recommendation-mode-label {
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: #1a1a2e;
 }
 
@@ -262,7 +262,7 @@
 }
 
 .recommendation-tips li {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #444;
   line-height: 1.5;
   padding: 6px 0;
@@ -298,11 +298,11 @@
   }
 
   .weather-card-emoji {
-    font-size: 36px;
+    font-size: 2.25rem;
   }
 
   .weather-card-temp {
-    font-size: 24px;
+    font-size: 1.5rem;
   }
 
   .weather-recommendation {
@@ -316,7 +316,7 @@
   }
 
   .weather-sidebar-header h2 {
-    font-size: 18px;
+    font-size: 1.125rem;
   }
 
   .weather-sidebar-content {
@@ -329,7 +329,7 @@
   }
 
   .weather-card h3 {
-    font-size: 13px;
+    font-size: 0.8125rem;
     margin-bottom: 8px;
   }
 
@@ -338,10 +338,10 @@
   }
 
   .detail-value {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .recommendation-tips li {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 }

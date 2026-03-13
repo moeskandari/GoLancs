@@ -34,7 +34,7 @@
 .filter-back-btn {
   background: none;
   border: none;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #2196F3;
   cursor: pointer;
@@ -53,7 +53,7 @@
 }
 
 .filter-page-title {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #222;
   margin: 0;
@@ -86,7 +86,7 @@
 }
 
 .filter-category-title {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   color: #333;
   margin: 0 0 14px;
@@ -110,7 +110,7 @@
   border: 2px solid #e0e0e0;
   border-radius: 10px;
   background: #fafafa;
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: #444;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -145,7 +145,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 0.875rem;
   flex-shrink: 0;
   transition: all 0.2s ease;
   color: #fff;
@@ -176,7 +176,7 @@
   border-radius: 12px;
   background: #2196F3;
   color: #fff;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.25s, transform 0.15s;
@@ -207,7 +207,7 @@
   }
 
   .filter-page-title {
-    font-size: 17px;
+    font-size: 1.0625rem;
   }
 
   .filter-body {
@@ -221,7 +221,7 @@
 
   .filter-option-btn {
     padding: 12px 14px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .filter-submit-bar {
@@ -230,7 +230,7 @@
 
   .filter-submit-btn {
     padding: 14px;
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 }
 

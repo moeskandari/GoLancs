@@ -48,7 +48,7 @@
   border-radius: 50%;
   border: none;
   background: #fff;
-  font-size: 20px;
+  font-size: 1.25rem;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: background 0.2s ease, transform 0.2s ease;
@@ -89,7 +89,7 @@
 }
 
 .time-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #555;
   min-width: 58px;
@@ -107,7 +107,7 @@
   border-radius: 25px;
   border: none;
   background: #fff;
-  font-size: 14px;
+  font-size: 0.875rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   min-width: 110px;
   color: #333;
@@ -124,7 +124,7 @@
 .time-hint {
   position: absolute;
   right: 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #999;
   pointer-events: none;
   font-weight: 500;
@@ -137,7 +137,7 @@
   border: none;
   background: #2196F3;
   color: #fff;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
@@ -167,7 +167,7 @@
   border: 1px solid #f5b5b5;
   padding: 10px 14px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 0.875rem;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -190,18 +190,18 @@
   .time-input {
     min-width: 90px;
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .route-btn {
     padding: 10px 14px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .swap-btn {
     width: 36px;
     min-width: 36px;
-    font-size: 18px;
+    font-size: 1.125rem;
   }
 }
 
@@ -217,19 +217,19 @@
   }
 
   .time-label {
-    font-size: 11px;
+    font-size: 0.6875rem;
     min-width: 50px;
   }
 
   .time-input {
     min-width: 80px;
     padding: 7px 8px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .route-btn {
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 }
 
@@ -253,7 +253,7 @@
 
 .collapsed-route-text {
   flex: 1;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #333;
   white-space: nowrap;
@@ -267,7 +267,7 @@
   border-radius: 50%;
   border: none;
   background: #e3f2fd;
-  font-size: 16px;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -287,7 +287,7 @@
   border: none;
   background: #f0f4ff;
   color: #2196F3;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   border-radius: 12px;
