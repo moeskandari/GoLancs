@@ -186,10 +186,12 @@ function App() {
                     setDepartureTime('');
                   } else {
                     setTimeMode('depart');
-                    setDepartureTime(arrivalTime || (() => {
+                    if (arrivalTime) {
+                      setDepartureTime(arrivalTime);
+                    } else {
                       const now = new Date();
-                      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-                    })());
+                      setDepartureTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`);
+                    }
                     setArrivalTime('');
                   }
                 }}
