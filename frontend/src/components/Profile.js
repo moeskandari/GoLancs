@@ -163,6 +163,22 @@ function Profile({ onBack, onLogout }) {
     year: 'numeric', month: 'long', day: 'numeric'
   }) : 'Unknown';
 
+  // Deduplicate rewards by name (or id as fallback) so the user only sees
+  // one instance of each reward on the Rewards tab.
+  const uniqueRewards = (() => {
+    if (!rewards || rewards.length === 0) return [];
+    const seen = new Set();
+    const out = [];
+    for (const r of rewards) {
+      const key = (r.name || r.id || JSON.stringify(r)).toString();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(r);
+      }
+    }
+    return out;
+  })();
+
   return (
     <div className="profile-page" role="main" aria-label="Profile">
       <button
@@ -395,11 +411,11 @@ function Profile({ onBack, onLogout }) {
               )}
 
               <h3 className="profile-section-title">Available Rewards</h3>
-              {rewards.length === 0 ? (
+              {uniqueRewards.length === 0 ? (
                 <p className="profile-placeholder-text">No rewards available at the moment.</p>
               ) : (
                 <div className="rewards-list">
-                  {rewards.map(reward => (
+                  {uniqueRewards.map(reward => (
                     <div key={reward.id} className="reward-card">
                       <div className="reward-info">
                         <h4 className="reward-name">{reward.name}</h4>
