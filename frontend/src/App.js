@@ -353,10 +353,15 @@ function App() {
         />
       )}
       {authView === 'signup' && (
-        <SignUp onClose={handleAuthClose} onCreateAccount={handleCreateAccount} onSwitchToSignIn={handleSwitchToSignIn} />
+        <SignUp
+          onClose={handleAuthClose}
+          onCreateAccount={handleCreateAccount}
+          onSwitchToSignIn={handleSwitchToSignIn}
+          onShowTerms={handleShowTerms}
+        />
       )}
       {authView === 'profile' && (
-        <Profile onBack={handleProfileBack} onLogout={handleLogout} />
+        <Profile onBack={handleProfileBack} onLogout={handleLogout} onShowTerms={handleShowTerms} />
       )}
       {authView === 'forgot-password' && (
         <ForgotPassword

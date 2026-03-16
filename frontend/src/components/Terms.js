@@ -18,7 +18,7 @@ function Terms({ onClose }) {
         <h2 className="auth-title">Terms and Conditions</h2>
 
         <div style={{maxHeight: '65vh', overflow: 'auto', padding: '8px 0'}}>
-          <p><strong>Effective date:</strong> 16/06/2024</p>
+          <p><strong>Effective date:</strong> 16/06/2026</p>
           <p><strong>Introduction.</strong> These Terms and Conditions ("Terms") govern your use of the "Go Lancs" route planner provided by [Emily Birtwhistle, Mo Eskandari, Lewis Byles, Tom Davies, Oliver Khan-Hayes, Turhan Zaim]. By creating an account, signing in, or using the Service you agree to these Terms. If you do not agree, do not use the Service.</p>
 
           <h4>Definitions</h4>
