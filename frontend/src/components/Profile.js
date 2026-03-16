@@ -10,7 +10,7 @@ import './Auth.css';
  *   onBack   – callback to navigate back to the main map view
  *   onLogout – callback after user logs out
  */
-function Profile({ onBack, onLogout }) {
+function Profile({ onBack, onLogout, onShowTerms }) {
   const {
     user, points, transactions, rewards, settings,
     signOut, updateProfile, deleteAccount,
@@ -577,6 +577,9 @@ function Profile({ onBack, onLogout }) {
                     Delete Account
                   </button>
                 )}
+                <div style={{marginTop: 12}}>
+                  <button className="auth-link-btn" onClick={() => onShowTerms?.()}>View Terms and Conditions</button>
+                </div>
               </div>
             </div>
           )}

@@ -14,6 +14,7 @@ import FilterPage from './components/FilterPage';
 import WeatherSidebar from './components/WeatherSidebar';
 import { useAuth } from './context/AuthContext';
 import WeatherIcon from './components/WeatherIcon';
+import Terms from './components/Terms';
 
 // Custom hooks
 import useGeolocation from './hooks/useGeolocation';
@@ -101,6 +102,7 @@ function App() {
   const [authView, setAuthView] = useState(null);
   const [resetToken, setResetToken] = useState(null);
   const [verifyToken, setVerifyToken] = useState(null);
+  const [prevAuthView, setPrevAuthView] = useState(null);
   const { isLoggedIn } = useAuth();
 
   // Check URL for verification or reset tokens on mount
@@ -152,6 +154,7 @@ function App() {
   const handleSignIn = () => setAuthView('profile');
   const handleCreateAccount = () => setAuthView('profile');
   const handleAuthClose = () => setAuthView(null);
+  const handleShowTerms = () => { setPrevAuthView(authView); setAuthView('terms'); };
   const handleSwitchToSignUp = () => setAuthView('signup');
   const handleSwitchToSignIn = () => setAuthView('signin');
   const handleForgotPassword = () => setAuthView('forgot-password');
@@ -346,6 +349,7 @@ function App() {
           onSignIn={handleSignIn}
           onSwitchToSignUp={handleSwitchToSignUp}
           onForgotPassword={handleForgotPassword}
+          onShowTerms={handleShowTerms}
         />
       )}
       {authView === 'signup' && (
@@ -372,6 +376,10 @@ function App() {
           token={verifyToken}
           onClose={handleAuthClose}
         />
+      )}
+      {authView === 'terms' && (
+        // Show Terms modal; on close return to previous auth view or null
+        <Terms onClose={() => setAuthView(prevAuthView || null)} />
       )}
     </div>
   );

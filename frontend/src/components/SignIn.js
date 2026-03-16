@@ -11,7 +11,7 @@ import './Auth.css';
  *   onSwitchToSignUp   – callback to navigate to the Sign Up overlay
  *   onForgotPassword   – callback to navigate to the Forgot Password overlay
  */
-function SignIn({ onClose, onSignIn, onSwitchToSignUp, onForgotPassword }) {
+function SignIn({ onClose, onSignIn, onSwitchToSignUp, onForgotPassword, onShowTerms }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -118,6 +118,9 @@ function SignIn({ onClose, onSignIn, onSwitchToSignUp, onForgotPassword }) {
           >
             Sign up
           </button>
+        </p>
+        <p style={{marginTop: 8}}>
+          <button className="auth-link-btn inline" onClick={() => onShowTerms?.()} type="button">Terms</button>
         </p>
       </div>
     </div>
