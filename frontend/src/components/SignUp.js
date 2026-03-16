@@ -10,7 +10,7 @@ import './Auth.css';
  *   onCreateAccount    – callback fired on successful sign-up (receives user data)
  *   onSwitchToSignIn   – callback to navigate to the Sign In overlay
  */
-function SignUp({ onClose, onCreateAccount, onSwitchToSignIn }) {
+function SignUp({ onClose, onCreateAccount, onSwitchToSignIn, onShowTerms }) {
   const { signUp } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -206,7 +206,7 @@ function SignUp({ onClose, onCreateAccount, onSwitchToSignIn }) {
           By creating an account, you agree to the{' '}
           <button
             className="auth-link-btn inline"
-            onClick={() => {/* placeholder – will open Terms page later */}}
+            onClick={() => onShowTerms?.()}
             type="button"
           >
             Terms
