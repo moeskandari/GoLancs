@@ -52,6 +52,41 @@ function App() {
   const [showFilterPage, setShowFilterPage] = useState(false);
   const [activeFilters, setActiveFilters] = useState(null);
 
+  // Derived display routes based on activeFilters
+  let displayRoutes = routes;
+  let filterFallbackMessage = null;
+  if (routes && activeFilters && activeFilters.direction) {
+    const dir = activeFilters.direction;
+    const hasAnyOnly = !!(dir.includeBuses || dir.includeTrains || dir.includeWalking);
+    if (hasAnyOnly) {
+      const allowed = new Set();
+      if (dir.includeBuses) allowed.add('bus');
+      if (dir.includeTrains) allowed.add('train');
+      if (dir.includeWalking) allowed.add('walk');
+
+      const filtered = routes.routes.filter((route) => {
+        const legTypes = new Set(route.legs.map(l => l.type).filter(t => t !== 'transfer'));
+        // If user selected only walking (alone), require route to be walk-only
+        if (allowed.size === 1 && allowed.has('walk')) {
+          return legTypes.size === 1 && legTypes.has('walk');
+        }
+        // Otherwise ensure every transport-type leg is allowed (walking allowed when selected)
+        for (const t of legTypes) {
+          if (!allowed.has(t)) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length > 0) {
+        displayRoutes = { ...routes, routes: filtered, totalRoutes: filtered.length };
+      } else {
+        // No exact matches — show alternatives but inform the user
+        filterFallbackMessage = 'No routes matched your "Only include" filters — showing alternatives.';
+        displayRoutes = routes;
+      }
+    }
+  }
+
   const handleFilterClick = () => setShowFilterPage(true);
   const handleFilterBack = () => setShowFilterPage(false);
 
@@ -249,8 +284,14 @@ function App() {
       />
 
       {routes && (
-        <RouteResults
-          routes={routes}
+        <>
+          {filterFallbackMessage && (
+            <div className="filter-fallback-msg" role="status" aria-live="polite" style={{padding: '8px', background: '#fff5cc', borderRadius: 6, margin: '8px 16px'}}>
+              {filterFallbackMessage}
+            </div>
+          )}
+          <RouteResults
+          routes={displayRoutes}
           selectedRoute={selectedRoute}
           onSelectRoute={setSelectedRoute}
           sortBy={sortBy}
@@ -263,6 +304,7 @@ function App() {
           railDepartures={railDepartures}
           trackedTrainService={trackedTrainService}
         />
+        </>
       )}
 
       <BottomControls

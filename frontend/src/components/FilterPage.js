@@ -13,7 +13,7 @@ const DEFAULT_FILTERS = {
   },
   direction: {
     includeWalking: false,
-    includeBusses: false,
+    includeBuses: false,
     includeTrains: false,
   },
 };
@@ -25,9 +25,9 @@ const LABELS = {
   showBusStops: 'Show Bus Stops',
   showTrainStations: 'Show Train Stations',
   showTrafficConditions: 'Show Traffic Conditions',
-  includeWalking: 'Include Walking',
-  includeBusses: 'Include Busses',
-  includeTrains: 'Include Trains',
+  includeBuses: 'Only include buses',
+  includeTrains: 'Only include trains',
+  includeWalking: 'Only include walking',
 };
 
 /**
