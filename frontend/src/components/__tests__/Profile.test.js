@@ -15,6 +15,8 @@ const mockLoadPoints = jest.fn().mockResolvedValue({ points: 100, transactions: 
 const mockLoadRewards = jest.fn().mockResolvedValue({ rewards: [] });
 const mockRedeemReward = jest.fn();
 const mockResendVerification = jest.fn().mockResolvedValue();
+const mockUpdateSettings = jest.fn();
+const mockChangePassword = jest.fn();
 
 const mockUser = {
   id: 1,
@@ -38,13 +40,16 @@ jest.mock('../../context/AuthContext', () => ({
       { id: 1, name: '10% Off', description: 'Discount on next ticket', points_cost: 100 },
       { id: 2, name: 'Free Pass', description: 'Free day pass', points_cost: 500 }
     ],
+    settings: { theme: 'light', fontSize: 'medium' },
     signOut: mockSignOut,
     updateProfile: mockUpdateProfile,
     deleteAccount: mockDeleteAccount,
     loadPoints: mockLoadPoints,
     loadRewards: mockLoadRewards,
     redeemReward: mockRedeemReward,
-    resendVerification: mockResendVerification
+    resendVerification: mockResendVerification,
+    updateSettings: mockUpdateSettings,
+    changePassword: mockChangePassword
   })
 }));
 
@@ -138,7 +143,7 @@ describe('Profile Component', () => {
 
     fireEvent.click(screen.getByText('⚙️ Settings'));
 
-    expect(screen.getByText('Account Settings')).toBeInTheDocument();
+    expect(screen.getByText('🌗 Appearance')).toBeInTheDocument();
     expect(screen.getByText('Delete Account')).toBeInTheDocument();
   });
 
