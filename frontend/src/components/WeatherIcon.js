@@ -1,4 +1,4 @@
-import React from 'react';
+
 import './WeatherIcon.css';
 
 /**
@@ -20,7 +20,13 @@ function WeatherIcon({ weather, onClick, loading }) {
   const emoji = weather ? (weatherEmojis[weather.icon] || '🌡️') : '🌡️';
 
   return (
-    <div className="weather-icon-container" onClick={onClick} title="View weather details">
+    <button
+      className="weather-icon-container"
+      onClick={onClick}
+      title="View weather details"
+      aria-label={weather ? `Weather: ${weather.temp}° — tap for details` : 'View weather details'}
+      type="button"
+    >
       <div className={`weather-icon-btn ${loading ? 'weather-loading' : ''}`}>
         <span className="weather-emoji">{emoji}</span>
         {weather && (
@@ -30,7 +36,7 @@ function WeatherIcon({ weather, onClick, loading }) {
           <span className="weather-temp">…</span>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 

@@ -1,33 +1,49 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import './Auth.css';
 
 /**
  * SignIn component – renders as a centered overlay on top of the existing map.
  *
  * Props:
- *   onClose       – callback to dismiss the overlay and return to the map
- *   onSignIn      – callback fired when the user submits the form (placeholder for future backend)
- *   onSwitchToSignUp – callback to navigate to the Sign Up overlay
+ *   onClose            – callback to dismiss the overlay and return to the map
+ *   onSignIn           – callback fired on successful sign-in (receives user data)
+ *   onSwitchToSignUp   – callback to navigate to the Sign Up overlay
+ *   onForgotPassword   – callback to navigate to the Forgot Password overlay
  */
-function SignIn({ onClose, onSignIn, onSwitchToSignUp }) {
+function SignIn({ onClose, onSignIn, onSwitchToSignUp, onForgotPassword }) {
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Placeholder – will be connected to the backend later
-    if (onSignIn) {
-      onSignIn({ email, password });
+    setError('');
+    setFieldErrors([]);
+    setSubmitting(true);
+
+    try {
+      const data = await signIn({ email, password });
+      if (onSignIn) onSignIn(data.user);
+    } catch (err) {
+      if (err.data?.details) {
+        setFieldErrors(err.data.details);
+      } else {
+        setError(err.message || 'Sign-in failed. Please try again.');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="auth-overlay" role="dialog" aria-modal="true" aria-label="Sign In">
-      {/* Backdrop – clicking it closes the overlay */}
       <div className="auth-backdrop" onClick={onClose} />
 
       <div className="auth-card">
-        {/* Close button */}
         <button
           className="auth-close-btn"
           onClick={onClose}
@@ -39,7 +55,21 @@ function SignIn({ onClose, onSignIn, onSwitchToSignUp }) {
 
         <h2 className="auth-title">Sign in</h2>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        {error && (
+          <div className="auth-error" role="alert">
+            <span className="auth-error-icon">⚠️</span> {error}
+          </div>
+        )}
+
+        {fieldErrors.length > 0 && (
+          <div className="auth-error" role="alert">
+            {fieldErrors.map((fe, i) => (
+              <div key={i}><span className="auth-error-icon">⚠️</span> {fe.message}</div>
+            ))}
+          </div>
+        )}
+
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <label className="auth-label" htmlFor="signin-email">Email</label>
           <input
             id="signin-email"
@@ -50,6 +80,7 @@ function SignIn({ onClose, onSignIn, onSwitchToSignUp }) {
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
+            disabled={submitting}
           />
 
           <label className="auth-label" htmlFor="signin-password">Password</label>
@@ -62,17 +93,17 @@ function SignIn({ onClose, onSignIn, onSwitchToSignUp }) {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             required
+            disabled={submitting}
           />
 
-          <button type="submit" className="auth-submit-btn">
-            Sign in
+          <button type="submit" className="auth-submit-btn" disabled={submitting}>
+            {submitting ? '⏳ Signing in...' : 'Sign in'}
           </button>
         </form>
 
-        {/* Forgot password – currently does nothing */}
         <button
           className="auth-link-btn"
-          onClick={() => {/* placeholder – will navigate to password reset later */}}
+          onClick={onForgotPassword}
           type="button"
         >
           Forgot password?

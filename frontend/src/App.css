@@ -17,6 +17,15 @@
   gap: clamp(6px, 1.2vw, 10px);
   width: min(92vw, 500px);
   max-width: 500px;
+  /* Let taps pass through empty areas so the weather icon (beneath)
+     remains tappable on narrow screens where this container spans
+     almost the full viewport width. */
+  pointer-events: none;
+}
+
+/* Re-enable pointer events on all direct children */
+.search-container > * {
+  pointer-events: auto;
 }
 
 .search-inputs-row {
@@ -54,6 +63,11 @@
 .swap-btn:hover {
   background: #e3f2fd;
   transform: rotate(180deg);
+}
+
+.swap-btn:active {
+  background: #bbdefb;
+  transform: scale(0.9);
 }
 
 .search-controls {
@@ -143,6 +157,11 @@
 .route-btn:hover {
   background: #1b7ed1;
   transform: translateY(-1px);
+}
+
+.route-btn:active {
+  background: #1565c0;
+  transform: scale(0.97);
 }
 
 .route-btn:disabled {
@@ -245,6 +264,123 @@
     padding: 1.4vw 2vw;
     font-size: 2.5vw;
     border-radius: 3vw;
+  }
+
+  .time-input {
+    min-width: 90px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .route-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .swap-btn {
+    width: 36px;
+    min-width: 36px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-container {
+    width: 97%;
+    top: 8px;
+    gap: 6px;
+  }
+
+  .search-inputs-row {
+    gap: 4px;
+  }
+
+  .time-label {
+    font-size: 11px;
+    min-width: 50px;
+  }
+
+  .time-input {
+    min-width: 80px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .route-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* ===== Collapsed search bar (mobile, when routes are shown) ===== */
+.search-container.search-collapsed {
+  padding: 0;
+  gap: 0;
+  pointer-events: none;
+}
+
+.collapsed-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  padding: 10px 16px;
+  border-radius: 25px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  min-height: 44px;
+}
+
+.collapsed-route-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expand-search-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #e3f2fd;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.expand-search-btn:hover {
+  background: #bbdefb;
+}
+
+.collapse-search-btn {
+  display: none;
+  width: 100%;
+  padding: 6px 0;
+  border: none;
+  background: #f0f4ff;
+  color: #2196F3;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.collapse-search-btn:hover {
+  background: #dde8ff;
+}
+
+/* Only show collapse button on mobile */
+@media (max-width: 768px) {
+  .collapse-search-btn {
+    display: block;
   }
 }
 

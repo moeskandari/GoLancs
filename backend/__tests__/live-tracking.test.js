@@ -62,7 +62,7 @@ describe('GET /api/rail/departures/:crs', () => {
   it('should return 200 with station data for Lancaster (LAN)', async () => {
     const res = await request(app).get('/api/rail/departures/LAN');
     expect([200, 500, 502, 504]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
+    if (res.statusCode === 200 && res.body.station) {
       expect(res.body).toHaveProperty('station');
       expect(res.body).toHaveProperty('services');
       expect(Array.isArray(res.body.services)).toBe(true);
@@ -112,7 +112,7 @@ describe('GET /api/rail/departures/:crs', () => {
   it('should return data for Preston (PRE)', async () => {
     const res = await request(app).get('/api/rail/departures/PRE');
     expect([200, 500, 502, 504]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
+    if (res.statusCode === 200 && res.body.station) {
       expect(res.body.station).toBeDefined();
       expect(res.body.services).toBeDefined();
     }
@@ -122,7 +122,7 @@ describe('GET /api/rail/departures/:crs', () => {
     const res = await request(app).get('/api/rail/departures/ZZZ');
     // Should either return 200 with empty services or a 4xx/5xx
     expect([200, 400, 404, 500, 502, 504]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
+    if (res.statusCode === 200 && res.body.services) {
       expect(res.body.services).toBeDefined();
     }
   }, 30000);

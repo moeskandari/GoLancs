@@ -1,5 +1,6 @@
-import React from 'react';
+
 import './BottomControls.css';
+
 
 // Pre-create an Image using the pin SVG so we can use it as the drag image.
 const pinSvg = `
@@ -10,7 +11,7 @@ const pinSvg = `
 const pinDragImage = new Image();
 pinDragImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pinSvg);
 
-function BottomControls({ onFilterClick, onAccountClick }) {
+function BottomControls({ onFilterClick, onAccountClick, pinMode, onPinToggle }) {
   const onPinDragStart = (e) => {
     // Indicate drag type so the map can accept the drop
     try {
@@ -32,6 +33,15 @@ function BottomControls({ onFilterClick, onAccountClick }) {
     }
   };
 
+  /**
+   * On touch devices the HTML5 Drag & Drop API is not supported, so tapping the
+   * pin button toggles "pin drop mode". The next tap on the map sets the destination.
+   * On desktop, dragging still works as before.
+   */
+  const handlePinClick = () => {
+    if (onPinToggle) onPinToggle();
+  };
+
   return (
     <div className="bottom-controls">
       <button
@@ -51,17 +61,6 @@ function BottomControls({ onFilterClick, onAccountClick }) {
         <span>Filter</span>
       </button>
       
-      <button className="control-btn" title="Center on My Location">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="3" strokeWidth="2"/>
-          <line x1="12" y1="2" x2="12" y2="6" strokeWidth="2"/>
-          <line x1="12" y1="18" x2="12" y2="22" strokeWidth="2"/>
-          <line x1="2" y1="12" x2="6" y2="12" strokeWidth="2"/>
-          <line x1="18" y1="12" x2="22" y2="12" strokeWidth="2"/>
-        </svg>
-        <span>My Location</span>
-      </button>
-      
       <button
         className="control-btn"
         title="Account"
@@ -76,11 +75,13 @@ function BottomControls({ onFilterClick, onAccountClick }) {
       </button>
 
       <button
-        className="control-btn pin-btn"
-        title="Drag pin to map to set destination"
+        className={`control-btn pin-btn${pinMode ? ' pin-active' : ''}`}
+        title={pinMode ? 'Tap the map to drop pin (tap again to cancel)' : 'Tap to place pin on map, or drag to map'}
         draggable
         onDragStart={onPinDragStart}
-        aria-label="Drag pin to map to set destination"
+        onClick={handlePinClick}
+        aria-label={pinMode ? 'Cancel pin drop mode' : 'Place pin on map to set destination'}
+        aria-pressed={pinMode}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" strokeWidth="1.5" fill="#FF5252" />

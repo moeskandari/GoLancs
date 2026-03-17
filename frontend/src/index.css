@@ -4,6 +4,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Safe area insets for notched devices (iPhone X+) */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -11,6 +16,26 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* Prevent pull-to-refresh on mobile browsers */
+  overscroll-behavior: none;
+}
+
+/*
+ * Remove 300ms tap delay on UI elements but NOT on the Leaflet map.
+ * Leaflet needs touch-action: none to handle its own drag / pinch-zoom,
+ * which is set in MapView.css on .leaflet-container.
+ */
+button, a, input, select, textarea, label {
+  touch-action: manipulation;
+}
+
+/*
+ * Remove the default blue/grey tap highlight on mobile WebKit/Chrome.
+ * Individual components add their own :active feedback instead.
+ */
+button, a, [role="button"], [role="option"] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 code {
@@ -21,4 +46,45 @@ code {
 #root {
   width: 100vw;
   height: 100vh;
+}
+
+/* ── Global image optimisation ── */
+img {
+  max-width: 100%;
+  height: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Lazy-load images below the fold */
+img[loading="lazy"] {
+  content-visibility: auto;
+}
+
+/* Efficient rendering for fixed/absolute elements */
+.leaflet-tile {
+  will-change: transform;
+  contain: strict;
+}
+
+/* ── Mobile tap target sizing (WCAG 2.5.5) ── */
+@media (max-width: 768px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Scrollbar styling for mobile panels */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+  }
 }

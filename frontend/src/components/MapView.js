@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -227,6 +227,26 @@ const railStationIcon = L.divIcon({
   iconSize: [30, 30],
   iconAnchor: [15, 15]
 });
+// Component to handle tap-to-pin-drop on mobile (pin mode)
+function ClickToPinHandler({ active, onPinDrop }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!active || !map) return;
+    const handleClick = (e) => {
+      if (onPinDrop) onPinDrop(e.latlng);
+    };
+    map.on('click', handleClick);
+    // Change cursor to crosshair when pin mode is active
+    map.getContainer().style.cursor = 'crosshair';
+    return () => {
+      map.off('click', handleClick);
+      map.getContainer().style.cursor = '';
+    };
+  }, [active, map, onPinDrop]);
+
+  return null;
+}
 
 // Button to centre the map on the user's location
 function LocateMeButton({ onLocate }) {
@@ -853,6 +873,11 @@ function MapView({ userLocation, startLocation, endLocation, selectedTime = null
           if (onPinDrop) onPinDrop(latlng);
         }} onDrag={(latlng) => setDragLatLng(latlng)} />
 
+        {/* Tap-to-pin handler for mobile touch devices */}
+        <ClickToPinHandler active={pinMode} onPinDrop={(latlng) => {
+          if (onPinDrop) onPinDrop(latlng);
+        }} />
+
         {/* Start marker (green) */}
         {startLatLng && (
           <Marker 
@@ -1140,8 +1165,15 @@ function MapView({ userLocation, startLocation, endLocation, selectedTime = null
           </div>
         )}
       </MapContainer>
+
+      {/* Pin-drop mode banner overlay */}
+      {pinMode && (
+        <div className="pin-mode-banner" role="status" aria-live="polite">
+          📍 Tap anywhere on the map to set your destination
+        </div>
+      )}
+
       <Compass />
-      <WeatherIcon weather={currentWeather} loading={weatherLoading} onClick={onWeatherClick} />
     </div>
   );
 }

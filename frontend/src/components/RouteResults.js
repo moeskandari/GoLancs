@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './RouteResults.css';
 
 // Mode icons and labels
@@ -234,10 +234,16 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
             </div>
             <div className="leg-stops">
               <div className="leg-stop-row">
+                {leg.startTime
+                  ? <span className="stop-time depart-time"><span className="depart-label">Departs</span>{formatTime(leg.startTime)}</span>
+                  : <span className="stop-time stop-time-placeholder"></span>}
                 <span className="stop-name">{leg.fromName}</span>
               </div>
-              <div className="leg-arrow">↓</div>
+              <div className="leg-arrow">↓ walk {duration ? formatDuration(duration) : ''}</div>
               <div className="leg-stop-row">
+                {leg.endTime
+                  ? <span className="stop-time">{formatTime(leg.endTime)}</span>
+                  : <span className="stop-time stop-time-placeholder"></span>}
                 <span className="stop-name">{leg.toName}</span>
               </div>
             </div>
@@ -278,12 +284,12 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
             )}
             <div className="leg-stops">
               <div className="leg-stop-row">
-                <span className="stop-time">{formatTime(leg.boardTime)}</span>
+                <span className="stop-time depart-time"><span className="depart-label">Departs</span>{formatTime(leg.boardTime)}</span>
                 <span className="stop-name">{leg.boardName}</span>
               </div>
               <div className="leg-arrow">↓ {leg.numStops ? `${leg.numStops} stops` : ''}</div>
               <div className="leg-stop-row">
-                <span className="stop-time">{formatTime(leg.alightTime)}</span>
+                <span className="stop-time"><span className="arrive-label">Arrives</span>{formatTime(leg.alightTime)}</span>
                 <span className="stop-name">{leg.alightName}</span>
               </div>
             </div>
@@ -351,12 +357,13 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
             <div className="leg-stops">
               <div className="leg-stop-row">
                 {delayInfo?.depDelayMins > 0 ? (
-                  <span className="stop-time delayed-time">
+                  <span className="stop-time delayed-time depart-time">
+                    <span className="depart-label">Departs</span>
                     <span className="scheduled-struck">{formatTime(leg.boardTime)}</span>
                     <span className="estimated-time">{delayInfo.estDepartTime}</span>
                   </span>
                 ) : (
-                  <span className="stop-time">{formatTime(leg.boardTime)}</span>
+                  <span className="stop-time depart-time"><span className="depart-label">Departs</span>{formatTime(leg.boardTime)}</span>
                 )}
                 <span className="stop-name">{leg.boardName}</span>
                 {leg.startCrs && <span className="crs-code">({leg.startCrs})</span>}
@@ -365,11 +372,12 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
               <div className="leg-stop-row">
                 {delayInfo?.arrDelayMins > 0 ? (
                   <span className="stop-time delayed-time">
+                    <span className="arrive-label">Arrives</span>
                     <span className="scheduled-struck">{formatTime(leg.alightTime)}</span>
                     <span className="estimated-time">{delayInfo.estArriveTime}</span>
                   </span>
                 ) : (
-                  <span className="stop-time">{formatTime(leg.alightTime)}</span>
+                  <span className="stop-time"><span className="arrive-label">Arrives</span>{formatTime(leg.alightTime)}</span>
                 )}
                 <span className="stop-name">{leg.alightName}</span>
                 {leg.endCrs && <span className="crs-code">({leg.endCrs})</span>}
@@ -406,6 +414,8 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
             : nextLeg?.type === 'train'
               ? `Train ${nextLeg.operator || ''}`.trim()
               : 'next service';
+          const arrivalTime = leg.arrivalTime || null;
+          const nextDepartTime = leg.nextDepartureTime || null;
           return (
             <>
               <div className="leg-header">
@@ -439,6 +449,29 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
                     {nextLeg?.boardName ? ` from ${nextLeg.boardName}` : ''}
                   </div>
                 </div>
+                {(arrivalTime || nextDepartTime) && (
+                  <div className="changeover-times">
+                    {arrivalTime && (
+                      <span className="changeover-time-item">
+                        <span className="changeover-time-label">Arrive</span>
+                        <span className="changeover-time-value">{formatTime(arrivalTime)}</span>
+                      </span>
+                    )}
+                    {arrivalTime && nextDepartTime && <span className="changeover-time-sep">→</span>}
+                    {nextDepartTime && (
+                      <span className="changeover-time-item">
+                        <span className="changeover-time-label">Next departs</span>
+                        <span className="changeover-time-value">{formatTime(nextDepartTime)}</span>
+                      </span>
+                    )}
+                    <span className="changeover-wait-pill">{adjustedWait} min wait</span>
+                  </div>
+                )}
+                {!arrivalTime && !nextDepartTime && (
+                  <div className="changeover-times">
+                    <span className="changeover-wait-pill">{adjustedWait} min wait</span>
+                  </div>
+                )}
                 {connectionMissed ? (
                   <div className="changeover-tip changeover-missed">❌ Connection likely missed due to delay</div>
                 ) : connectionAtRisk ? (
@@ -454,6 +487,74 @@ function LegDetail({ leg, legIndex, totalLegs, prevLeg, nextLeg, onTrackLeg, onS
             </>
           );
         })()}
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Derive start/end times for walk legs from their surrounding timed legs.
+ * endTime = startTime + duration (actual arrival time), NOT the next leg's boardTime,
+ * so that any gap between walk arrival and the next departure is visible as a wait.
+ */
+function annotateWalkLegTimes(legs) {
+  return legs.map((leg, i) => {
+    if (leg.type !== 'walk') return leg;
+    // Look backwards for the previous timed leg's end time
+    let startTime = null;
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = legs[j];
+      if (prev.alightTime) { startTime = prev.alightTime; break; }
+      if (prev.nextDepartureTime) { startTime = prev.nextDepartureTime; break; }
+    }
+    // If no prior timed leg, derive startTime by working backwards from the next boardTime
+    if (!startTime) {
+      for (let j = i + 1; j < legs.length; j++) {
+        const next = legs[j];
+        if (next.boardTime && leg.duration) {
+          startTime = minutesToTime(timeToMinutes(next.boardTime) - leg.duration);
+          break;
+        }
+      }
+    }
+    // endTime = when you actually arrive at the destination (startTime + walk duration)
+    const endTime = startTime && leg.duration
+      ? minutesToTime(timeToMinutes(startTime) + leg.duration)
+      : null;
+    return { ...leg, startTime, endTime };
+  });
+}
+
+/** Return the time a leg ends (when you leave or alight). */
+function getLegEndTime(leg) {
+  if (leg.type === 'bus' || leg.type === 'train') return leg.alightTime;
+  if (leg.type === 'walk') return leg.endTime || null;
+  if (leg.type === 'transfer') return leg.nextDepartureTime || null;
+  return null;
+}
+
+/** Return the time a leg starts (when you board or depart). */
+function getLegStartTime(leg) {
+  if (leg.type === 'bus' || leg.type === 'train') return leg.boardTime;
+  if (leg.type === 'walk') return leg.startTime || null;
+  if (leg.type === 'transfer') return leg.arrivalTime || null;
+  return null;
+}
+
+/**
+ * Wait-time badge rendered between two consecutive legs when there is
+ * measurable slack (e.g. arriving at a station before your train).
+ */
+function WaitBadge({ waitMins, atName }) {
+  const icon = waitMins >= 20 ? '☕' : '⏱';
+  return (
+    <div className="wait-badge-row">
+      <div className="wait-badge-spacer" />
+      <div className="wait-badge">
+        <span className="wait-badge-icon">{icon}</span>
+        <span className="wait-badge-duration">{formatDuration(waitMins)} wait</span>
+        {atName && <span className="wait-badge-at">at {atName}</span>}
       </div>
     </div>
   );
@@ -579,6 +680,51 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackLeg, onStopTrack
                 prevLegDelay={i > 0 ? legDelays[i - 1] : null}
               />
             ))}
+            {(() => {
+              const annotated = annotateWalkLegTimes(route.legs);
+              const elements = [];
+              for (let i = 0; i < annotated.length; i++) {
+                const leg = annotated[i];
+                elements.push(
+                  <LegDetail
+                    key={i}
+                    leg={leg}
+                    legIndex={i}
+                    totalLegs={annotated.length}
+                    onTrackLeg={onTrackLeg}
+                    onStopTracking={onStopTracking}
+                    liveTrackingActive={liveTrackingActive}
+                    trackedLeg={trackedLeg}
+                    liveVehicles={liveVehicles}
+                    railDepartures={railDepartures}
+                    trackedTrainService={trackedTrainService}
+                    delayInfo={legDelays[i]}
+                    prevLegDelay={i > 0 ? legDelays[i - 1] : null}
+                  />
+                );
+                // Insert a wait badge between this leg and the next, if there is a
+                // measurable gap (e.g. arriving at a station before the train departs).
+                // Skip when either adjacent leg is a transfer — it already shows the wait.
+                if (i < annotated.length - 1) {
+                  const nextLeg = annotated[i + 1];
+                  if (leg.type !== 'transfer' && nextLeg.type !== 'transfer') {
+                    const endT = getLegEndTime(leg);
+                    const startT = getLegStartTime(nextLeg);
+                    if (endT && startT) {
+                      const waitMins = timeToMinutes(startT) - timeToMinutes(endT);
+                      if (waitMins > 0) {
+                        // Determine where the user is waiting
+                        const atName = leg.alightName || leg.toName || null;
+                        elements.push(
+                          <WaitBadge key={`wait-${i}`} waitMins={waitMins} atName={atName} />
+                        );
+                      }
+                    }
+                  }
+                }
+              }
+              return elements;
+            })()}
           </div>
         </div>
       )}
@@ -587,10 +733,33 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackLeg, onStopTrack
 }
 
 function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChange, onTrackLeg, onStopTracking, liveTrackingActive, trackedLeg, liveVehicles, railDepartures, trackedTrainService }) {
+  const [minimized, setMinimized] = useState(false);
+
   if (!routes) return null;
 
   return (
-    <div className="route-results" role="region" aria-label="Route results">
+    <div
+      className={`route-results${minimized ? ' minimized' : ''}`}
+      role="region"
+      aria-label="Route results"
+    >
+      {/* Minimize / expand toggle bar */}
+      <button
+        className="route-results-toggle"
+        onClick={() => setMinimized(prev => !prev)}
+        aria-label={minimized ? 'Expand route results' : 'Minimize route results'}
+        aria-expanded={!minimized}
+      >
+        <span className="toggle-handle" />
+        {minimized && (
+          <span className="minimized-label">
+            {routes.totalRoutes} route{routes.totalRoutes !== 1 ? 's' : ''} · Tap to expand
+          </span>
+        )}
+      </button>
+
+      {!minimized && (
+        <>
       <div className="results-header">
         <div className="results-title-row">
           <h2 className="results-title">
@@ -644,6 +813,8 @@ function RouteResults({ routes, selectedRoute, onSelectRoute, sortBy, onSortChan
             />
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

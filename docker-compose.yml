@@ -15,6 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - /tmp/group1db_backup.sql:/docker-entrypoint-initdb.d/01_restore.sql
       - /tmp/post_restore.sql:/docker-entrypoint-initdb.d/02_post_restore.sql
+      - ./postgres/auth_schema.sql:/docker-entrypoint-initdb.d/03_auth_schema.sql
     networks:
       - group1-net
     healthcheck:
@@ -37,6 +38,15 @@ services:
       DB_NAME: group1db
       DB_USER: postgres
       DB_PASSWORD: group1
+      SESSION_SECRET: ${SESSION_SECRET:-lancaster-travel-production-secret-change-me}
+      CORS_ORIGIN: http://localhost:5001
+      APP_URL: http://localhost:5001
+      # SMTP settings (optional – dev mode logs emails to console)
+      # SMTP_HOST: smtp.example.com
+      # SMTP_PORT: 587
+      # SMTP_USER: user@example.com
+      # SMTP_PASS: password
+      # SMTP_FROM: noreply@lancastertravel.app
     ports:
       - "5000:5000"
     depends_on:
@@ -60,7 +70,7 @@ services:
       - group1-net
     restart: unless-stopped
     environment:
-      REACT_APP_API_URL: http://backend:5000
+      REACT_APP_API_URL: http://localhost:5000
 
 volumes:
   postgres_data:

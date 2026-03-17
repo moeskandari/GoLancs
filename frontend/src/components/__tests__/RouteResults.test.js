@@ -9,7 +9,7 @@
  *   onSortChange – callback(value)
  */
 
-import React from 'react';
+
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RouteResults from '../../components/RouteResults';
@@ -198,18 +198,18 @@ describe('RouteResults', () => {
   // ── Sort control ─────────────────────────────────────────
 
   it('renders sort select with correct default', () => {
-    render(<RouteResults {...defaultProps} />);
+    render(<RouteResults {...defaultProps} sortBy="changes" />);
     const select = screen.getByLabelText(/sort routes by/i);
     expect(select).toBeInTheDocument();
-    expect(select.value).toBe('duration');
+    expect(select.value).toBe('changes');
   });
 
   it('calls onSortChange when sort selection changes', () => {
     const onSort = jest.fn();
-    render(<RouteResults {...defaultProps} onSortChange={onSort} />);
+    render(<RouteResults {...defaultProps} sortBy="changes" onSortChange={onSort} />);
     const select = screen.getByLabelText(/sort routes by/i);
-    fireEvent.change(select, { target: { value: 'departure' } });
-    expect(onSort).toHaveBeenCalledWith('departure');
+    fireEvent.change(select, { target: { value: 'arrival' } });
+    expect(onSort).toHaveBeenCalledWith('arrival');
   });
 
   // ── Accessibility ────────────────────────────────────────

@@ -54,11 +54,16 @@ async function geocodeText(text) {
 }
 
 router.get('/api/plan', async (req, res) => {
+  const REQUEST_TIMEOUT_MS = 30000;
+  const abortController = new AbortController();
+  const requestTimer = setTimeout(() => abortController.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     let { start, end, time, day, sort, startLat, startLon, endLat, endLon, startName, endName } = req.query;
     const _t0 = Date.now();
     const _timers = {};
     const _mark = (label) => { _timers[label] = Date.now() - _t0; };
+    const _checkTimeout = () => { if (abortController.signal.aborted) throw new Error('Request timeout: route planning took too long'); };
 
     // ── Geocode plain text start/end if not ATCO codes or coords ──
     const isAtcoCode = (s) => /^(\d{3,}|9100)/.test(s);
@@ -272,12 +277,15 @@ router.get('/api/plan', async (req, res) => {
     _mark('init');
 
     // === Strategy 1 & 2: Parallel searches ===
+    // Scale limits based on direct distance – longer journeys need more results
+    const busLimit = directDistance > 10 ? 10 : 5;
+    const nearbyRadius = directDistance > 10 ? 1.5 : 1.0;
     const [directBus, startRailStations, endRailStations, nearbyStartStops, nearbyEndStops] = await Promise.all([
-      findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, 5),
+      findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, busLimit),
       findNearbyRailStations(resolvedStart, 5.0),
       findNearbyRailStations(resolvedEnd, 5.0),
-      findNearbyBusStops(resolvedStart, 1.0),
-      findNearbyBusStops(resolvedEnd, 1.0)
+      findNearbyBusStops(resolvedStart, nearbyRadius),
+      findNearbyBusStops(resolvedEnd, nearbyRadius)
     ]);
     _mark('directBus+nearbyRail');
 
@@ -288,16 +296,16 @@ router.get('/api/plan', async (req, res) => {
       const nearbyStartFiltered = nearbyStartStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
       const nearbyEndFiltered = nearbyEndStops.filter(s => s.walk_minutes <= MAX_WALK_MINUTES);
 
-      const startPromises = nearbyStartFiltered.slice(0, 6).map(async (stop) => {
+      const startPromises = nearbyStartFiltered.slice(0, 4).map(async (stop) => {
         const buses = await findDirectBusJourneys(stop.atco_code, resolvedEnd, departureTime, dayIndex, 3);
         return buses.map(bus => ({ bus, walkStart: stop, walkEnd: null }));
       });
-      const endPromises = nearbyEndFiltered.slice(0, 6).map(async (stop) => {
+      const endPromises = nearbyEndFiltered.slice(0, 4).map(async (stop) => {
         const buses = await findDirectBusJourneys(resolvedStart, stop.atco_code, departureTime, dayIndex, 3);
         return buses.map(bus => ({ bus, walkStart: null, walkEnd: stop }));
       });
-      const crossPromises = nearbyStartFiltered.slice(0, 4).flatMap(startStop2 =>
-        nearbyEndFiltered.slice(0, 4).map(async (endStop2) => {
+      const crossPromises = nearbyStartFiltered.slice(0, 3).flatMap(startStop2 =>
+        nearbyEndFiltered.slice(0, 3).map(async (endStop2) => {
           const buses = await findDirectBusJourneys(startStop2.atco_code, endStop2.atco_code, departureTime, dayIndex, 2);
           return buses.map(bus => ({ bus, walkStart: startStop2, walkEnd: endStop2 }));
         })
@@ -357,13 +365,16 @@ router.get('/api/plan', async (req, res) => {
     }
 
     // === Strategy 3: Direct train ===
+    // Only search for trains if the journey is long enough to warrant it (> 3km)
+    const useTrainStrategies = directDistance > 3.0;
     let directTrain = [];
-    if (startTiplocs.length > 0 && endTiplocs.length > 0) {
+    if (useTrainStrategies && startTiplocs.length > 0 && endTiplocs.length > 0) {
       const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
       const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
       directTrain = await findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
     _mark('directTrain');
+    _checkTimeout();
 
     // === Strategy 2b: Direct bus to/from bus stops near rail stations ===
     let extraDirectBus = [];
@@ -397,15 +408,18 @@ router.get('/api/plan', async (req, res) => {
 
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
-    if (startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
+    if (useTrainStrategies && startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
       const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
       const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00';
       trainConnections = await findTrainTrainConnections(startTiplocs, endTiplocs, trainDepartAfter, 5);
     }
     _mark('trainConnections');
+    _checkTimeout();
 
     // === Strategy 5: Multi-modal (bus+train, train+bus) ===
     let multiModal = [];
+
+    if (useTrainStrategies) {
 
     // 5b: Bus → Train
     {
@@ -616,39 +630,59 @@ router.get('/api/plan', async (req, res) => {
         }
       }
     }
+    } // end useTrainStrategies guard
     _mark('multiModal');
 
     // === Strategy 6: Bus → Bus transfer ===
     let busTransfers = [];
+    _checkTimeout();
     {
       let startCodes = await expandStopCode(resolvedStart);
       let endCodes = await expandStopCode(resolvedEnd);
-      for (const stop of nearbyStartStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
-        const expanded = await expandStopCode(stop.atco_code);
+
+      // Expand nearby stops in parallel, limit to 3 nearby stops (was 5)
+      const nearbyStartExpansions = await Promise.all(
+        nearbyStartStops.filter(s => s.walk_minutes <= 10).slice(0, 3)
+          .map(stop => expandStopCode(stop.atco_code))
+      );
+      for (const expanded of nearbyStartExpansions) {
         startCodes = [...new Set([...startCodes, ...expanded])];
       }
-      for (const stop of nearbyEndStops.filter(s => s.walk_minutes <= 15).slice(0, 5)) {
-        const expanded = await expandStopCode(stop.atco_code);
+      const nearbyEndExpansions = await Promise.all(
+        nearbyEndStops.filter(s => s.walk_minutes <= 10).slice(0, 3)
+          .map(stop => expandStopCode(stop.atco_code))
+      );
+      for (const expanded of nearbyEndExpansions) {
         endCodes = [...new Set([...endCodes, ...expanded])];
       }
+
       if (startIsRail && busStartCodes.length > 0) {
-        for (const code of busStartCodes) {
-          const expanded = await expandStopCode(code);
+        const railExpansions = await Promise.all(busStartCodes.map(code => expandStopCode(code)));
+        for (const expanded of railExpansions) {
           startCodes = [...new Set([...startCodes, ...expanded])];
         }
       }
       if (endIsRail && busEndCodes.length > 0) {
-        for (const code of busEndCodes) {
-          const expanded = await expandStopCode(code);
+        const railExpansions = await Promise.all(busEndCodes.map(code => expandStopCode(code)));
+        for (const expanded of railExpansions) {
           endCodes = [...new Set([...endCodes, ...expanded])];
         }
       }
+
+      // Cap the number of codes to prevent combinatorial explosion
+      const MAX_TRANSFER_CODES = 20;
+      if (startCodes.length > MAX_TRANSFER_CODES) startCodes = startCodes.slice(0, MAX_TRANSFER_CODES);
+      if (endCodes.length > MAX_TRANSFER_CODES) endCodes = endCodes.slice(0, MAX_TRANSFER_CODES);
 
       const sPlaceholders = startCodes.map((_, i) => `$${i + 1}`).join(',');
       const ePlaceholders = endCodes.map((_, i) => `$${startCodes.length + i + 1}`).join(',');
       const dayPos = dayIndex + 1;
 
-      const transferResult = await pool.query(`
+      // Set a per-query timeout for the expensive transfer query (8 seconds)
+      await pool.query('SET statement_timeout = 8000');
+      let transferResult;
+      try {
+        transferResult = await pool.query(`
         SELECT
           bj1.journey_id as j1_id, bj1.route_number as route1, bj1.operator_code as op1,
           o1.name as op1_name,
@@ -685,6 +719,12 @@ router.get('/api/plan', async (req, res) => {
         ORDER BY bjs1_start.departure_time, bjs2_start.departure_time
         LIMIT 15
       `, [...startCodes, ...endCodes, departureTime]);
+      } catch (transferErr) {
+        console.warn(`[PERF] Bus transfer query timed out or failed (startCodes=${startCodes.length}, endCodes=${endCodes.length}):`, transferErr.message);
+        transferResult = { rows: [] };
+      }
+      await pool.query('RESET statement_timeout').catch(() => {});
+      _checkTimeout();
 
       const seenTransfers = new Set();
       for (const r of transferResult.rows) {
@@ -694,7 +734,7 @@ router.get('/api/plan', async (req, res) => {
         busTransfers.push({
           legs: [
             { type: 'bus', journeyId: r.j1_id, routeNumber: r.route1, operator: r.op1, operatorName: r.op1_name, boardAtco: r.board_atco, boardName: r.board_name, boardTime: r.board_time, alightAtco: r.transfer_atco, alightName: r.transfer_name, alightTime: r.transfer_arrive },
-            { type: 'transfer', stop: r.transfer_name, atco: r.transfer_atco, waitMinutes: timeToMinutes(r.transfer_depart) - timeToMinutes(r.transfer_arrive) },
+            { type: 'transfer', stop: r.transfer_name, atco: r.transfer_atco, waitMinutes: timeToMinutes(r.transfer_depart) - timeToMinutes(r.transfer_arrive), arrivalTime: r.transfer_arrive, nextDepartureTime: r.transfer_depart },
             { type: 'bus', journeyId: r.j2_id, routeNumber: r.route2, operator: r.op2, operatorName: r.op2_name, boardAtco: r.transfer_atco, boardName: r.transfer_name, boardTime: r.transfer_depart, alightAtco: r.alight_atco, alightName: r.alight_name, alightTime: r.alight_time }
           ]
         });
@@ -756,7 +796,11 @@ router.get('/api/plan', async (req, res) => {
       const walkFromStation = endRailStations.find(s => s.tiploc_code === train.endTiploc) || endRailStations[0] || null;
       const walkTo = walkToStation ? walkToStation.walk_minutes : 0;
       const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
-      const depMins = timeToMinutes(departureTime);
+      // actualDepartureTime = when the user physically leaves: train boardTime minus any walk to station
+      const actualDepartureTime = (walkTo > 0 && !startIsRail)
+        ? minutesToTime(timeToMinutes(train.boardTime) - walkTo)
+        : train.boardTime;
+      const depMins = timeToMinutes(actualDepartureTime);
       const arrMins = timeToMinutes(train.alightTime) + walkFrom;
       const legs = [];
       if (walkToStation && !startIsRail) {
@@ -776,7 +820,7 @@ router.get('/api/plan', async (req, res) => {
           duration: walkFrom, distance_km: walkFromStation.walk_km
         });
       }
-      allRoutes.push({ id: `train-direct-${train.trainUid}`, summary: `Train ${train.operator || ''} direct`, modes: walkTo > 0 || walkFrom > 0 ? ['walk', 'train'] : ['train'], departureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
+      allRoutes.push({ id: `train-direct-${train.trainUid}`, summary: `Train ${train.operator || ''} direct`, modes: walkTo > 0 || walkFrom > 0 ? ['walk', 'train'] : ['train'], departureTime: actualDepartureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
     }
 
     // Train + Train connections
@@ -787,7 +831,11 @@ router.get('/api/plan', async (req, res) => {
       const walkFromStation = endRailStations.find(s => s.tiploc_code === lastTrainLeg.endTiploc) || endRailStations[0] || null;
       const walkTo = walkToStation ? walkToStation.walk_minutes : 0;
       const walkFrom = walkFromStation ? walkFromStation.walk_minutes : 0;
-      const depMins = timeToMinutes(departureTime);
+      // actualDepartureTime = when the user physically leaves: first train boardTime minus any walk
+      const actualDepartureTime = (walkTo > 0 && !startIsRail)
+        ? minutesToTime(timeToMinutes(firstTrainLeg.boardTime) - walkTo)
+        : firstTrainLeg.boardTime;
+      const depMins = timeToMinutes(actualDepartureTime);
       const lastLeg = conn.legs[conn.legs.length - 1];
       const arrMins = timeToMinutes(lastLeg.alightTime) + walkFrom;
       const legs = [];
@@ -808,20 +856,30 @@ router.get('/api/plan', async (req, res) => {
           duration: walkFrom, distance_km: walkFromStation.walk_km
         });
       }
-      allRoutes.push({ id: `train-conn-${conn.legs[0].trainUid}-${lastLeg.trainUid}`, summary: `Train via ${conn.legs[1].station || 'connection'}`, modes: ['walk', 'train'], departureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
+      allRoutes.push({ id: `train-conn-${conn.legs[0].trainUid}-${lastLeg.trainUid}`, summary: `Train via ${conn.legs[1].station || 'connection'}`, modes: ['walk', 'train'], departureTime: actualDepartureTime, arrivalTime: minutesToTime(arrMins) + ':00', durationMinutes: arrMins - depMins, legs });
     }
 
     // Multi-modal routes
     for (const mm of multiModal) {
       const firstLeg = mm.legs[0];
       const lastLeg = mm.legs[mm.legs.length - 1];
-      const depMins = timeToMinutes(firstLeg.type === 'walk' ? departureTime : firstLeg.boardTime);
+      // Compute actual departure: first transport boardTime minus any leading walk duration
+      let actualDepartureTime;
+      if (firstLeg.type === 'walk') {
+        const firstTransport = mm.legs.find(l => l.boardTime);
+        actualDepartureTime = firstTransport
+          ? minutesToTime(timeToMinutes(firstTransport.boardTime) - firstLeg.duration)
+          : departureTime;
+      } else {
+        actualDepartureTime = firstLeg.boardTime;
+      }
+      const depMins = timeToMinutes(actualDepartureTime);
       const arrTime = lastLeg.type === 'walk'
         ? minutesToTime(timeToMinutes(mm.legs[mm.legs.length - 2].alightTime) + lastLeg.duration)
         : lastLeg.alightTime;
       const arrMins = timeToMinutes(arrTime);
       const modes = [...new Set(mm.legs.map(l => l.type).filter(t => t !== 'transfer'))];
-      allRoutes.push({ id: `multi-${allRoutes.length}`, summary: modes.join(' + '), modes, departureTime: firstLeg.type === 'walk' ? departureTime : firstLeg.boardTime, arrivalTime: arrTime.includes(':') && arrTime.length <= 5 ? arrTime + ':00' : arrTime, durationMinutes: arrMins >= depMins ? arrMins - depMins : arrMins + 1440 - depMins, legs: mm.legs });
+      allRoutes.push({ id: `multi-${allRoutes.length}`, summary: modes.join(' + '), modes, departureTime: actualDepartureTime, arrivalTime: arrTime.includes(':') && arrTime.length <= 5 ? arrTime + ':00' : arrTime, durationMinutes: arrMins >= depMins ? arrMins - depMins : arrMins + 1440 - depMins, legs: mm.legs });
     }
 
     // Bus + Bus transfers
@@ -844,6 +902,7 @@ router.get('/api/plan', async (req, res) => {
     _mark('busTransfers');
 
     // === Enrich coordinates ===
+    _checkTimeout();
     await enrichLegsWithCoordinates(allRoutes, startStop, endStop);
     _mark('enrichCoords');
 
@@ -872,6 +931,8 @@ router.get('/api/plan', async (req, res) => {
           } else {
             route.legs.unshift({ ...startWalkLeg });
             route.durationMinutes += startWalkLeg.duration;
+            // Update departure time to reflect the walk start
+            route.departureTime = minutesToTime(timeToMinutes(route.departureTime) - startWalkLeg.duration);
           }
         }
         if (endWalkLeg) {
@@ -903,31 +964,105 @@ router.get('/api/plan', async (req, res) => {
     // === Filter unreasonable routes ===
     const reasonableMinMinutes = Math.max(directDistance * 2, 15);
     const maxReasonableDuration = Math.max(reasonableMinMinutes * 5, 180);
-    const maxWalkLegMinutes = 30;
+    // Scale max walk leg with journey distance: 15 min for short trips, up to 40 min for long ones
+    const maxWalkLegMinutes = Math.min(40, Math.max(15, Math.ceil(directDistance * 1.5)));
     const walkOnlyDuration = walkDistance <= 3.0 ? Math.max(1, Math.ceil(walkDistance / 0.08)) : null;
+    const queryDepMins = timeToMinutes(departureTime);
     const filteredRoutes = allRoutes.filter(r => {
-      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) return false;
+      if (r.durationMinutes <= 0 || r.durationMinutes > maxReasonableDuration) {
+        console.log(`[FILTER] ${r.id}: REJECTED duration=${r.durationMinutes}min (max=${maxReasonableDuration})`);
+        return false;
+      }
+      // Reject routes that require leaving before the requested departure time
+      if (timeToMinutes(r.departureTime) < queryDepMins) {
+        console.log(`[FILTER] ${r.id}: REJECTED departs ${r.departureTime} before requested ${departureTime}`);
+        return false;
+      }
       if (r.id !== 'walk-only') {
         const walkLegs = r.legs.filter(l => l.type === 'walk');
         const maxWalk = Math.max(...walkLegs.map(l => l.duration || 0), 0);
-        if (maxWalk > maxWalkLegMinutes) return false;
+        if (maxWalk > maxWalkLegMinutes) {
+          console.log(`[FILTER] ${r.id}: REJECTED maxWalk=${maxWalk}min (limit=${maxWalkLegMinutes})`);
+          return false;
+        }
       }
+      // Only apply walk-vs-transit comparison for short walkable distances
       if (walkOnlyDuration !== null && r.id !== 'walk-only') {
-        if (r.durationMinutes > walkOnlyDuration * 2) return false;
+        if (r.durationMinutes > walkOnlyDuration * 2.5) {
+          console.log(`[FILTER] ${r.id}: REJECTED slower than 2.5x walking (${r.durationMinutes} vs ${walkOnlyDuration * 2.5})`);
+          return false;
+        }
       }
       return true;
     });
+    console.log(`[FILTER] directDist=${directDistance.toFixed(1)}km maxWalk=${maxWalkLegMinutes}min maxDuration=${maxReasonableDuration}min | ${allRoutes.length} candidates → ${filteredRoutes.length} after filter`);
 
     // === Deduplicate ===
+    // Two-phase deduplication:
+    // 1. Exact duplicates (same transport legs with same times)
+    // 2. Near-duplicates (same route pattern but different departure times for same service)
     const uniqueRoutes = [];
-    const seenKeys = new Set();
+    const seenExactKeys = new Set();
+    const patternGroups = new Map(); // Groups routes by their journey pattern (ignoring specific times)
+    
     for (const r of filteredRoutes) {
-      const transportKey = r.legs
+      // Phase 1: Exact deduplication (same vehicles, same times)
+      const exactKey = r.legs
         .filter(l => l.type === 'bus' || l.type === 'train')
         .map(l => l.type === 'bus' ? `bus:${l.routeNumber}:${l.boardTime}` : `train:${l.trainUid}`)
         .join('→');
-      const key = transportKey || `${r.departureTime}-${r.arrivalTime}-${r.summary}`;
-      if (!seenKeys.has(key)) { seenKeys.add(key); uniqueRoutes.push(r); }
+      const fullExactKey = exactKey || `${r.departureTime}-${r.arrivalTime}-${r.summary}`;
+      
+      if (seenExactKeys.has(fullExactKey)) continue;
+      seenExactKeys.add(fullExactKey);
+      
+      // Phase 2: Pattern-based grouping (same route numbers and interchange points, different times)
+      // This catches near-identical routes like "Bus 42 → Train from Poulton" at different times
+      const patternKey = r.legs
+        .filter(l => l.type === 'bus' || l.type === 'train')
+        .map(l => {
+          if (l.type === 'bus') return `bus:${l.routeNumber}:${l.boardName}→${l.alightName}`;
+          if (l.type === 'train') return `train:${l.boardName}→${l.alightName}`;
+          return '';
+        })
+        .join('|');
+      
+      console.log(`[DEDUP] Route ${r.id} pattern: ${patternKey}`);
+      
+      if (!patternGroups.has(patternKey)) {
+        patternGroups.set(patternKey, []);
+      }
+      patternGroups.get(patternKey).push(r);
+    }
+    
+    console.log(`[DEDUP] Pattern groups: ${patternGroups.size}, routes per group:`, [...patternGroups.entries()].map(([k, v]) => `${k.substring(0, 50)}...: ${v.length}`));
+    
+    // From each pattern group, keep the best route (earliest departure that arrives soonest)
+    // and optionally one alternative if times differ significantly (>30 min)
+    for (const [pattern, routes] of patternGroups) {
+      if (routes.length === 0) continue;
+      
+      // Sort by departure time, then by duration
+      routes.sort((a, b) => {
+        const depDiff = timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime);
+        if (depDiff !== 0) return depDiff;
+        return a.durationMinutes - b.durationMinutes;
+      });
+      
+      // Always add the first (earliest) route
+      uniqueRoutes.push(routes[0]);
+      
+      // Add one more if it departs significantly later (>30 min) and is meaningfully different
+      if (routes.length > 1) {
+        const firstDepMins = timeToMinutes(routes[0].departureTime);
+        for (let i = 1; i < routes.length; i++) {
+          const thisDepMins = timeToMinutes(routes[i].departureTime);
+          if (thisDepMins - firstDepMins >= 30) {
+            uniqueRoutes.push(routes[i]);
+            break; // Only add one alternative per pattern
+          }
+        }
+      }
     }
 
     // === Sort ===
@@ -947,6 +1082,7 @@ router.get('/api/plan', async (req, res) => {
     await enrichLegsWithGeometry(topRoutes);
     _mark('enrichGeometry');
 
+    clearTimeout(requestTimer);
     _mark('done');
     console.log(`[PERF] /api/plan total=${_timers.done}ms | candidates=${allRoutes.length} filtered=${uniqueRoutes.length} displayed=${topRoutes.length} |`, Object.entries(_timers).map(([k, v]) => `${k}=${v}ms`).join(' '));
 
@@ -1051,9 +1187,19 @@ router.get('/api/plan', async (req, res) => {
     });
 
   } catch (err) {
+    clearTimeout(requestTimer);
+    if (err.message && err.message.includes('Request timeout')) {
+      console.error(`[PERF] Route planning timed out after ${REQUEST_TIMEOUT_MS}ms`);
+      return res.status(504).json({ error: 'Route planning took too long. Try locations closer to major bus stops or rail stations.' });
+    }
+    if (err.message && err.message.includes('statement timeout')) {
+      console.error('[PERF] Database query timed out (statement_timeout)');
+      return res.status(504).json({ error: 'Route search took too long. Try a different start or end location.' });
+    }
     console.error('Route planner error:', err);
     res.status(500).json({ error: 'Failed to plan route', details: err.message });
   }
 });
 
 module.exports = router;
+
