@@ -92,5 +92,3 @@ router.get('/api/stops/nearby', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch nearby stops' });
   }
 });
-
-module.exports = router;
