@@ -2452,6 +2452,18 @@ app.get('/api/plan', async (req, res) => {
     const departureTime = time || `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}:00`;
     const dayIndex = getDayIndex(day);
     const sortBy = sort || 'arrival';
+    const departureMins = timeToMinutes(departureTime);
+
+    // For arrive-by mode we still search from the user's requested earliest
+    // departure time, then rank by closeness to arriveBy later.
+    // Narrowing the search window here can hide valid alternatives.
+    const searchStartMins = departureMins;
+    const searchStartTime = searchStartMins !== null ? `${minutesToTime(searchStartMins)}:00` : departureTime;
+
+    const directLimit = arriveBy ? 18 : 5;
+    const altLimit = arriveBy ? 8 : 3;
+    const crossLimit = arriveBy ? 6 : 2;
+    const connLimit = arriveBy ? 10 : 5;
 
     // --- Short-distance early exit ---
     // If both locations are coordinate-based (pin drops), calculate pin-to-pin distance.
@@ -2526,7 +2538,7 @@ app.get('/api/plan', async (req, res) => {
 
     // === Strategies 1 & 2: Run in parallel (independent DB queries) ===
     const [directBus, startRailStations, endRailStations, nearbyStartStops, nearbyEndStops] = await Promise.all([
-      findDirectBusJourneys(resolvedStart, resolvedEnd, departureTime, dayIndex, 5),
+      findDirectBusJourneys(resolvedStart, resolvedEnd, searchStartTime, dayIndex, directLimit),
       findNearbyRailStations(resolvedStart, 5.0),
       findNearbyRailStations(resolvedEnd, 5.0),
       // Find walkable bus stops near start & end (within ~1km) for alternative services
@@ -2545,18 +2557,18 @@ app.get('/api/plan', async (req, res) => {
 
       // Search from nearby start stops → resolved end
       const startPromises = nearbyStartFiltered.slice(0, 6).map(async (stop) => {
-        const buses = await findDirectBusJourneys(stop.atco_code, resolvedEnd, departureTime, dayIndex, 3);
+        const buses = await findDirectBusJourneys(stop.atco_code, resolvedEnd, searchStartTime, dayIndex, altLimit);
         return buses.map(bus => ({ bus, walkStart: stop, walkEnd: null }));
       });
       // Search from resolved start → nearby end stops
       const endPromises = nearbyEndFiltered.slice(0, 6).map(async (stop) => {
-        const buses = await findDirectBusJourneys(resolvedStart, stop.atco_code, departureTime, dayIndex, 3);
+        const buses = await findDirectBusJourneys(resolvedStart, stop.atco_code, searchStartTime, dayIndex, altLimit);
         return buses.map(bus => ({ bus, walkStart: null, walkEnd: stop }));
       });
       // Search from nearby start stops → nearby end stops (both different)
       const crossPromises = nearbyStartFiltered.slice(0, 4).flatMap(startStop2 =>
         nearbyEndFiltered.slice(0, 4).map(async (endStop2) => {
-          const buses = await findDirectBusJourneys(startStop2.atco_code, endStop2.atco_code, departureTime, dayIndex, 2);
+          const buses = await findDirectBusJourneys(startStop2.atco_code, endStop2.atco_code, searchStartTime, dayIndex, crossLimit);
           return buses.map(bus => ({ bus, walkStart: startStop2, walkEnd: endStop2 }));
         })
       );
@@ -2626,31 +2638,31 @@ app.get('/api/plan', async (req, res) => {
     // Run Strategy 3 (direct train) concurrently with Strategy 2b (bus near rail stations)
     const walkToStation = startRailStations.length > 0 ? startRailStations[0].walk_minutes : 0;
     const trainDepartAfter = (startTiplocs.length > 0 && endTiplocs.length > 0)
-      ? minutesToTime(timeToMinutes(departureTime) + walkToStation) + ':00' : null;
+      ? minutesToTime(timeToMinutes(searchStartTime) + walkToStation) + ':00' : null;
 
     // Build all Strategy 2b bus searches as parallel promises
     const extraBusPromises = [];
     if (endIsRail && busEndCodes.length > 0) {
       for (const busEndCode of busEndCodes) {
-        extraBusPromises.push(findDirectBusJourneys(resolvedStart, busEndCode, departureTime, dayIndex, 3));
+        extraBusPromises.push(findDirectBusJourneys(resolvedStart, busEndCode, searchStartTime, dayIndex, altLimit));
       }
     }
     if (startIsRail && busStartCodes.length > 0) {
       for (const busStartCode of busStartCodes) {
-        extraBusPromises.push(findDirectBusJourneys(busStartCode, resolvedEnd, departureTime, dayIndex, 3));
+        extraBusPromises.push(findDirectBusJourneys(busStartCode, resolvedEnd, searchStartTime, dayIndex, altLimit));
       }
     }
     if (endIsRail && busEndCodes.length > 0 && startIsRail && busStartCodes.length > 0) {
       for (const busStartCode of busStartCodes) {
         for (const busEndCode of busEndCodes) {
-          extraBusPromises.push(findDirectBusJourneys(busStartCode, busEndCode, departureTime, dayIndex, 3));
+          extraBusPromises.push(findDirectBusJourneys(busStartCode, busEndCode, searchStartTime, dayIndex, altLimit));
         }
       }
     }
 
     // Run Strategy 3 + 2b in parallel
     const [directTrainResult, ...extraBusResults] = await Promise.all([
-      trainDepartAfter ? findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, 5) : [],
+      trainDepartAfter ? findDirectTrainJourneys(startTiplocs, endTiplocs, trainDepartAfter, directLimit) : [],
       ...extraBusPromises
     ]);
     let directTrain = directTrainResult;
@@ -2671,7 +2683,7 @@ app.get('/api/plan', async (req, res) => {
     // === Strategy 4: Train + Train connections ===
     let trainConnections = [];
     if (startTiplocs.length > 0 && endTiplocs.length > 0 && directTrain.length === 0) {
-      trainConnections = await findTrainTrainConnections(startTiplocs, endTiplocs, trainDepartAfter, 5);
+      trainConnections = await findTrainTrainConnections(startTiplocs, endTiplocs, trainDepartAfter, connLimit);
     }
 
     _mark('trainConnections');
@@ -2682,7 +2694,7 @@ app.get('/api/plan', async (req, res) => {
     // 5a: If start is walkable to rail, use walk+train strategies (already covered by Strategy 3/4)
     // 5b: Bus → Train (find rail stations reachable by bus from the start)
     {
-      const busReachableFromStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 5);
+      const busReachableFromStart = await findBusReachableRailStations(resolvedStart, dayIndex, searchStartTime, directLimit);
 
       // Also check nearby walkable bus stops for bus→rail connections in parallel
       // (the nearest stop may not have routes to rail stations, but a stop 0.5km walk away might)
@@ -2690,7 +2702,7 @@ app.get('/api/plan', async (req, res) => {
       const nearbyForBusRail = nearbyStartStops.filter(s => s.walk_minutes <= MAX_WALK_TO_BUS).slice(0, 6);
       const nearbyReachableResults = await Promise.all(
         nearbyForBusRail.map(async (nearbyStop) => {
-          const reachable = await findBusReachableRailStations(nearbyStop.atco_code, dayIndex, departureTime, 3);
+          const reachable = await findBusReachableRailStations(nearbyStop.atco_code, dayIndex, searchStartTime, altLimit);
           return { nearbyStop, reachable };
         })
       );
@@ -2741,7 +2753,7 @@ app.get('/api/plan', async (req, res) => {
         console.log(`[5b-DEBUG] Processing station ${station.tiploc_code} (${station.common_name}), bus_stop=${station.bus_stop_atco}`);
 
         // Find the actual bus journey from origin to the bus stop near this rail station
-        const busLegs = await findDirectBusJourneys(resolvedStart, station.bus_stop_atco, departureTime, dayIndex, 3);
+        const busLegs = await findDirectBusJourneys(resolvedStart, station.bus_stop_atco, searchStartTime, dayIndex, altLimit);
         console.log(`[5b-DEBUG] Found ${busLegs.length} bus legs to ${station.tiploc_code}`);
 
         for (const bus of busLegs) {
@@ -2850,7 +2862,7 @@ app.get('/api/plan', async (req, res) => {
         if (multiModal.length >= 15) break;
 
         // Find bus journeys from the nearby walkable stop to the bus stop near this rail station
-        const busLegs = await findDirectBusJourneys(walkStop.atco_code, station.bus_stop_atco, departureTime, dayIndex, 3);
+        const busLegs = await findDirectBusJourneys(walkStop.atco_code, station.bus_stop_atco, searchStartTime, dayIndex, altLimit);
 
         for (const bus of busLegs) {
           const busStopCoords = stationCoordsMap[station.bus_stop_atco];
@@ -2990,7 +3002,7 @@ app.get('/api/plan', async (req, res) => {
       // Also try bus-reachable stations from start as source TIPLOCs
       // (in case start isn't within walking distance of a station)
       if (sourceTiplocs.length === 0) {
-        const busReachableStart = await findBusReachableRailStations(resolvedStart, dayIndex, departureTime, 3);
+        const busReachableStart = await findBusReachableRailStations(resolvedStart, dayIndex, searchStartTime, altLimit);
         // For train→bus, we can still use bus→train→bus but that gets complex.
         // Instead just use walk-reachable start stations.
         // (bus→train→bus is handled by combining 5b with 5c results)
@@ -3004,7 +3016,7 @@ app.get('/api/plan', async (req, res) => {
 
           // Find trains from start area to this rail station
           const walkToStart = startRailStations.length > 0 && !startIsRail ? startRailStations[0].walk_minutes : 0;
-          const trainDepartAfter = minutesToTime(timeToMinutes(departureTime) + walkToStart) + ':00';
+          const trainDepartAfter = minutesToTime(timeToMinutes(searchStartTime) + walkToStart) + ':00';
 
           const trains = await findDirectTrainJourneys(sourceTiplocs, [endStation.tiploc_code], trainDepartAfter, 3);
 
@@ -3536,6 +3548,28 @@ app.get('/api/plan', async (req, res) => {
       console.log(`[arriveBy] target=${arriveBy} (${arriveByTarget}min) candidates=${filteredRoutes.length}`);
     }
 
+    const getTotalWalkMinutes = (route) => route.legs
+      .filter(l => l.type === 'walk')
+      .reduce((sum, l) => sum + (Number(l.duration) || 0), 0);
+
+    const getArriveByScore = (route) => {
+      const arr = timeToMinutes(route.arrivalTime);
+      const dep = timeToMinutes(route.departureTime);
+      const delta = arriveByTarget - arr;
+
+      // Primary: closeness to target arrival (prefer on/before target)
+      const arrivalScore = delta >= 0 ? delta : 10000 + Math.abs(delta) * 3;
+
+      // Secondary: heavily penalise very long total walking in multimodal routes
+      const totalWalk = getTotalWalkMinutes(route);
+      const walkPenalty = Math.max(0, totalWalk - 30) * 1.5;
+
+      // Tertiary: slightly prefer later departures when arrival suitability is similar
+      const departEarlyPenalty = dep !== null ? Math.max(0, (arriveByTarget - dep) - 120) * 0.05 : 0;
+
+      return arrivalScore + walkPenalty + departEarlyPenalty;
+    };
+
     // Deduplicate routes using two-phase approach:
     // 1. Exact duplicates (same transport legs with same times)
     // 2. Near-duplicates (same route pattern but different departure times for same service)
@@ -3571,29 +3605,56 @@ app.get('/api/plan', async (req, res) => {
       patternGroups.get(patternKey).push(r);
     }
     
-    // From each pattern group, keep the best route (earliest departure that arrives soonest)
-    // and optionally one alternative if times differ significantly (>30 min)
+    // From each pattern group, keep the best route.
+    // - Normal mode: earliest departure (existing behaviour)
+    // - Arrive-by mode: closest arrival to target (prefer later arrivals that are still valid)
+    // Also keep one secondary alternative where sensible.
     for (const [pattern, routes] of patternGroups) {
       if (routes.length === 0) continue;
-      
-      // Sort by departure time, then by duration
-      routes.sort((a, b) => {
-        const depDiff = timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime);
-        if (depDiff !== 0) return depDiff;
-        return a.durationMinutes - b.durationMinutes;
-      });
-      
-      // Always add the first (earliest) route
-      uniqueRoutes.push(routes[0]);
-      
-      // Add one more if it departs significantly later (>30 min) and is meaningfully different
-      if (routes.length > 1) {
-        const firstDepMins = timeToMinutes(routes[0].departureTime);
-        for (let i = 1; i < routes.length; i++) {
-          const thisDepMins = timeToMinutes(routes[i].departureTime);
-          if (thisDepMins - firstDepMins >= 30) {
-            uniqueRoutes.push(routes[i]);
-            break; // Only add one alternative per pattern
+
+      if (arriveByTarget !== null) {
+        // Closest arrival to target first, while avoiding excessively walk-heavy options.
+        routes.sort((a, b) => {
+          const scoreA = getArriveByScore(a);
+          const scoreB = getArriveByScore(b);
+          if (scoreA !== scoreB) return scoreA - scoreB;
+
+          const arrA = timeToMinutes(a.arrivalTime);
+          const arrB = timeToMinutes(b.arrivalTime);
+
+          // Tie-break: prefer later arrival (closer to target from below)
+          if (arrA !== arrB) return arrB - arrA;
+
+          // Then prefer shorter route
+          return a.durationMinutes - b.durationMinutes;
+        });
+
+        // In arrive-by mode, keep multiple near-target options per pattern so
+        // users can choose between alternatives that may have similar timings.
+        const perPatternKeep = 3;
+        for (let i = 0; i < Math.min(perPatternKeep, routes.length); i++) {
+          uniqueRoutes.push(routes[i]);
+        }
+      } else {
+        // Sort by departure time, then by duration
+        routes.sort((a, b) => {
+          const depDiff = timeToMinutes(a.departureTime) - timeToMinutes(b.departureTime);
+          if (depDiff !== 0) return depDiff;
+          return a.durationMinutes - b.durationMinutes;
+        });
+
+        // Always add the first (earliest) route
+        uniqueRoutes.push(routes[0]);
+
+        // Add one more if it departs significantly later (>30 min) and is meaningfully different
+        if (routes.length > 1) {
+          const firstDepMins = timeToMinutes(routes[0].departureTime);
+          for (let i = 1; i < routes.length; i++) {
+            const thisDepMins = timeToMinutes(routes[i].departureTime);
+            if (thisDepMins - firstDepMins >= 30) {
+              uniqueRoutes.push(routes[i]);
+              break; // Only add one alternative per pattern
+            }
           }
         }
       }
@@ -3612,8 +3673,23 @@ app.get('/api/plan', async (req, res) => {
       console.log(`[arriveBy] after filter: ${uniqueRoutes.length} routes arrive by ${arriveBy}`);
     }
 
-    // Sort results according to the user's chosen sort preference
-    if (sortBy === 'changes') {
+    // Sort results according to mode.
+    // Arrive-by mode always prioritises closeness to the target arrival time.
+    if (arriveByTarget !== null) {
+      uniqueRoutes.sort((a, b) => {
+        const scoreA = getArriveByScore(a);
+        const scoreB = getArriveByScore(b);
+        if (scoreA !== scoreB) return scoreA - scoreB;
+
+        const arrA = timeToMinutes(a.arrivalTime);
+        const arrB = timeToMinutes(b.arrivalTime);
+
+        // Prefer later arrivals (closer to target) if same score
+        if (arrA !== arrB) return arrB - arrA;
+
+        return a.durationMinutes - b.durationMinutes;
+      });
+    } else if (sortBy === 'changes') {
       const countChanges = (r) => r.legs.filter(l => l.type === 'bus' || l.type === 'train').length;
       uniqueRoutes.sort((a, b) => {
         const diff = countChanges(a) - countChanges(b);
