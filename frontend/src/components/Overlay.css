@@ -1,0 +1,108 @@
+/* Shared overlay styles for SignIn/SignUp/Profile */
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.overlay-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 22px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  position: relative;
+}
+
+.overlay-title {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  text-align: center;
+}
+
+.overlay-close {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  border: none;
+  background: none;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.overlay-back {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.overlay-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlay-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: #333;
+}
+
+.overlay-form input {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.primary-btn {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: #0078d4;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.link-btn {
+  margin-left: 6px;
+  background: none;
+  border: none;
+  color: #0078d4;
+  cursor: pointer;
+  padding: 0;
+}
+
+.overlay-footer {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.overlay-terms {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.profile-card {
+  max-width: 640px;
+}
+
+.profile-content {
+  margin-top: 28px;
+}
+
+@media (max-width: 420px) {
+  .overlay-card { padding: 16px; }
+}

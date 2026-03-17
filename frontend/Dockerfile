@@ -26,11 +26,11 @@ RUN npm install -g serve
 COPY --from=build /app/build ./build
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:5001/ || exit 1
 
 # Start application
-CMD ["serve", "-s", "build", "-l", "3000"]
+CMD ["serve", "-s", "build", "-l", "5001"]

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
+import { fetchNearbyStops, fetchBusStopRoutes, fetchRailDepartures, fetchTrafficConditions } from '../services/api';
 
 function formatTime(timeStr) {
   if (!timeStr) return '';
@@ -169,23 +170,26 @@ const userDotIcon = (heading) => {
   });
 };
 
-// Live bus marker icon — shows route number with bearing arrow
-const liveBusIcon = (lineName, bearing) => {
+// Live bus marker icon — shows route number with bearing arrow and destination
+const liveBusIcon = (lineName, bearing, destination) => {
   const rotation = bearing !== null && bearing !== undefined ? `transform: rotate(${bearing}deg);` : '';
   const arrow = bearing !== null && bearing !== undefined
     ? `<div class="live-bus-arrow" style="${rotation}"></div>`
     : '';
+  // Truncate long destination names to 12 chars
+  const displayDest = destination ? (destination.length > 12 ? destination.substring(0, 11) + '…' : destination) : '';
   return L.divIcon({
     html: `<div class="live-bus-marker">
       ${arrow}
       <div class="live-bus-icon">
         <span class="live-bus-number">${lineName || '?'}</span>
+        ${displayDest ? `<span class="live-bus-destination">${displayDest}</span>` : ''}
       </div>
       <div class="live-bus-pulse"></div>
     </div>`,
     className: 'live-bus-marker-wrapper',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18]
+    iconSize: destination ? [50, 48] : [36, 36],
+    iconAnchor: destination ? [25, 24] : [18, 18]
   });
 };
 
@@ -204,6 +208,24 @@ const liveTrainIcon = (operator) => {
   });
 };
 
+// Bus stop marker icon — small circle for clickable bus stops
+const busStopIcon = L.divIcon({
+  html: `<div class="bus-stop-marker">
+    <div class="bus-stop-icon">🚏</div>
+  </div>`,
+  className: 'bus-stop-marker-wrapper',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
+
+const railStationIcon = L.divIcon({
+  html: `<div class="rail-station-marker">
+    <div class="rail-station-icon">🚉</div>
+  </div>`,
+  className: 'rail-station-marker-wrapper',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15]
+});
 // Component to handle tap-to-pin-drop on mobile (pin mode)
 function ClickToPinHandler({ active, onPinDrop }) {
   const map = useMap();
@@ -262,7 +284,594 @@ function PanToUser({ userLocation, active }) {
   return null;
 }
 
-function MapView({ userLocation, startLocation, endLocation, routes, selectedRoute, onLocateMe, onPinDrop, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService, pinMode }) {
+function parseHHMMToMinutes(hhmm) {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function getMinutesUntil(timeStr, referenceHHMM = null) {
+  const target = parseHHMMToMinutes(timeStr);
+  if (target === null) return null;
+
+  let nowMins;
+  if (referenceHHMM && /^\d{2}:\d{2}(:\d{2})?$/.test(referenceHHMM)) {
+    const ref = referenceHHMM.substring(0, 5);
+    const parsedRef = parseHHMMToMinutes(ref);
+    nowMins = parsedRef !== null ? parsedRef : (new Date().getHours() * 60 + new Date().getMinutes());
+  } else {
+    const now = new Date();
+    nowMins = now.getHours() * 60 + now.getMinutes();
+  }
+  let diff = target - nowMins;
+
+  // Handle just-after-midnight services
+  if (diff < -1200) diff += 1440;
+  if (diff < 0) return null;
+  return diff;
+}
+
+function parseBusStopDisplay(commonName) {
+  const fullName = (commonName || '').trim();
+  if (!fullName) {
+    return { baseName: 'Bus stop', platformLabel: null };
+  }
+
+  let baseName = fullName;
+  let platformLabel = null;
+
+  const commaIdx = fullName.lastIndexOf(',');
+  if (commaIdx > 0) {
+    const tail = fullName.slice(commaIdx + 1).trim();
+    const looksLikePlatform = /^(stand|stance|bay|platform|stop|gate|quay)\b/i.test(tail)
+      || /^[A-Z]{1,2}\d{0,2}[A-Z]?$/i.test(tail)
+      || /^\d{1,2}[A-Z]?$/i.test(tail);
+    if (tail && looksLikePlatform) {
+      baseName = fullName.slice(0, commaIdx).trim();
+      platformLabel = tail;
+    }
+  }
+
+  if (!platformLabel) {
+    const suffixMatch = fullName.match(/\b(Stand|Stance|Bay|Platform|Stop|Gate|Quay)\s*([A-Z0-9-]+)\s*$/i);
+    if (suffixMatch) {
+      baseName = fullName.slice(0, suffixMatch.index).trim() || fullName;
+      platformLabel = `${suffixMatch[1]} ${suffixMatch[2]}`.trim();
+    }
+  }
+
+  return { baseName, platformLabel };
+}
+
+function longestCommonPrefix(values) {
+  if (!Array.isArray(values) || values.length === 0) return '';
+  let prefix = values[0] || '';
+  for (let i = 1; i < values.length; i += 1) {
+    const current = values[i] || '';
+    let j = 0;
+    while (
+      j < prefix.length
+      && j < current.length
+      && prefix[j].toLowerCase() === current[j].toLowerCase()
+    ) {
+      j += 1;
+    }
+    prefix = prefix.slice(0, j);
+    if (!prefix) break;
+  }
+  return prefix;
+}
+
+// Component to fetch and display nearby bus stops and rail stations
+function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations, selectedTime, selectedDay }) {
+  const [busStops, setBusStops] = useState([]);
+  const [railStops, setRailStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState(null);
+  const [selectedPlatformAtco, setSelectedPlatformAtco] = useState(null);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
+  const [stopRoutes, setStopRoutes] = useState(null);
+  const [stopRoutesCache, setStopRoutesCache] = useState({});
+  const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const [selectedRailStop, setSelectedRailStop] = useState(null);
+  const [railDepartures, setRailDepartures] = useState(null);
+  const [loadingRail, setLoadingRail] = useState(false);
+  const map = useMap();
+
+  const groupedBusStops = useMemo(() => {
+    const groups = [];
+    const MAX_GROUP_DELTA = 0.0012; // ~130m, enough to include bus station stances
+
+    for (const stop of busStops) {
+      const lat = parseFloat(stop.lat);
+      const lon = parseFloat(stop.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+      const { baseName, platformLabel } = parseBusStopDisplay(stop.common_name);
+      const baseKey = baseName.toLowerCase();
+
+      const existing = groups.find((g) =>
+        g.baseKey === baseKey
+        && Math.abs(g.lat - lat) <= MAX_GROUP_DELTA
+        && Math.abs(g.lon - lon) <= MAX_GROUP_DELTA
+      );
+
+      if (existing) {
+        existing.members.push({ ...stop, lat, lon, baseName, platformLabel });
+        const n = existing.members.length;
+        existing.lat = ((existing.lat * (n - 1)) + lat) / n;
+        existing.lon = ((existing.lon * (n - 1)) + lon) / n;
+      } else {
+        groups.push({
+          id: `${baseKey}-${lat.toFixed(4)}-${lon.toFixed(4)}`,
+          baseKey,
+          baseName,
+          lat,
+          lon,
+          members: [{ ...stop, lat, lon, baseName, platformLabel }],
+        });
+      }
+    }
+
+    groups.forEach((g) => {
+      const names = g.members.map((m) => (m.common_name || '').trim()).filter(Boolean);
+      const sharedPrefix = longestCommonPrefix(names).replace(/[\s,;:\-_/]+$/g, '');
+
+      g.members = g.members.map((m, idx) => {
+        if (m.platformLabel) return m;
+
+        const full = (m.common_name || '').trim();
+        let derived = '';
+
+        if (sharedPrefix && full.toLowerCase().startsWith(sharedPrefix.toLowerCase())) {
+          derived = full.slice(sharedPrefix.length).replace(/^[\s,;:\-_/]+/g, '').trim();
+        }
+
+        if (!derived || derived.length > 24) {
+          derived = `Platform ${idx + 1}`;
+        }
+
+        return { ...m, platformLabel: derived };
+      });
+
+      g.members.sort((a, b) => a.platformLabel.localeCompare(b.platformLabel, undefined, { numeric: true, sensitivity: 'base' }));
+
+      const sortedAtcos = g.members.map((m) => m.atco_code).sort();
+      g.id = `${g.baseKey}-${sortedAtcos.join('-')}`;
+    });
+
+    return groups;
+  }, [busStops]);
+
+  useEffect(() => {
+    // Fetch bus stops within the current map view
+    const fetchStops = async () => {
+      const bounds = map.getBounds();
+      const center = bounds.getCenter();
+      
+      try {
+        const stopsData = await fetchNearbyStops(center.lat, center.lng, 2.0);
+        // Backend returns { bus: [], rail: [] }
+        const busOnly = Array.isArray(stopsData?.bus) ? stopsData.bus : [];
+        const railOnly = Array.isArray(stopsData?.rail) ? stopsData.rail : [];
+        const seen = new Set(busOnly.map((s) => s.atco_code));
+        const preserved = selectedGroupMembers.filter((s) => !seen.has(s.atco_code));
+        setBusStops([...busOnly, ...preserved]);
+        setRailStops(railOnly);
+      } catch (err) {
+        console.error('Failed to fetch bus stops:', err);
+      }
+    };
+
+    // Fetch stops when map bounds change
+    map.on('moveend', fetchStops);
+    fetchStops();
+
+    return () => {
+      map.off('moveend', fetchStops);
+    };
+  }, [map, selectedGroupMembers]);
+
+  const handleStopClick = async (stop, groupMembers = null) => {
+    setSelectedStop(stop);
+    setSelectedPlatformAtco(stop.atco_code);
+    if (Array.isArray(groupMembers) && groupMembers.length > 0) {
+      setSelectedGroupMembers(groupMembers);
+    }
+
+    if (stopRoutesCache[stop.atco_code]) {
+      setStopRoutes(stopRoutesCache[stop.atco_code]);
+      setLoadingRoutes(false);
+      return;
+    }
+
+    setLoadingRoutes(true);
+    setStopRoutes(null);
+    
+    try {
+      const data = await fetchBusStopRoutes(stop.atco_code);
+      setStopRoutes(data);
+      setStopRoutesCache((prev) => ({ ...prev, [stop.atco_code]: data }));
+    } catch (err) {
+      console.error('Failed to fetch stop routes:', err);
+      const fallback = { error: 'Failed to load route information' };
+      setStopRoutes(fallback);
+      setStopRoutesCache((prev) => ({ ...prev, [stop.atco_code]: fallback }));
+    } finally {
+      setLoadingRoutes(false);
+    }
+  };
+
+  const handleRailStopClick = async (station) => {
+    setSelectedRailStop(station);
+    setLoadingRail(true);
+    setRailDepartures(null);
+
+    try {
+      if (!station.crs_code) {
+        setRailDepartures({ services: [] });
+        return;
+      }
+      const data = await fetchRailDepartures(station.crs_code, {
+        time: selectedTime,
+        day: selectedDay,
+      });
+      setRailDepartures(data);
+    } catch (err) {
+      console.error('Failed to fetch rail departures:', err);
+      setRailDepartures({ error: 'Failed to load train times' });
+    } finally {
+      setLoadingRail(false);
+    }
+  };
+
+  return (
+    <>
+      {showBusStops && groupedBusStops.map((group) => {
+        const activeStop = group.members.find((m) => m.atco_code === selectedPlatformAtco) || group.members[0];
+
+        return (
+        <Marker
+          key={`bus-stop-group-${group.id}`}
+          position={[group.lat, group.lon]}
+          icon={busStopIcon}
+          eventHandlers={{
+            click: () => handleStopClick(activeStop, group.members)
+          }}
+        >
+          <Popup maxWidth={300} minWidth={250} keepInView autoPanPadding={[24, 24]}>
+            <div className="bus-stop-popup">
+              <strong>🚏 {group.baseName}</strong>
+              {group.members.length > 1 && (
+                <div className="bus-stop-group-count">{group.members.length} platforms</div>
+              )}
+
+              {group.members.length > 1 && (
+                <div className="bus-platform-tabs" role="tablist" aria-label="Stop platforms">
+                  {group.members.map((platformStop) => (
+                    <button
+                      key={`platform-tab-${platformStop.atco_code}`}
+                      type="button"
+                      className={`bus-platform-tab${activeStop.atco_code === platformStop.atco_code ? ' active' : ''}`}
+                      onClick={() => handleStopClick(platformStop, group.members)}
+                    >
+                      {platformStop.platformLabel}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="bus-stop-atco">{activeStop.atco_code}</div>
+              
+              {loadingRoutes && selectedStop?.atco_code === activeStop.atco_code && (
+                <div className="loading-routes">Loading routes...</div>
+              )}
+              
+              {stopRoutes && selectedStop?.atco_code === activeStop.atco_code && (
+                <>
+                  {stopRoutes.error ? (
+                    <div className="error-message">{stopRoutes.error}</div>
+                  ) : stopRoutes.routes && stopRoutes.routes.length > 0 ? (
+                    <div className="stop-routes-list">
+                      <div className="routes-header">Bus routes stopping here:</div>
+                      <div className="stop-routes-scroll">
+                        {stopRoutes.routes.map((route, idx) => (
+                          <div key={`route-${route.routeId}-${idx}`} className="route-item">
+                            <div className="route-number-badge">{route.routeNumber}</div>
+                            <div className="route-info">
+                              <div className="route-destination">
+                                → {route.destination || 'Unknown'}
+                              </div>
+                              <div className="route-operator">{route.operatorName || route.operatorCode}</div>
+                              <div className="route-stops-count">
+                                {route.stops.length} stops · from {route.origin || 'Unknown'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="no-routes">No bus routes found for this stop</div>
+                  )}
+                </>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      )})}
+
+      {showTrainStations && railStops.map((station) => (
+        <Marker
+          key={`rail-station-${station.atco_code}`}
+          position={[parseFloat(station.lat), parseFloat(station.lon)]}
+          icon={railStationIcon}
+          eventHandlers={{
+            click: () => handleRailStopClick(station)
+          }}
+        >
+          <Popup maxWidth={320} minWidth={260}>
+            <strong>🚉 {station.common_name}</strong><br/>
+            {station.crs_code ? `CRS: ${station.crs_code}` : station.atco_code}
+            {loadingRail && selectedRailStop?.atco_code === station.atco_code && (
+              <div className="loading-routes">Loading train times...</div>
+            )}
+
+            {railDepartures && selectedRailStop?.atco_code === station.atco_code && (
+              <div className="rail-arrivals-box">
+                {railDepartures.error ? (
+                  <div className="error-message">{railDepartures.error}</div>
+                ) : (() => {
+                  const upcoming = (railDepartures.services || [])
+                    .map((svc) => {
+                      const est = svc.estimatedDeparture || '';
+                      const sched = svc.scheduledDeparture || '';
+                      const isCancelled = /cancel/i.test(est) || !!svc.cancelReason;
+                      const isDelayed = !isCancelled && (
+                        est === 'Delayed' ||
+                        (/^\d{2}:\d{2}$/.test(est) && est !== sched)
+                      );
+                      const preferred = /^\d{2}:\d{2}$/.test(est)
+                        ? est
+                        : sched;
+                      const mins = getMinutesUntil(preferred, selectedTime);
+                      // Calculate delay in minutes when both times are valid HH:MM
+                      let delayMins = 0;
+                      if (isDelayed && /^\d{2}:\d{2}$/.test(est) && /^\d{2}:\d{2}$/.test(sched)) {
+                        const [sh, sm] = sched.split(':').map(Number);
+                        const [eh, em] = est.split(':').map(Number);
+                        delayMins = (eh * 60 + em) - (sh * 60 + sm);
+                        if (delayMins < 0) delayMins += 1440; // handle midnight wrap
+                      }
+                      return { svc, mins, preferred, isCancelled, isDelayed, delayMins };
+                    })
+                    .filter(({ mins, isCancelled }) => isCancelled || (mins !== null && mins <= 60))
+                    .sort((a, b) => (a.mins ?? 999) - (b.mins ?? 999))
+                    .slice(0, 5);
+
+                  if (upcoming.length === 0) {
+                    return <div className="no-routes">No trains within the next hour</div>;
+                  }
+
+                  return (
+                    <>
+                      <div className="routes-header">Trains in next 60 min:</div>
+                      {upcoming.map(({ svc, mins, isCancelled, isDelayed, delayMins }, idx) => (
+                        (() => {
+                          const trainDestination = svc.destination?.name
+                            || svc.callingPoints?.[svc.callingPoints.length - 1]?.name
+                            || svc.destination?.crs
+                            || 'Unknown';
+                          return (
+                        <div
+                          key={`rail-upcoming-${idx}`}
+                          className={`rail-arrival-item${
+                            isCancelled ? ' rail-cancelled' : isDelayed ? ' rail-delayed' : ''
+                          }`}
+                        >
+                          <div className="rail-arrival-destination">
+                            Towards {trainDestination}
+                            <span className="rail-platform"> · Plat {svc.platform || 'TBC'}</span>
+                          </div>
+                          <div className="rail-arrival-time-col">
+                            {isCancelled ? (
+                              <>
+                                <span className="rail-time-sched rail-strike">{svc.scheduledDeparture}</span>
+                                <span className="rail-badge rail-badge-cancel">Cancelled</span>
+                              </>
+                            ) : isDelayed ? (
+                              <>
+                                <span className="rail-time-sched rail-strike">{svc.scheduledDeparture}</span>
+                                <span className="rail-time-est">
+                                  {/^\d{2}:\d{2}$/.test(svc.estimatedDeparture)
+                                    ? svc.estimatedDeparture
+                                    : 'Delayed'}
+                                </span>
+                                <span className="rail-badge rail-badge-delay">
+                                  {delayMins > 0 ? `+${delayMins}m` : 'Late'}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="rail-time-ontime">
+                                {mins === 0 ? 'Due now' : `${mins} min`}
+                              </span>
+                            )}
+                          </div>
+                          {(isDelayed && svc.delayReason) && (
+                            <div className="rail-delay-reason">{svc.delayReason}</div>
+                          )}
+                          {(isCancelled && svc.cancelReason) && (
+                            <div className="rail-delay-reason">{svc.cancelReason}</div>
+                          )}
+                        </div>
+                          );
+                        })()
+                      ))}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+}
+
+// ─── Traffic Condition Road Segments ─────────────────────────────────────────
+// Severity colour palette: darker red = worse delays
+const TRAFFIC_COLORS = {
+  0: { color: '#22c55e', label: 'Normal' },      // green
+  1: { color: '#eab308', label: 'Minor delays' }, // yellow
+  2: { color: '#f97316', label: 'Moderate' },      // orange
+  3: { color: '#ef4444', label: 'Heavy delays' },  // red
+};
+
+function TrafficZones({ show, selectedTime, selectedDay }) {
+  const TRAFFIC_VISIBLE_ZOOM = 12;
+  const TRAFFIC_FOCUS_ZOOM = 14;
+  const [segments, setSegments] = useState([]);
+  const [meta, setMeta] = useState({});
+  const [showLegend, setShowLegend] = useState(true);
+  const [zoom, setZoom] = useState(11);
+  const map = useMap();
+
+  // Track zoom level for responsive line thickness
+  useEffect(() => {
+    setZoom(map.getZoom());
+    const onZoom = () => setZoom(map.getZoom());
+    map.on('zoomend', onZoom);
+    return () => map.off('zoomend', onZoom);
+  }, [map]);
+
+  useEffect(() => {
+    if (!show) { setSegments([]); return; }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await fetchTrafficConditions({
+          time: selectedTime || undefined,
+          day: selectedDay !== undefined ? selectedDay : undefined,
+        });
+        if (!cancelled) {
+          setSegments(data.segments || []);
+          setMeta({
+            timestamp: data.timestamp,
+            rushHour: data.rushHour,
+            offPeak: data.offPeak,
+            totalSigns: data.totalSigns,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch traffic conditions:', err);
+        if (!cancelled) setSegments([]);
+      }
+    };
+    load();
+
+    // Refresh every 3 minutes
+    const interval = setInterval(load, 3 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [show, selectedTime, selectedDay]);
+
+  if (!show || segments.length === 0) return null;
+
+  // Only display segments with actual delays (severity >= 1)
+  const activeSegments = segments.filter(s => s.severity >= 1);
+
+  // Keep traffic overlay out of the way when zoomed out
+  if (zoom < TRAFFIC_VISIBLE_ZOOM) return null;
+
+  // Zoom-responsive intensity: subtle at first visible zoom, clearer when zoomed in
+  const zoomProgress = Math.min(1, Math.max(0, (zoom - TRAFFIC_VISIBLE_ZOOM) / (TRAFFIC_FOCUS_ZOOM - TRAFFIC_VISIBLE_ZOOM)));
+
+  return (
+    <>
+      {activeSegments.map((seg) => {
+        const colors = TRAFFIC_COLORS[seg.severity] || TRAFFIC_COLORS[0];
+        // Base weight: severity 1→6, 2→9, 3→12 then scaled by zoom progress
+        const baseWeight = 3 + seg.severity * 3;
+        const weight = Math.max(2, Math.round(baseWeight * (0.35 + zoomProgress * 0.65)));
+        const outlineWeight = weight + Math.max(1, Math.round(2 * zoomProgress));
+        const opacity = (0.2 + zoomProgress * 0.55) * (seg.severity >= 3 ? 1 : seg.severity === 2 ? 0.9 : 0.8);
+
+        return (
+          <Fragment key={seg.id}>
+            {/* Dark outline for contrast at all zoom levels */}
+            <Polyline
+              positions={seg.coordinates}
+              pathOptions={{
+                color: '#1a1a2e',
+                weight: outlineWeight,
+                opacity: opacity * 0.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+                interactive: false,
+              }}
+            />
+            {/* Coloured severity line */}
+            <Polyline
+              positions={seg.coordinates}
+              pathOptions={{
+                color: colors.color,
+                weight: weight,
+                opacity: opacity,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            >
+              <Popup maxWidth={280} minWidth={200}>
+                <div className="traffic-zone-popup">
+                  <strong style={{ color: colors.color }}>
+                    {seg.severity >= 3 ? '🔴' : seg.severity === 2 ? '🟠' : '🟡'}{' '}
+                    {seg.label}
+                  </strong>
+                  <div className="traffic-zone-road">{seg.road}</div>
+                  {seg.descriptions.map((desc, i) => (
+                    <div key={i} className="traffic-zone-desc">{desc}</div>
+                  ))}
+                  {seg.directions.length > 0 && (
+                    <div className="traffic-zone-meta">{seg.directions.join(', ')}</div>
+                  )}
+                </div>
+              </Popup>
+            </Polyline>
+          </Fragment>
+        );
+      })}
+
+      {/* Floating traffic legend */}
+      {showLegend && (
+        <div className="traffic-legend" onClick={(e) => e.stopPropagation()}>
+          <div className="traffic-legend-title">
+            Road Traffic
+            <span className="traffic-legend-close" title="Close legend" onClick={() => setShowLegend(false)}>✕</span>
+          </div>
+          {meta.rushHour && (
+            <div className="traffic-rush-badge rush">⏰ Rush Hour</div>
+          )}
+          {meta.offPeak && (
+            <div className="traffic-rush-badge off-peak">🌙 Off-Peak</div>
+          )}
+          {[3, 2, 1].map((sev) => (
+            <div key={sev} className="traffic-legend-item">
+              <span className="traffic-legend-line" style={{ backgroundColor: TRAFFIC_COLORS[sev].color }} />
+              <span className="traffic-legend-label">{TRAFFIC_COLORS[sev].label}</span>
+            </div>
+          ))}
+          {meta.timestamp && (
+            <div className="traffic-legend-time">
+              Updated: {new Date(meta.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function MapView({ userLocation, startLocation, endLocation, selectedTime = null, selectedDay = null, showBusStops = true, showTrainStations = false, showTrafficConditions = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService, pinMode = false }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
@@ -315,6 +924,18 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
 
       // Add changeover markers at transfer/connection points
       if (leg.type === 'transfer' && from) {
+        const prevLeg = route.legs[i - 1] || null;
+        const nextLeg = route.legs[i + 1] || null;
+        const fromService = prevLeg?.type === 'bus'
+          ? `Bus ${prevLeg.routeNumber || ''}`.trim()
+          : prevLeg?.type === 'train'
+            ? `Train ${prevLeg.operator || ''}`.trim()
+            : 'previous service';
+        const toService = nextLeg?.type === 'bus'
+          ? `Bus ${nextLeg.routeNumber || ''}`.trim()
+          : nextLeg?.type === 'train'
+            ? `Train ${nextLeg.operator || ''}`.trim()
+            : 'next service';
         routeOverlays.push(
           <Marker
             key={`changeover-${selectedRoute}-${i}`}
@@ -324,7 +945,9 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
             <Popup>
               <strong>🔄 Changeover</strong><br/>
               {leg.station || leg.stop}<br/>
-              Wait: {leg.waitMinutes} min
+              Get off: {fromService}<br/>
+              Wait: {leg.waitMinutes} min<br/>
+              Board: {toService}
             </Popup>
           </Marker>
         );
@@ -475,6 +1098,21 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
         <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
         <PanToUser userLocation={userLocation} active={panToUser} />
 
+        {/* Nearby transport stop markers */}
+        {(showBusStops || showTrainStations) && (
+          <BusStopMarkers
+            routes={routes}
+            selectedRoute={selectedRoute}
+            showBusStops={showBusStops}
+            showTrainStations={showTrainStations}
+            selectedTime={selectedTime}
+            selectedDay={selectedDay}
+          />
+        )}
+
+        {/* Traffic condition zones (delay overlays) */}
+        <TrafficZones show={showTrafficConditions} selectedTime={selectedTime} selectedDay={selectedDay} />
+
         {/* Route polylines and changeover markers */}
         {routeOverlays}
 
@@ -483,7 +1121,7 @@ function MapView({ userLocation, startLocation, endLocation, routes, selectedRou
           <Marker
             key={`live-bus-${vehicle.vehicleRef || idx}`}
             position={[vehicle.latitude, vehicle.longitude]}
-            icon={liveBusIcon(vehicle.lineName, vehicle.bearing)}
+            icon={liveBusIcon(vehicle.lineName, vehicle.bearing, vehicle.destinationName)}
             zIndexOffset={900}
           >
             <Popup>

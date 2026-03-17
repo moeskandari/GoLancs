@@ -42,7 +42,24 @@ const LABELS = {
  *                    will be connected to the backend later
  */
 function FilterPage({ initialFilters, onBack, onSubmit }) {
-  const [filters, setFilters] = useState(initialFilters || DEFAULT_FILTERS);
+  const normalisedInitialFilters = {
+    ...DEFAULT_FILTERS,
+    ...(initialFilters || {}),
+    onMap: {
+      ...DEFAULT_FILTERS.onMap,
+      ...(initialFilters?.onMap || {}),
+    },
+    direction: {
+      ...DEFAULT_FILTERS.direction,
+      ...(initialFilters?.direction || {}),
+      // Backward compatibility for previous typo key
+      includeBuses: (initialFilters?.direction?.includeBuses
+        ?? initialFilters?.direction?.includeBusses
+        ?? DEFAULT_FILTERS.direction.includeBuses),
+    },
+  };
+
+  const [filters, setFilters] = useState(normalisedInitialFilters);
 
   /**
    * Toggle a single filter option within a category.

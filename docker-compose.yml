@@ -63,7 +63,7 @@ services:
       dockerfile: Dockerfile
     container_name: group1-frontend
     ports:
-      - "5001:3000"
+      - "5001:5001"
     depends_on:
       - backend
     networks:
