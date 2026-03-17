@@ -661,25 +661,6 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackLeg, onStopTrack
       {isSelected && (
         <div className="route-expanded">
           <div className="journey-timeline">
-            {route.legs.map((leg, i) => (
-              <LegDetail
-                key={i}
-                leg={leg}
-                legIndex={i}
-                totalLegs={route.legs.length}
-                prevLeg={i > 0 ? route.legs[i - 1] : null}
-                nextLeg={i < route.legs.length - 1 ? route.legs[i + 1] : null}
-                onTrackLeg={onTrackLeg}
-                onStopTracking={onStopTracking}
-                liveTrackingActive={liveTrackingActive}
-                trackedLeg={trackedLeg}
-                liveVehicles={liveVehicles}
-                railDepartures={railDepartures}
-                trackedTrainService={trackedTrainService}
-                delayInfo={legDelays[i]}
-                prevLegDelay={i > 0 ? legDelays[i - 1] : null}
-              />
-            ))}
             {(() => {
               const annotated = annotateWalkLegTimes(route.legs);
               const elements = [];
@@ -691,6 +672,8 @@ function RouteCard({ route, index, isSelected, onSelect, onTrackLeg, onStopTrack
                     leg={leg}
                     legIndex={i}
                     totalLegs={annotated.length}
+                    prevLeg={i > 0 ? annotated[i - 1] : null}
+                    nextLeg={i < annotated.length - 1 ? annotated[i + 1] : null}
                     onTrackLeg={onTrackLeg}
                     onStopTracking={onStopTracking}
                     liveTrackingActive={liveTrackingActive}
