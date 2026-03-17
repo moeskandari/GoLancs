@@ -4502,13 +4502,46 @@ app.get('/api/traffic/conditions', async (req, res) => {
             if (!global._trafficGeomCache) global._trafficGeomCache = {};
             const geomCache = global._trafficGeomCache;
             const CACHE_TTL = 30 * 60 * 1000; // 30 min
+            const MAX_CACHE_ENTRIES = 5000;   // soft cap to avoid unbounded growth
 
             function geomCacheKey(a, b) {
               return `${a.lat.toFixed(5)},${a.lon.toFixed(5)}-${b.lat.toFixed(5)},${b.lon.toFixed(5)}`;
             }
 
+            // Remove expired entries and evict oldest if over size cap
+            function cleanupGeomCache() {
+              const now = Date.now();
+              const entries = Object.entries(geomCache);
+
+              // First pass: remove expired entries
+              for (const [key, value] of entries) {
+                if (!value || typeof value.ts !== 'number') {
+                  delete geomCache[key];
+                  continue;
+                }
+                if (now - value.ts >= CACHE_TTL) {
+                  delete geomCache[key];
+                }
+              }
+
+              // Enforce soft size cap by evicting oldest entries
+              const keys = Object.keys(geomCache);
+              if (keys.length <= MAX_CACHE_ENTRIES) return;
+
+              const remaining = keys
+                .map((key) => ({ key, ts: geomCache[key] && geomCache[key].ts }))
+                .filter((entry) => typeof entry.ts === 'number')
+                .sort((a, b) => a.ts - b.ts); // oldest first
+
+              const toEvict = Math.max(0, remaining.length - MAX_CACHE_ENTRIES);
+              for (let i = 0; i < toEvict; i++) {
+                delete geomCache[remaining[i].key];
+              }
+            }
+
             // Fetch road-snapped geometry for one segment pair via Valhalla
             async function getSegmentGeometry(a, b) {
+              cleanupGeomCache();
               const key = geomCacheKey(a, b);
               const cached = geomCache[key];
               if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.coords;
