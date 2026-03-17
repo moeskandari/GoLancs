@@ -12,7 +12,7 @@
 
 const pool = require('../db/pool');
 const { expandStopCode } = require('../utils/stop-utils');
-const { timeToMinutes } = require('../utils/time');
+const { timeToMinutes, safeDuration } = require('../utils/time');
 const { findNearbyBusStops } = require('./nearby');
 
 /**
@@ -58,7 +58,7 @@ async function findDirectBusJourneys(fromAtco, toAtco, departureTime, dayIndex, 
     alightName: r.alight_name,
     alightTime: r.alight_time,
     numStops: r.num_stops,
-    duration: timeToMinutes(r.alight_time) - timeToMinutes(r.board_time)
+    duration: safeDuration(r.board_time, r.alight_time)
   }));
 }
 
@@ -93,6 +93,8 @@ async function findDirectTrainJourneys(startTiplocs, endTiplocs, departureTime, 
         AND sp1.departure_time >= $${startTiplocs.length + endTiplocs.length + 1}::time
         AND sp1.departure_time IS NOT NULL
         AND sp2.arrival_time IS NOT NULL
+        AND (rs.valid_from IS NULL OR rs.valid_from <= CURRENT_DATE)
+        AND (rs.valid_until IS NULL OR rs.valid_until >= CURRENT_DATE)
       ORDER BY sp1.departure_time
       LIMIT $${startTiplocs.length + endTiplocs.length + 2}
     `, [...startTiplocs, ...endTiplocs, departureTime, limit]);
@@ -107,7 +109,7 @@ async function findDirectTrainJourneys(startTiplocs, endTiplocs, departureTime, 
       boardTime: r.board_time,
       alightTime: r.alight_time,
       operator: r.operator,
-      duration: timeToMinutes(r.alight_time) - timeToMinutes(r.board_time)
+      duration: safeDuration(r.board_time, r.alight_time)
     }));
   } catch (err) {
     console.warn('[PERF] Direct train query timed out or failed:', err.message);
@@ -164,6 +166,10 @@ async function findTrainTrainConnections(startTiplocs, endTiplocs, departureTime
         AND sp1.departure_time >= $${startTiplocs.length + endTiplocs.length + 1}::time
         AND sp1.departure_time IS NOT NULL AND sp2.arrival_time IS NOT NULL
         AND sp3.departure_time IS NOT NULL AND sp4.arrival_time IS NOT NULL
+        AND (rs1.valid_from IS NULL OR rs1.valid_from <= CURRENT_DATE)
+        AND (rs1.valid_until IS NULL OR rs1.valid_until >= CURRENT_DATE)
+        AND (rs2.valid_from IS NULL OR rs2.valid_from <= CURRENT_DATE)
+        AND (rs2.valid_until IS NULL OR rs2.valid_until >= CURRENT_DATE)
       ORDER BY sp1.departure_time
       LIMIT $${startTiplocs.length + endTiplocs.length + 2}
     `, [...startTiplocs, ...endTiplocs, departureTime, limit]);
@@ -180,13 +186,13 @@ async function findTrainTrainConnections(startTiplocs, endTiplocs, departureTime
           boardTime: r.train1_depart,
           alightTime: r.train1_arrive,
           operator: r.operator1,
-          duration: timeToMinutes(r.train1_arrive) - timeToMinutes(r.train1_depart)
+          duration: safeDuration(r.train1_depart, r.train1_arrive)
         },
         {
           type: 'transfer',
           station: r.change_name,
           tiploc: r.change_tiploc,
-          waitMinutes: timeToMinutes(r.train2_depart) - timeToMinutes(r.train1_arrive),
+          waitMinutes: safeDuration(r.train1_arrive, r.train2_depart),
           arrivalTime: r.train1_arrive,
           nextDepartureTime: r.train2_depart
         },
@@ -200,7 +206,7 @@ async function findTrainTrainConnections(startTiplocs, endTiplocs, departureTime
           boardTime: r.train2_depart,
           alightTime: r.train2_arrive,
           operator: r.operator2,
-          duration: timeToMinutes(r.train2_arrive) - timeToMinutes(r.train2_depart)
+          duration: safeDuration(r.train2_depart, r.train2_arrive)
         }
       ]
     }));

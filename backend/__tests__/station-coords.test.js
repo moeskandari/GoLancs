@@ -7,16 +7,9 @@ const app = require('../server');
 const { getStationCoords, STATION_COORDS } = app._test;
 
 describe('STATION_COORDS', () => {
-  it('should contain all core Lancashire stations', () => {
-    const coreCRS = ['LAN', 'PRE', 'MCM', 'BPN', 'BPS', 'CNF', 'OXN'];
+  it('should contain all core Lancaster–Preston–coast stations', () => {
+    const coreCRS = ['LAN', 'PRE', 'MCM', 'BPN', 'BPS', 'CNF'];
     coreCRS.forEach(crs => {
-      expect(STATION_COORDS).toHaveProperty(crs);
-    });
-  });
-
-  it('should contain Greater Manchester interchange stations', () => {
-    const manchesterCRS = ['MAN', 'MCO', 'MIA', 'BON', 'WGN'];
-    manchesterCRS.forEach(crs => {
       expect(STATION_COORDS).toHaveProperty(crs);
     });
   });
@@ -28,22 +21,31 @@ describe('STATION_COORDS', () => {
     });
   });
 
-  it('should contain East Lancashire line stations', () => {
-    const eastLancsCRS = ['BBN', 'ACR', 'BYM', 'BNC', 'CNE', 'NEL', 'BRF', 'RSG'];
-    eastLancsCRS.forEach(crs => {
+  it('should contain Preston area stations', () => {
+    const prestonCRS = ['PRE', 'LEY', 'EBA', 'BMB', 'LOH', 'CSO', 'RUF'];
+    prestonCRS.forEach(crs => {
       expect(STATION_COORDS).toHaveProperty(crs);
     });
   });
 
-  it('should contain Bolton/Chorley corridor stations', () => {
-    const chorleyLineCRS = ['CRL', 'ADL', 'BSV', 'BLK', 'HWI', 'LOT', 'BON'];
-    chorleyLineCRS.forEach(crs => {
+  it('should contain Lancaster area stations', () => {
+    const lancasterCRS = ['LAN', 'MCM', 'BAR', 'CNF', 'HHB', 'SVR'];
+    lancasterCRS.forEach(crs => {
       expect(STATION_COORDS).toHaveProperty(crs);
     });
   });
 
-  it('should have at least 80 stations', () => {
-    expect(Object.keys(STATION_COORDS).length).toBeGreaterThanOrEqual(80);
+  it('should NOT contain stations outside the service area', () => {
+    const outsideCRS = ['MAN', 'MCO', 'MIA', 'BON', 'WGN', 'BBN', 'BIF', 'LIV', 'LDS', 'OXN'];
+    outsideCRS.forEach(crs => {
+      expect(STATION_COORDS).not.toHaveProperty(crs);
+    });
+  });
+
+  it('should have between 20 and 35 stations (service area only)', () => {
+    const count = Object.keys(STATION_COORDS).length;
+    expect(count).toBeGreaterThanOrEqual(20);
+    expect(count).toBeLessThanOrEqual(35);
   });
 
   it('every station should have lat, lon, and name', () => {

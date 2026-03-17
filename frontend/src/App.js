@@ -62,6 +62,9 @@ function App() {
     startTracking, stopTracking,
   } = useLiveTracking(routes, selectedRoute);
 
+  // ── Time mode toggle (depart at vs arrive by) ──────────────
+  const [timeMode, setTimeMode] = useState('depart'); // 'depart' or 'arrive'
+
   // ── Filter page UI state (front-end only) ──────────────────
   const [showFilterPage, setShowFilterPage] = useState(false);
   const [activeFilters, setActiveFilters] = useState(DEFAULT_FILTERS);
@@ -230,36 +233,51 @@ function App() {
         <div className="search-controls">
           <div className="time-inputs-column">
             <div className="time-field">
-              <label className="time-label" htmlFor="departure-time">Depart at</label>
+              <button
+                className="time-mode-toggle"
+                onClick={() => {
+                  if (timeMode === 'depart') {
+                    setTimeMode('arrive');
+                    setArrivalTime(departureTime || '');
+                    setDepartureTime('');
+                  } else {
+                    setTimeMode('depart');
+                    if (arrivalTime) {
+                      setDepartureTime(arrivalTime);
+                    } else {
+                      const now = new Date();
+                      setDepartureTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`);
+                    }
+                    setArrivalTime('');
+                  }
+                }}
+                aria-label="Toggle between depart and arrive mode"
+                title={timeMode === 'depart' ? 'Switch to Arrive by' : 'Switch to Depart at'}
+              >
+                {timeMode === 'depart' ? 'Depart at' : 'Arrive by'}
+              </button>
               <div className="time-wrapper">
                 <input
-                  id="departure-time"
+                  id="journey-time"
                   type="time"
                   className="time-input"
-                  value={departureTime ? departureTime.substring(0, 5) : ''}
+                  value={
+                    timeMode === 'depart'
+                      ? (departureTime ? departureTime.substring(0, 5) : '')
+                      : (arrivalTime ? arrivalTime.substring(0, 5) : '')
+                  }
                   onChange={(e) => {
-                    setDepartureTime(e.target.value ? e.target.value + ':00' : '');
-                    if (e.target.value) setArrivalTime('');
+                    const val = e.target.value ? e.target.value + ':00' : '';
+                    if (timeMode === 'depart') {
+                      setDepartureTime(val);
+                      setArrivalTime('');
+                    } else {
+                      setArrivalTime(val);
+                      setDepartureTime('');
+                    }
                   }}
-                  aria-label="Departure time"
+                  aria-label={timeMode === 'depart' ? 'Departure time' : 'Arrival time'}
                 />
-              </div>
-            </div>
-            <div className="time-field">
-              <label className="time-label" htmlFor="arrival-time">Arrive by</label>
-              <div className="time-wrapper">
-                <input
-                  id="arrival-time"
-                  type="time"
-                  className="time-input"
-                  value={arrivalTime ? arrivalTime.substring(0, 5) : ''}
-                  onChange={(e) => {
-                    setArrivalTime(e.target.value ? e.target.value + ':00' : '');
-                    if (e.target.value) setDepartureTime('');
-                  }}
-                  aria-label="Arrival time"
-                />
-                {!arrivalTime && <span className="time-hint">Any</span>}
               </div>
             </div>
           </div>
