@@ -177,6 +177,194 @@ function getStationCoords(crs) {
   return null;
 }
 
+// ─── Generic Stop Name → Town Qualifier ───
+// Known town centres in Lancashire & surrounding area for disambiguating
+// generic stop names like "Bus Station" or "Railway Station"
+const KNOWN_TOWNS = [
+  { name: 'Lancaster',   lat: 54.0490, lon: -2.8010 },
+  { name: 'Morecambe',   lat: 54.0703, lon: -2.8685 },
+  { name: 'Preston',     lat: 53.7590, lon: -2.6980 },
+  { name: 'Blackpool',   lat: 53.8170, lon: -3.0510 },
+  { name: 'Blackburn',   lat: 53.7480, lon: -2.4820 },
+  { name: 'Burnley',     lat: 53.7890, lon: -2.2380 },
+  { name: 'Chorley',     lat: 53.6530, lon: -2.6310 },
+  { name: 'Fleetwood',   lat: 53.8790, lon: -3.0410 },
+  { name: 'Clitheroe',   lat: 53.8710, lon: -2.3920 },
+  { name: 'Nelson',      lat: 53.8350, lon: -2.2130 },
+  { name: 'Accrington',  lat: 53.7530, lon: -2.3640 },
+  { name: 'Ormskirk',    lat: 53.5700, lon: -2.8830 },
+  { name: 'Leyland',     lat: 53.6900, lon: -2.6880 },
+  { name: 'Lytham',      lat: 53.7360, lon: -2.9630 },
+  { name: 'Colne',       lat: 53.8560, lon: -2.1760 },
+  { name: 'Rawtenstall', lat: 53.7010, lon: -2.2870 },
+  { name: 'Darwen',      lat: 53.6980, lon: -2.4620 },
+  { name: 'Skipton',     lat: 53.9620, lon: -2.0170 },
+  { name: 'Kendal',      lat: 54.3280, lon: -2.7450 },
+  { name: 'Carnforth',   lat: 54.1310, lon: -2.7720 },
+  { name: 'Garstang',    lat: 53.8980, lon: -2.7720 },
+  { name: 'Longridge',   lat: 53.8290, lon: -2.5970 },
+  { name: 'Poulton',     lat: 53.8470, lon: -3.0080 },
+  { name: 'Cleveleys',   lat: 53.8690, lon: -3.0460 },
+  { name: 'Thornton',    lat: 53.8680, lon: -3.0200 },
+  { name: 'Wigan',       lat: 53.5450, lon: -2.6320 },
+  { name: 'Bolton',      lat: 53.5780, lon: -2.4290 },
+  { name: 'Bamber Bridge',lat: 53.7280, lon: -2.6630 },
+  { name: 'Kirkham',     lat: 53.7870, lon: -2.8710 },
+  { name: 'Haslingden',  lat: 53.7060, lon: -2.3280 },
+];
+
+const GENERIC_STOP_NAMES = new Set([
+  'Bus Station', 'Railway Station', 'Rail Station', 'Train Station',
+  'Square', 'Hospital', 'College', 'Church', 'Market', 'Town Centre',
+  'Interchange', 'Stand', 'Stop',
+]);
+
+/**
+ * If a stop name is generic (e.g. "Bus Station"), prefix it with the
+ * nearest known town name so it reads "Lancaster Bus Station" instead.
+ * If the name is already specific, return it unchanged.
+ */
+function qualifyGenericStopName(name, lat, lon) {
+  if (!name || !GENERIC_STOP_NAMES.has(name)) return name;
+  if (lat == null || lon == null) return name;
+  const latN = parseFloat(lat);
+  const lonN = parseFloat(lon);
+  if (isNaN(latN) || isNaN(lonN)) return name;
+
+  let bestTown = null;
+  let bestDist = Infinity;
+  for (const town of KNOWN_TOWNS) {
+    const d = Math.sqrt(Math.pow(town.lat - latN, 2) + Math.pow(town.lon - lonN, 2));
+    if (d < bestDist) {
+      bestDist = d;
+      bestTown = town.name;
+    }
+  }
+  return bestTown ? `${bestTown} ${name}` : name;
+}
+
+function toHHMM(timeVal) {
+  if (!timeVal) return null;
+  const s = String(timeVal);
+  if (/^\d{2}:\d{2}$/.test(s)) return s;
+  if (/^\d{2}:\d{2}:\d{2}/.test(s)) return s.substring(0, 5);
+  return s.substring(0, 5);
+}
+
+async function getLocalRailDepartures(crs, options = {}) {
+  const upperCrs = String(crs || '').toUpperCase();
+  const requestedTime = options.time && /^\d{2}:\d{2}(:\d{2})?$/.test(String(options.time))
+    ? String(options.time).substring(0, 8)
+    : null;
+  const dayIndex = Number.isInteger(options.day) ? options.day : null;
+
+  const stationResult = await pool.query(`
+    SELECT nr.tiploc_code, nr.crs_code, s.common_name
+    FROM national_rail nr
+    LEFT JOIN stops s ON nr.atco_code = s.atco_code
+    WHERE nr.crs_code = $1
+    LIMIT 1
+  `, [upperCrs]);
+
+  if (stationResult.rows.length === 0) {
+    return {
+      station: upperCrs,
+      crs: upperCrs,
+      generatedAt: new Date().toISOString(),
+      queryTime: requestedTime || null,
+      queryDay: dayIndex,
+      messages: ['No local station mapping found'],
+      services: [],
+      source: 'local-schedule'
+    };
+  }
+
+  const station = stationResult.rows[0];
+
+  const departuresResult = await pool.query(`
+    SELECT
+      sp.train_uid,
+      sp.departure_time,
+      rs.operator_code,
+      o.name AS operator_name,
+      dest_nr.crs_code AS dest_crs,
+      dest_stop.common_name AS dest_name
+    FROM schedule_points sp
+    LEFT JOIN rail_schedule rs ON rs.train_uid = sp.train_uid
+    LEFT JOIN operators o ON o.operator_code = rs.operator_code
+    JOIN LATERAL (
+      SELECT sp2.tiploc_code
+      FROM schedule_points sp2
+      WHERE sp2.train_uid = sp.train_uid
+        AND sp2.sequence_order > sp.sequence_order
+        AND (sp2.arrival_time IS NOT NULL OR sp2.departure_time IS NOT NULL)
+      ORDER BY sp2.sequence_order DESC
+      LIMIT 1
+    ) dest ON true
+    LEFT JOIN national_rail dest_nr ON dest_nr.tiploc_code = dest.tiploc_code
+    LEFT JOIN stops dest_stop ON dest_stop.atco_code = dest_nr.atco_code
+    WHERE sp.tiploc_code = $1
+      AND sp.departure_time IS NOT NULL
+      AND sp.departure_time >= COALESCE($2::time, CURRENT_TIME)
+      AND (
+        rs.schedule_start_date IS NULL
+        OR rs.schedule_end_date IS NULL
+        OR CURRENT_DATE BETWEEN rs.schedule_start_date AND rs.schedule_end_date
+      )
+    ORDER BY sp.departure_time ASC
+    LIMIT 25
+  `, [station.tiploc_code, requestedTime]);
+
+  const boardingCoords = getStationCoords(upperCrs);
+  const services = departuresResult.rows.map((row) => {
+    const scheduledDeparture = toHHMM(row.departure_time);
+    const destCoords = getStationCoords(row.dest_crs);
+
+    return {
+      scheduledDeparture,
+      estimatedDeparture: scheduledDeparture,
+      platform: null,
+      operator: row.operator_name || row.operator_code || null,
+      operatorCode: row.operator_code || null,
+      serviceType: 'scheduled',
+      serviceId: row.train_uid,
+      origin: {
+        name: station.common_name || upperCrs,
+        crs: upperCrs,
+        lat: boardingCoords?.lat || null,
+        lon: boardingCoords?.lon || null,
+      },
+      destination: {
+        name: row.dest_name || row.dest_crs || 'Unknown',
+        crs: row.dest_crs || null,
+        lat: destCoords?.lat || null,
+        lon: destCoords?.lon || null,
+      },
+      boardingStation: {
+        crs: upperCrs,
+        lat: boardingCoords?.lat || null,
+        lon: boardingCoords?.lon || null,
+      },
+      delayReason: null,
+      cancelReason: null,
+      callingPoints: [],
+      trainUid: row.train_uid,
+      isLocalScheduleFallback: true,
+    };
+  });
+
+  return {
+    station: station.common_name || upperCrs,
+    crs: upperCrs,
+    generatedAt: new Date().toISOString(),
+    queryTime: requestedTime || null,
+    queryDay: dayIndex,
+    messages: ['Using local timetable data'],
+    services,
+    source: 'local-schedule'
+  };
+}
+
 /**
  * Dijkstra shortest-path through the railway graph.
  * Returns array of [lat, lon] coordinates following the railway track,
@@ -605,6 +793,7 @@ app.get('/api/stops/nearby', async (req, res) => {
         common_name: r.common_name,
         lat: r.lat, lon: r.lon,
         tiploc_code: r.tiploc_code,
+        crs_code: r.crs_code,
         distance_km: Math.round(dist * 1000) / 1000,
         walk_minutes: Math.ceil(dist / 0.08),
         stop_type: 'rail'
@@ -615,6 +804,83 @@ app.get('/api/stops/nearby', async (req, res) => {
   } catch (err) {
     console.error('Nearby stops error:', err.message);
     res.status(500).json({ error: 'Failed to find nearby stops' });
+  }
+});
+
+// ─── Get all bus routes that stop at a specific stop ───
+app.get('/api/stops/:atcoCode/routes', async (req, res) => {
+  try {
+    const { atcoCode } = req.params;
+
+    // Get stop information
+    const stopResult = await pool.query(`
+      SELECT atco_code, common_name, coordinates[0] as lon, coordinates[1] as lat, stop_type
+      FROM stops
+      WHERE atco_code = $1
+    `, [atcoCode]);
+
+    if (stopResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Stop not found' });
+    }
+
+    const stop = stopResult.rows[0];
+
+    // Find all routes that stop at this location, including origin and destination
+    const routesResult = await pool.query(`
+      SELECT DISTINCT br.route_id, br.route_number, br.operator_code, o.name as operator_name,
+             s_start.common_name as origin_name,
+             s_start.coordinates[0] as origin_lon, s_start.coordinates[1] as origin_lat,
+             s_end.common_name as destination_name,
+             s_end.coordinates[0] as dest_lon, s_end.coordinates[1] as dest_lat
+      FROM route_stops rs
+      JOIN bus_routes br ON rs.route_id = br.route_id
+      LEFT JOIN operators o ON br.operator_code = o.operator_code
+      LEFT JOIN stops s_start ON br.start_atco_code = s_start.atco_code
+      LEFT JOIN stops s_end ON br.end_atco_code = s_end.atco_code
+      WHERE rs.atco_code = $1
+      ORDER BY br.route_number
+    `, [atcoCode]);
+
+    // For each route, get the full list of stops in order
+    const routes = [];
+    for (const route of routesResult.rows) {
+      const stopsResult = await pool.query(`
+        SELECT rs.atco_code, s.common_name, rs.stop_sequence,
+               s.coordinates[0] as lon, s.coordinates[1] as lat
+        FROM route_stops rs
+        JOIN stops s ON rs.atco_code = s.atco_code
+        WHERE rs.route_id = $1
+        ORDER BY rs.stop_sequence
+      `, [route.route_id]);
+
+      routes.push({
+        routeId: route.route_id,
+        routeNumber: route.route_number,
+        operatorCode: route.operator_code,
+        operatorName: route.operator_name,
+        origin: qualifyGenericStopName(route.origin_name, route.origin_lat, route.origin_lon) || null,
+        destination: qualifyGenericStopName(route.destination_name, route.dest_lat, route.dest_lon) || null,
+        stops: stopsResult.rows.map(s => ({
+          atcoCode: s.atco_code,
+          name: s.common_name,
+          sequence: s.stop_sequence,
+          coordinates: { lat: parseFloat(s.lat), lon: parseFloat(s.lon) }
+        }))
+      });
+    }
+
+    res.json({
+      stop: {
+        atcoCode: stop.atco_code,
+        name: stop.common_name,
+        coordinates: { lat: parseFloat(stop.lat), lon: parseFloat(stop.lon) },
+        type: stop.stop_type
+      },
+      routes
+    });
+  } catch (err) {
+    console.error('Error fetching routes for stop:', err);
+    res.status(500).json({ error: 'Failed to fetch routes for stop' });
   }
 });
 
@@ -781,20 +1047,28 @@ app.get('/api/rail/stations', async (req, res) => {
 app.get('/api/rail/departures/:crs', async (req, res) => {
   try {
     const { crs } = req.params;
+    const upperCrs = String(crs || '').toUpperCase();
+    const queryTime = req.query?.time;
+    const parsedDay = Number.parseInt(req.query?.day, 10);
+    const queryDay = Number.isNaN(parsedDay) ? null : parsedDay;
     const https = require('https');
     const xml2js = require('xml2js');
     
-    const url = `https://transport.scc.lancs.ac.uk/rail/departures/${crs.toUpperCase()}`;
+    const url = `https://transport.scc.lancs.ac.uk/rail/departures/${upperCrs}`;
     
     https.get(url, { timeout: 10000 }, (response) => {
       let data = '';
       response.on('data', chunk => data += chunk);
-      response.on('end', () => {
+      response.on('end', async () => {
         // Parse XML to JSON
-        xml2js.parseString(data, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+        xml2js.parseString(data, { explicitArray: false, ignoreAttrs: true }, async (err, result) => {
           if (err) {
-            // If xml2js not available, return raw XML
-            return res.type('application/xml').send(data);
+            try {
+              const local = await getLocalRailDepartures(upperCrs, { time: queryTime, day: queryDay });
+              return res.json(local);
+            } catch (localErr) {
+              return res.status(500).json({ error: `Failed to parse live departures and local fallback failed: ${localErr.message}` });
+            }
           }
           
           try {
@@ -833,7 +1107,7 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
                 const originCoords = getStationCoords(originCrs);
                 const destCoords = getStationCoords(destCrs);
                 // Also resolve the boarding station coords (the station we queried)
-                const boardingCoords = getStationCoords(crs.toUpperCase());
+                const boardingCoords = getStationCoords(upperCrs);
 
                 services.push({
                   scheduledDeparture: svc?.['lt4:std'],
@@ -856,7 +1130,7 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
                     lon: destCoords?.lon || null,
                   },
                   boardingStation: {
-                    crs: crs.toUpperCase(),
+                    crs: upperCrs,
                     lat: boardingCoords?.lat || null,
                     lon: boardingCoords?.lon || null,
                   },
@@ -867,24 +1141,48 @@ app.get('/api/rail/departures/:crs', async (req, res) => {
               }
             }
             
-            res.json({
+            const payload = {
               station: board?.['lt4:locationName'],
               crs: board?.['lt4:crs'],
+              queryTime: queryTime || null,
+              queryDay,
               generatedAt: board?.['lt4:generatedAt'],
               messages: board?.['lt4:nrccMessages']?.['lt:message'] || [],
               services: services
-            });
+            };
+
+            if (!Array.isArray(payload.services) || payload.services.length === 0) {
+              const local = await getLocalRailDepartures(upperCrs, { time: queryTime, day: queryDay });
+              return res.json(local);
+            }
+
+            res.json(payload);
           } catch (parseErr) {
-            // Fallback: return raw XML
-            res.type('application/xml').send(data);
+            try {
+              const local = await getLocalRailDepartures(upperCrs, { time: queryTime, day: queryDay });
+              return res.json(local);
+            } catch (localErr) {
+              res.status(500).json({ error: `Failed to parse live departures and local fallback failed: ${localErr.message}` });
+            }
           }
         });
       });
-    }).on('error', (err) => {
-      res.status(500).json({ error: `Failed to fetch departures: ${err.message}` });
+    }).on('error', async (err) => {
+      try {
+        const local = await getLocalRailDepartures(upperCrs, { time: queryTime, day: queryDay });
+        return res.json(local);
+      } catch (localErr) {
+        res.status(500).json({ error: `Failed to fetch departures: ${err.message}; local fallback failed: ${localErr.message}` });
+      }
     }).on('timeout', function() {
       this.destroy();
-      res.status(500).json({ error: 'Rail departures API timed out' });
+      getLocalRailDepartures(upperCrs, { time: queryTime, day: queryDay })
+        .then(local => {
+          if (!res.headersSent) res.json(local);
+        })
+        .catch(err => {
+          if (!res.headersSent) res.status(500).json({ error: `Rail departures API timed out and local fallback failed: ${err.message}` });
+        });
     });
   } catch (err) {
     console.error(err);
@@ -4047,6 +4345,333 @@ app.get('/api/bus/live', async (req, res) => {
     });
   } catch (err) {
     console.error('Bus live all endpoint error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── TRAFFIC CONDITIONS (road-segment highlighting) ─────────────────────────
+
+/**
+ * GET /api/traffic/conditions
+ *
+ * Fetches live VMS data, classifies each sign's delay severity, and returns
+ * road segments (polylines) suitable for rendering as coloured road overlays.
+ *
+ * Time-of-day modifier (rush-hour aware):
+ *   Weekday AM rush  07:00–09:30  → severity +1
+ *   Weekday PM rush  16:00–18:30  → severity +1
+ *   Off-peak         22:00–06:00  → severity −1
+ *
+ * Query params:
+ *   ?time=HH:MM  — override the current time for severity calculation
+ *   ?day=0-6     — override day (0=Mon … 6=Sun)
+ *
+ * Severity levels:
+ *   0 = free-flowing (green)
+ *   1 = minor delay  (yellow)
+ *   2 = moderate delay (orange)
+ *   3 = heavy delay  (red)
+ */
+app.get('/api/traffic/conditions', async (req, res) => {
+  try {
+    const https = require('https');
+    const xml2js = require('xml2js');
+
+    // ── Time-of-day severity modifier ──
+    const queryTime = req.query.time || null;   // "HH:MM"
+    const queryDay  = req.query.day  ?? null;   // 0=Mon..6=Sun
+
+    let hourMin;
+    if (queryTime && /^\d{2}:\d{2}/.test(queryTime)) {
+      const [h, m] = queryTime.split(':').map(Number);
+      hourMin = h * 60 + m;
+    } else {
+      const now = new Date();
+      hourMin = now.getHours() * 60 + now.getMinutes();
+    }
+
+    let dayIndex;
+    if (queryDay !== null && queryDay !== '') {
+      dayIndex = parseInt(queryDay, 10); // 0=Mon..6=Sun
+    } else {
+      dayIndex = (new Date().getDay() + 6) % 7; // JS Sun=0 → Mon=0
+    }
+    const isWeekday = dayIndex >= 0 && dayIndex <= 4;
+
+    // Rush-hour windows (in minutes from midnight)
+    const AM_RUSH_START = 7 * 60;        // 07:00
+    const AM_RUSH_END   = 9 * 60 + 30;   // 09:30
+    const PM_RUSH_START = 16 * 60;        // 16:00
+    const PM_RUSH_END   = 18 * 60 + 30;  // 18:30
+    const NIGHT_START   = 22 * 60;        // 22:00
+    const NIGHT_END     = 6 * 60;         // 06:00
+
+    let timeModifier = 0;
+    if (isWeekday && ((hourMin >= AM_RUSH_START && hourMin <= AM_RUSH_END) ||
+                      (hourMin >= PM_RUSH_START && hourMin <= PM_RUSH_END))) {
+      timeModifier = 1; // rush hour → boost
+    } else if (hourMin >= NIGHT_START || hourMin < NIGHT_END) {
+      timeModifier = -1; // off-peak → reduce
+    }
+
+    const url = 'https://transport.scc.lancs.ac.uk/road/vms';
+
+    https.get(url, { timeout: 15000 }, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', () => {
+        xml2js.parseString(data, { explicitArray: false, ignoreAttrs: true }, async (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to parse VMS data' });
+          }
+
+          try {
+            const payload = result?.D2Payload;
+            let controllers = payload?.vmsControllerStatus;
+            if (!controllers) return res.json({ segments: [], timestamp: new Date().toISOString() });
+            if (!Array.isArray(controllers)) controllers = [controllers];
+
+            const LANCASHIRE_ROADS = ['M6', 'M55', 'M65', 'M61', 'A6', 'A583', 'A585', 'A588', 'A59'];
+
+            const signs = [];
+            for (const ctrl of controllers) {
+              const status = ctrl?.vmsStatus?.vmsStatus;
+              if (!status) continue;
+              const ext = status?.vmsStatusExtensionG;
+              if (!ext) continue;
+
+              const loc = ext?.vmsLocation?.locPointLocation;
+              const desc = loc?.supplementaryPositionalDescription;
+              const roadName = desc?.roadInformation?.roadName || '';
+              const locationDesc = desc?.locationDescription || '';
+
+              const isLancashireRoad = LANCASHIRE_ROADS.some(road =>
+                roadName.startsWith(road) || locationDesc.includes(road)
+              );
+              if (!isLancashireRoad) continue;
+
+              const coords = loc?.pointByCoordinates?.pointCoordinates;
+              const lat = coords?.latitude ? parseFloat(coords.latitude) : null;
+              const lon = coords?.longitude ? parseFloat(coords.longitude) : null;
+              if (!lat || !lon) continue;
+
+              // Bounding box: Lancaster ↔ Preston ↔ Blackpool / Fylde & Wyre only
+              // North: ~54.15 (above Morecambe), South: ~53.65 (south Preston/Leyland)
+              // West: -3.10 (Blackpool coast), East: -2.40 (M6 corridor)
+              if (lat < 53.65 || lat > 54.15 || lon < -3.10 || lon > -2.40) continue;
+
+              const msg = status?.vmsMessage?.vmsMessage;
+              const messageType = msg?.messageInformationType || '';
+              const messageText = msg?.reasonForSetting || '';
+              const direction = desc?.supplementaryPositionalDescriptionExtensionG?.direction || '';
+              const lastSet = msg?.timeLastSet || '';
+
+              // Base severity from VMS message type
+              let severity = 0;
+              if (messageType === 'situationWarning') severity = 2;
+              else if (messageType === 'travelTime') severity = 1;
+
+              // Keyword escalation
+              const lowerText = (messageText + ' ' + locationDesc).toLowerCase();
+              if (/queue|closed|incident|accident|congestion|blocked/i.test(lowerText)) {
+                severity = Math.max(severity, 3);
+              } else if (/delay|slow|caution/i.test(lowerText)) {
+                severity = Math.max(severity, 2);
+              }
+
+              // Apply time-of-day modifier
+              severity = Math.max(0, Math.min(3, severity + timeModifier));
+
+              signs.push({
+                lat, lon, road: roadName, location: locationDesc,
+                direction, severity, messageType,
+              });
+            }
+
+            // ── Build road segments (polylines) ──
+            // Group signs by road, sort along each road's axis, create
+            // segments between consecutive signs, then snap to real road
+            // geometry via OSRM so lines follow the actual carriageway.
+            const byRoad = {};
+            for (const s of signs) {
+              if (!byRoad[s.road]) byRoad[s.road] = [];
+              byRoad[s.road].push(s);
+            }
+
+            // In-memory geometry cache (keyed by rounded coords)
+            if (!global._trafficGeomCache) global._trafficGeomCache = {};
+            const geomCache = global._trafficGeomCache;
+            const CACHE_TTL = 30 * 60 * 1000; // 30 min
+            const MAX_CACHE_ENTRIES = 5000;   // soft cap to avoid unbounded growth
+
+            function geomCacheKey(a, b) {
+              return `${a.lat.toFixed(5)},${a.lon.toFixed(5)}-${b.lat.toFixed(5)},${b.lon.toFixed(5)}`;
+            }
+
+            // Remove expired entries and evict oldest if over size cap
+            function cleanupGeomCache() {
+              const now = Date.now();
+              const entries = Object.entries(geomCache);
+
+              // First pass: remove expired entries
+              for (const [key, value] of entries) {
+                if (!value || typeof value.ts !== 'number') {
+                  delete geomCache[key];
+                  continue;
+                }
+                if (now - value.ts >= CACHE_TTL) {
+                  delete geomCache[key];
+                }
+              }
+
+              // Enforce soft size cap by evicting oldest entries
+              const keys = Object.keys(geomCache);
+              if (keys.length <= MAX_CACHE_ENTRIES) return;
+
+              const remaining = keys
+                .map((key) => ({ key, ts: geomCache[key] && geomCache[key].ts }))
+                .filter((entry) => typeof entry.ts === 'number')
+                .sort((a, b) => a.ts - b.ts); // oldest first
+
+              const toEvict = Math.max(0, remaining.length - MAX_CACHE_ENTRIES);
+              for (let i = 0; i < toEvict; i++) {
+                delete geomCache[remaining[i].key];
+              }
+            }
+
+            // Fetch road-snapped geometry for one segment pair via Valhalla
+            async function getSegmentGeometry(a, b) {
+              cleanupGeomCache();
+              const key = geomCacheKey(a, b);
+              const cached = geomCache[key];
+              if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.coords;
+
+              try {
+                const coords = await fetchValhallaGeometry(
+                  a.lat, a.lon, b.lat, b.lon, 'auto'
+                );
+                if (coords && coords.length >= 2) {
+                  geomCache[key] = { coords, ts: Date.now() };
+                  return coords;
+                }
+              } catch { /* fall through to straight line */ }
+
+              // Straight-line fallback
+              return [[a.lat, a.lon], [b.lat, b.lon]];
+            }
+
+            // Build segment metadata first, then resolve geometry sequentially
+            // to respect Valhalla rate limits (with small gap between uncached calls)
+            const segmentMeta = [];
+
+            for (const [road, roadSigns] of Object.entries(byRoad)) {
+              // Determine primary axis: lat-spread vs lon-spread
+              const lats = roadSigns.map(s => s.lat);
+              const lons = roadSigns.map(s => s.lon);
+              const latSpread = Math.max(...lats) - Math.min(...lats);
+              const lonSpread = Math.max(...lons) - Math.min(...lons);
+
+              // Sort along the longer axis
+              if (latSpread >= lonSpread) {
+                roadSigns.sort((a, b) => a.lat - b.lat || a.lon - b.lon);
+              } else {
+                roadSigns.sort((a, b) => a.lon - b.lon || a.lat - b.lat);
+              }
+
+              // Create segment between each consecutive pair
+              for (let i = 0; i < roadSigns.length - 1; i++) {
+                const a = roadSigns[i];
+                const b = roadSigns[i + 1];
+
+                // Skip segments that span too far (different stretches)
+                const distKm = Math.sqrt(
+                  Math.pow((b.lat - a.lat) * 111, 2) +
+                  Math.pow((b.lon - a.lon) * 111 * Math.cos(a.lat * Math.PI / 180), 2)
+                );
+                if (distKm > 8) continue; // skip gaps > 8km
+
+                const segSeverity = Math.max(a.severity, b.severity);
+                const descriptions = [...new Set([a.location, b.location])].filter(Boolean);
+                const directions = [...new Set([a.direction, b.direction])].filter(Boolean);
+
+                segmentMeta.push({
+                  a, b, road,
+                  severity: segSeverity,
+                  directions,
+                  descriptions: descriptions.slice(0, 2),
+                  label: segSeverity >= 3 ? 'Heavy delays'
+                       : segSeverity === 2 ? 'Moderate delays'
+                       : segSeverity === 1 ? 'Minor delays'
+                       : 'Normal flow',
+                });
+              }
+
+              // If a road has only 1 sign, still show it as a short marker
+              if (roadSigns.length === 1) {
+                const s = roadSigns[0];
+                segmentMeta.push({
+                  a: s, b: null, road,
+                  severity: s.severity,
+                  directions: [s.direction].filter(Boolean),
+                  descriptions: [s.location].filter(Boolean),
+                  label: s.severity >= 3 ? 'Heavy delays'
+                       : s.severity === 2 ? 'Moderate delays'
+                       : s.severity === 1 ? 'Minor delays'
+                       : 'Normal flow',
+                });
+              }
+            }
+
+            // Resolve geometry sequentially (respecting rate limits)
+            const segments = [];
+            for (let i = 0; i < segmentMeta.length; i++) {
+              const m = segmentMeta[i];
+              let coordinates;
+              if (!m.b) {
+                // Solo sign — short stub
+                coordinates = [[m.a.lat, m.a.lon], [m.a.lat + 0.002, m.a.lon + 0.001]];
+              } else {
+                // Check cache first — if not cached, add a small delay for rate limiting
+                const key = geomCacheKey(m.a, m.b);
+                const isCached = geomCache[key] && Date.now() - geomCache[key].ts < CACHE_TTL;
+                if (!isCached) {
+                  await new Promise(r => setTimeout(r, 120));
+                }
+                coordinates = await getSegmentGeometry(m.a, m.b);
+              }
+              segments.push({
+                id: `seg-${i}`,
+                road: m.road,
+                coordinates,
+                severity: m.severity,
+                directions: m.directions,
+                descriptions: m.descriptions,
+                label: m.label,
+              });
+            }
+
+            res.json({
+              segments: segments.sort((a, b) => b.severity - a.severity),
+              totalSigns: signs.length,
+              timeModifier,
+              rushHour: timeModifier > 0,
+              offPeak: timeModifier < 0,
+              timestamp: payload?.publicationTime || new Date().toISOString(),
+            });
+          } catch (parseErr) {
+            console.error('Traffic conditions parse error:', parseErr);
+            res.status(500).json({ error: 'Failed to parse traffic data' });
+          }
+        });
+      });
+    }).on('error', (err) => {
+      res.status(500).json({ error: `Failed to fetch traffic data: ${err.message}` });
+    }).on('timeout', function() {
+      this.destroy();
+      res.status(504).json({ error: 'Traffic data API timed out' });
+    });
+  } catch (err) {
+    console.error('Traffic conditions endpoint error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
