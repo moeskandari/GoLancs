@@ -30,7 +30,7 @@ const DEFAULT_FILTERS = {
   },
   direction: {
     includeWalking: false,
-    includeBusses: false,
+    includeBuses: false,
     includeTrains: false,
   },
 };

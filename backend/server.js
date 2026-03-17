@@ -251,6 +251,34 @@ function toHHMM(timeVal) {
   return s.substring(0, 5);
 }
 
+function tiplocToDisplayName(tiploc) {
+  const raw = String(tiploc || '').trim();
+  if (!raw) return null;
+
+  const known = {
+    MNCRIAP: 'Manchester Airport',
+    MNCRPIC: 'Manchester Piccadilly',
+    MNCROXR: 'Manchester Oxford Road',
+    MNCRDGT: 'Manchester Deansgate',
+    GLGC: 'Glasgow Central',
+    GLGCBSJ: 'Glasgow Central',
+    EDBURGH: 'Edinburgh',
+    EDINBUR: 'Edinburgh',
+    LVRPLSH: 'Liverpool Lime Street',
+    BAROW: 'Barrow-in-Furness',
+    MLLM: 'Millom',
+    EUSTON: 'London Euston',
+  };
+  if (known[raw]) return known[raw];
+
+  const cleaned = raw
+    .replace(/\d+$/g, '')
+    .replace(/_/g, ' ')
+    .toLowerCase();
+  if (!cleaned) return raw;
+  return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 async function getLocalRailDepartures(crs, options = {}) {
   const upperCrs = String(crs || '').toUpperCase();
   const requestedTime = options.time && /^\d{2}:\d{2}(:\d{2})?$/.test(String(options.time))
@@ -287,6 +315,7 @@ async function getLocalRailDepartures(crs, options = {}) {
       sp.departure_time,
       rs.operator_code,
       o.name AS operator_name,
+      dest.tiploc_code AS dest_tiploc,
       dest_nr.crs_code AS dest_crs,
       dest_stop.common_name AS dest_name
     FROM schedule_points sp
@@ -319,6 +348,7 @@ async function getLocalRailDepartures(crs, options = {}) {
   const services = departuresResult.rows.map((row) => {
     const scheduledDeparture = toHHMM(row.departure_time);
     const destCoords = getStationCoords(row.dest_crs);
+    const destinationName = row.dest_name || row.dest_crs || tiplocToDisplayName(row.dest_tiploc) || 'Unknown';
 
     return {
       scheduledDeparture,
@@ -335,7 +365,7 @@ async function getLocalRailDepartures(crs, options = {}) {
         lon: boardingCoords?.lon || null,
       },
       destination: {
-        name: row.dest_name || row.dest_crs || 'Unknown',
+        name: destinationName,
         crs: row.dest_crs || null,
         lat: destCoords?.lat || null,
         lon: destCoords?.lon || null,

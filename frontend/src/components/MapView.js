@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 import Compass from './Compass';
-import WeatherIcon from './WeatherIcon';
 import { fetchNearbyStops, fetchBusStopRoutes, fetchRailDepartures, fetchTrafficConditions } from '../services/api';
 
 function formatTime(timeStr) {
@@ -312,17 +311,136 @@ function getMinutesUntil(timeStr, referenceHHMM = null) {
   return diff;
 }
 
+function parseBusStopDisplay(commonName) {
+  const fullName = (commonName || '').trim();
+  if (!fullName) {
+    return { baseName: 'Bus stop', platformLabel: null };
+  }
+
+  let baseName = fullName;
+  let platformLabel = null;
+
+  const commaIdx = fullName.lastIndexOf(',');
+  if (commaIdx > 0) {
+    const tail = fullName.slice(commaIdx + 1).trim();
+    const looksLikePlatform = /^(stand|stance|bay|platform|stop|gate|quay)\b/i.test(tail)
+      || /^[A-Z]{1,2}\d{0,2}[A-Z]?$/i.test(tail)
+      || /^\d{1,2}[A-Z]?$/i.test(tail);
+    if (tail && looksLikePlatform) {
+      baseName = fullName.slice(0, commaIdx).trim();
+      platformLabel = tail;
+    }
+  }
+
+  if (!platformLabel) {
+    const suffixMatch = fullName.match(/\b(Stand|Stance|Bay|Platform|Stop|Gate|Quay)\s*([A-Z0-9-]+)\s*$/i);
+    if (suffixMatch) {
+      baseName = fullName.slice(0, suffixMatch.index).trim() || fullName;
+      platformLabel = `${suffixMatch[1]} ${suffixMatch[2]}`.trim();
+    }
+  }
+
+  return { baseName, platformLabel };
+}
+
+function longestCommonPrefix(values) {
+  if (!Array.isArray(values) || values.length === 0) return '';
+  let prefix = values[0] || '';
+  for (let i = 1; i < values.length; i += 1) {
+    const current = values[i] || '';
+    let j = 0;
+    while (
+      j < prefix.length
+      && j < current.length
+      && prefix[j].toLowerCase() === current[j].toLowerCase()
+    ) {
+      j += 1;
+    }
+    prefix = prefix.slice(0, j);
+    if (!prefix) break;
+  }
+  return prefix;
+}
+
 // Component to fetch and display nearby bus stops and rail stations
 function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations, selectedTime, selectedDay }) {
   const [busStops, setBusStops] = useState([]);
   const [railStops, setRailStops] = useState([]);
   const [selectedStop, setSelectedStop] = useState(null);
+  const [selectedPlatformAtco, setSelectedPlatformAtco] = useState(null);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
   const [stopRoutes, setStopRoutes] = useState(null);
+  const [stopRoutesCache, setStopRoutesCache] = useState({});
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [selectedRailStop, setSelectedRailStop] = useState(null);
   const [railDepartures, setRailDepartures] = useState(null);
   const [loadingRail, setLoadingRail] = useState(false);
   const map = useMap();
+
+  const groupedBusStops = useMemo(() => {
+    const groups = [];
+    const MAX_GROUP_DELTA = 0.0012; // ~130m, enough to include bus station stances
+
+    for (const stop of busStops) {
+      const lat = parseFloat(stop.lat);
+      const lon = parseFloat(stop.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+      const { baseName, platformLabel } = parseBusStopDisplay(stop.common_name);
+      const baseKey = baseName.toLowerCase();
+
+      const existing = groups.find((g) =>
+        g.baseKey === baseKey
+        && Math.abs(g.lat - lat) <= MAX_GROUP_DELTA
+        && Math.abs(g.lon - lon) <= MAX_GROUP_DELTA
+      );
+
+      if (existing) {
+        existing.members.push({ ...stop, lat, lon, baseName, platformLabel });
+        const n = existing.members.length;
+        existing.lat = ((existing.lat * (n - 1)) + lat) / n;
+        existing.lon = ((existing.lon * (n - 1)) + lon) / n;
+      } else {
+        groups.push({
+          id: `${baseKey}-${lat.toFixed(4)}-${lon.toFixed(4)}`,
+          baseKey,
+          baseName,
+          lat,
+          lon,
+          members: [{ ...stop, lat, lon, baseName, platformLabel }],
+        });
+      }
+    }
+
+    groups.forEach((g) => {
+      const names = g.members.map((m) => (m.common_name || '').trim()).filter(Boolean);
+      const sharedPrefix = longestCommonPrefix(names).replace(/[\s,;:\-_/]+$/g, '');
+
+      g.members = g.members.map((m, idx) => {
+        if (m.platformLabel) return m;
+
+        const full = (m.common_name || '').trim();
+        let derived = '';
+
+        if (sharedPrefix && full.toLowerCase().startsWith(sharedPrefix.toLowerCase())) {
+          derived = full.slice(sharedPrefix.length).replace(/^[\s,;:\-_/]+/g, '').trim();
+        }
+
+        if (!derived || derived.length > 24) {
+          derived = `Platform ${idx + 1}`;
+        }
+
+        return { ...m, platformLabel: derived };
+      });
+
+      g.members.sort((a, b) => a.platformLabel.localeCompare(b.platformLabel, undefined, { numeric: true, sensitivity: 'base' }));
+
+      const sortedAtcos = g.members.map((m) => m.atco_code).sort();
+      g.id = `${g.baseKey}-${sortedAtcos.join('-')}`;
+    });
+
+    return groups;
+  }, [busStops]);
 
   useEffect(() => {
     // Fetch bus stops within the current map view
@@ -335,7 +453,9 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
         // Backend returns { bus: [], rail: [] }
         const busOnly = Array.isArray(stopsData?.bus) ? stopsData.bus : [];
         const railOnly = Array.isArray(stopsData?.rail) ? stopsData.rail : [];
-        setBusStops(busOnly);
+        const seen = new Set(busOnly.map((s) => s.atco_code));
+        const preserved = selectedGroupMembers.filter((s) => !seen.has(s.atco_code));
+        setBusStops([...busOnly, ...preserved]);
         setRailStops(railOnly);
       } catch (err) {
         console.error('Failed to fetch bus stops:', err);
@@ -349,19 +469,33 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
     return () => {
       map.off('moveend', fetchStops);
     };
-  }, [map]);
+  }, [map, selectedGroupMembers]);
 
-  const handleStopClick = async (stop) => {
+  const handleStopClick = async (stop, groupMembers = null) => {
     setSelectedStop(stop);
+    setSelectedPlatformAtco(stop.atco_code);
+    if (Array.isArray(groupMembers) && groupMembers.length > 0) {
+      setSelectedGroupMembers(groupMembers);
+    }
+
+    if (stopRoutesCache[stop.atco_code]) {
+      setStopRoutes(stopRoutesCache[stop.atco_code]);
+      setLoadingRoutes(false);
+      return;
+    }
+
     setLoadingRoutes(true);
     setStopRoutes(null);
     
     try {
       const data = await fetchBusStopRoutes(stop.atco_code);
       setStopRoutes(data);
+      setStopRoutesCache((prev) => ({ ...prev, [stop.atco_code]: data }));
     } catch (err) {
       console.error('Failed to fetch stop routes:', err);
-      setStopRoutes({ error: 'Failed to load route information' });
+      const fallback = { error: 'Failed to load route information' };
+      setStopRoutes(fallback);
+      setStopRoutesCache((prev) => ({ ...prev, [stop.atco_code]: fallback }));
     } finally {
       setLoadingRoutes(false);
     }
@@ -392,45 +526,69 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
 
   return (
     <>
-      {showBusStops && busStops.map((stop) => (
+      {showBusStops && groupedBusStops.map((group) => {
+        const activeStop = group.members.find((m) => m.atco_code === selectedPlatformAtco) || group.members[0];
+
+        return (
         <Marker
-          key={`bus-stop-${stop.atco_code}`}
-          position={[parseFloat(stop.lat), parseFloat(stop.lon)]}
+          key={`bus-stop-group-${group.id}`}
+          position={[group.lat, group.lon]}
           icon={busStopIcon}
           eventHandlers={{
-            click: () => handleStopClick(stop)
+            click: () => handleStopClick(activeStop, group.members)
           }}
         >
-          <Popup maxWidth={300} minWidth={250}>
+          <Popup maxWidth={300} minWidth={250} keepInView autoPanPadding={[24, 24]}>
             <div className="bus-stop-popup">
-              <strong>🚏 {stop.common_name}</strong>
-              <div className="bus-stop-atco">{stop.atco_code}</div>
+              <strong>🚏 {group.baseName}</strong>
+              {group.members.length > 1 && (
+                <div className="bus-stop-group-count">{group.members.length} platforms</div>
+              )}
+
+              {group.members.length > 1 && (
+                <div className="bus-platform-tabs" role="tablist" aria-label="Stop platforms">
+                  {group.members.map((platformStop) => (
+                    <button
+                      key={`platform-tab-${platformStop.atco_code}`}
+                      type="button"
+                      className={`bus-platform-tab${activeStop.atco_code === platformStop.atco_code ? ' active' : ''}`}
+                      onClick={() => handleStopClick(platformStop, group.members)}
+                    >
+                      {platformStop.platformLabel}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="bus-stop-atco">{activeStop.atco_code}</div>
               
-              {loadingRoutes && selectedStop?.atco_code === stop.atco_code && (
+              {loadingRoutes && selectedStop?.atco_code === activeStop.atco_code && (
                 <div className="loading-routes">Loading routes...</div>
               )}
               
-              {stopRoutes && selectedStop?.atco_code === stop.atco_code && (
+              {stopRoutes && selectedStop?.atco_code === activeStop.atco_code && (
                 <>
                   {stopRoutes.error ? (
                     <div className="error-message">{stopRoutes.error}</div>
                   ) : stopRoutes.routes && stopRoutes.routes.length > 0 ? (
                     <div className="stop-routes-list">
                       <div className="routes-header">Bus routes stopping here:</div>
-                      {stopRoutes.routes.map((route, idx) => (
-                        <div key={`route-${route.routeId}-${idx}`} className="route-item">
-                          <div className="route-number-badge">{route.routeNumber}</div>
-                          <div className="route-info">
-                            <div className="route-destination">
-                              → {route.destination || 'Unknown'}
-                            </div>
-                            <div className="route-operator">{route.operatorName || route.operatorCode}</div>
-                            <div className="route-stops-count">
-                              {route.stops.length} stops · from {route.origin || 'Unknown'}
+                      <div className="stop-routes-scroll">
+                        {stopRoutes.routes.map((route, idx) => (
+                          <div key={`route-${route.routeId}-${idx}`} className="route-item">
+                            <div className="route-number-badge">{route.routeNumber}</div>
+                            <div className="route-info">
+                              <div className="route-destination">
+                                → {route.destination || 'Unknown'}
+                              </div>
+                              <div className="route-operator">{route.operatorName || route.operatorCode}</div>
+                              <div className="route-stops-count">
+                                {route.stops.length} stops · from {route.origin || 'Unknown'}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <div className="no-routes">No bus routes found for this stop</div>
@@ -440,7 +598,7 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
             </div>
           </Popup>
         </Marker>
-      ))}
+      )})}
 
       {showTrainStations && railStops.map((station) => (
         <Marker
@@ -498,6 +656,12 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
                     <>
                       <div className="routes-header">Trains in next 60 min:</div>
                       {upcoming.map(({ svc, mins, isCancelled, isDelayed, delayMins }, idx) => (
+                        (() => {
+                          const trainDestination = svc.destination?.name
+                            || svc.callingPoints?.[svc.callingPoints.length - 1]?.name
+                            || svc.destination?.crs
+                            || 'Unknown';
+                          return (
                         <div
                           key={`rail-upcoming-${idx}`}
                           className={`rail-arrival-item${
@@ -505,10 +669,8 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
                           }`}
                         >
                           <div className="rail-arrival-destination">
-                            Towards {svc.destination?.name || 'Unknown'}
-                            {(isDelayed || isCancelled) && svc.platform && (
-                              <span className="rail-platform"> · Plat {svc.platform}</span>
-                            )}
+                            Towards {trainDestination}
+                            <span className="rail-platform"> · Plat {svc.platform || 'TBC'}</span>
                           </div>
                           <div className="rail-arrival-time-col">
                             {isCancelled ? (
@@ -541,6 +703,8 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
                             <div className="rail-delay-reason">{svc.cancelReason}</div>
                           )}
                         </div>
+                          );
+                        })()
                       ))}
                     </>
                   );
@@ -564,6 +728,8 @@ const TRAFFIC_COLORS = {
 };
 
 function TrafficZones({ show, selectedTime, selectedDay }) {
+  const TRAFFIC_VISIBLE_ZOOM = 12;
+  const TRAFFIC_FOCUS_ZOOM = 14;
   const [segments, setSegments] = useState([]);
   const [meta, setMeta] = useState({});
   const [showLegend, setShowLegend] = useState(true);
@@ -614,22 +780,24 @@ function TrafficZones({ show, selectedTime, selectedDay }) {
   // Only display segments with actual delays (severity >= 1)
   const activeSegments = segments.filter(s => s.severity >= 1);
 
-  // Zoom-responsive line weight: thicker when zoomed out so segments stay visible
-  // zoom ~8 (far) → multiplier ~3.0,  zoom ~11 → 1.5,  zoom ~14+ (close) → 1.0
-  const zoomScale = Math.max(1.0, 3.5 - zoom * 0.2);
+  // Keep traffic overlay out of the way when zoomed out
+  if (zoom < TRAFFIC_VISIBLE_ZOOM) return null;
+
+  // Zoom-responsive intensity: subtle at first visible zoom, clearer when zoomed in
+  const zoomProgress = Math.min(1, Math.max(0, (zoom - TRAFFIC_VISIBLE_ZOOM) / (TRAFFIC_FOCUS_ZOOM - TRAFFIC_VISIBLE_ZOOM)));
 
   return (
     <>
       {activeSegments.map((seg) => {
         const colors = TRAFFIC_COLORS[seg.severity] || TRAFFIC_COLORS[0];
-        // Base weight: severity 1→6, 2→9, 3→12  ×  zoomScale
+        // Base weight: severity 1→6, 2→9, 3→12 then scaled by zoom progress
         const baseWeight = 3 + seg.severity * 3;
-        const weight = Math.round(baseWeight * zoomScale);
-        const outlineWeight = weight + Math.round(4 * zoomScale); // dark border behind
-        const opacity = Math.min(1.0, 0.65 + seg.severity * 0.1);
+        const weight = Math.max(2, Math.round(baseWeight * (0.35 + zoomProgress * 0.65)));
+        const outlineWeight = weight + Math.max(1, Math.round(2 * zoomProgress));
+        const opacity = (0.2 + zoomProgress * 0.55) * (seg.severity >= 3 ? 1 : seg.severity === 2 ? 0.9 : 0.8);
 
         return (
-          <React.Fragment key={seg.id}>
+          <Fragment key={seg.id}>
             {/* Dark outline for contrast at all zoom levels */}
             <Polyline
               positions={seg.coordinates}
@@ -669,7 +837,7 @@ function TrafficZones({ show, selectedTime, selectedDay }) {
                 </div>
               </Popup>
             </Polyline>
-          </React.Fragment>
+          </Fragment>
         );
       })}
 
@@ -703,7 +871,7 @@ function TrafficZones({ show, selectedTime, selectedDay }) {
   );
 }
 
-function MapView({ userLocation, startLocation, endLocation, selectedTime = null, selectedDay = null, showBusStops = true, showTrainStations = false, showTrafficConditions = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService }) {
+function MapView({ userLocation, startLocation, endLocation, selectedTime = null, selectedDay = null, showBusStops = true, showTrainStations = false, showTrafficConditions = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService, pinMode = false }) {
   const [panToUser, setPanToUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 

@@ -449,6 +449,46 @@
   font-family: monospace;
 }
 
+.bus-stop-group-count {
+  font-size: 11px;
+  color: #4b5563;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.bus-platform-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 2px;
+}
+
+.bus-platform-tab {
+  flex: 0 0 auto;
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  color: #1f2937;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bus-platform-tab:hover {
+  background: #eef2ff;
+  border-color: #a5b4fc;
+}
+
+.bus-platform-tab.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
 .loading-routes {
   font-size: 13px;
   color: #666;
@@ -467,6 +507,12 @@
 
 .stop-routes-list {
   margin-top: 10px;
+}
+
+.stop-routes-scroll {
+  max-height: 132px; /* ~2 route cards visible */
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .routes-header {
