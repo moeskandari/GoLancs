@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { TRAFFIC_COLORS } from '../MapView';
 
 jest.mock('react-leaflet', () => ({
   MapContainer: () => null,
@@ -18,8 +19,6 @@ jest.mock('leaflet', () => ({
     latLngBounds: () => ({ pad: () => ({}) }),
   },
 }));
-
-import { TRAFFIC_COLORS } from '../MapView';
 
 describe('MapView traffic colours', () => {
   it('uses a darker red for heavy delays', () => {
