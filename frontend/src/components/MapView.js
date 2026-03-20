@@ -720,11 +720,11 @@ function BusStopMarkers({ routes, selectedRoute, showBusStops, showTrainStations
 
 // ─── Traffic Condition Road Segments ─────────────────────────────────────────
 // Severity colour palette: darker red = worse delays
-const TRAFFIC_COLORS = {
+export const TRAFFIC_COLORS = {
   0: { color: '#22c55e', label: 'Normal' },      // green
   1: { color: '#eab308', label: 'Minor delays' }, // yellow
   2: { color: '#f97316', label: 'Moderate' },      // orange
-  3: { color: '#ef4444', label: 'Heavy delays' },  // red
+  3: { color: '#b91c1c', label: 'Heavy delays' },  // dark red
 };
 
 function TrafficZones({ show, selectedTime, selectedDay }) {

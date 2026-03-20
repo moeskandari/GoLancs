@@ -157,7 +157,15 @@
 
 .time-input:focus {
   outline: 2px solid #2196F3;
-  border-color: #2196F3;
+}
+
+.time-hint {
+  position: absolute;
+  right: clamp(5px, 1.2vw, 10px);
+  font-size: clamp(9px, 1.8vw, 12px);
+  color: #666;
+  pointer-events: none;
+  font-weight: 500;
 }
 
 .route-btn {
