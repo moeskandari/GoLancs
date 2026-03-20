@@ -156,7 +156,7 @@
   position: absolute;
   right: clamp(5px, 1.2vw, 10px);
   font-size: clamp(9px, 1.8vw, 12px);
-  color: #999;
+  color: #666;
   pointer-events: none;
   font-weight: 500;
 }
@@ -407,5 +407,4 @@
     display: block;
   }
 }
-
 

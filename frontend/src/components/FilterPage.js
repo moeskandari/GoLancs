@@ -96,6 +96,7 @@ function FilterPage({ initialFilters, onBack, onSubmit }) {
             className={`filter-option-btn${filters[categoryKey][key] ? ' selected' : ''}`}
             onClick={() => toggle(categoryKey, key)}
             aria-pressed={filters[categoryKey][key]}
+            aria-label={`Toggle ${LABELS[key]}`}
           >
             <span className="filter-option-indicator">
               {filters[categoryKey][key] ? '✓' : ''}
