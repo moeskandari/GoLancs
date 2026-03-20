@@ -111,12 +111,12 @@
   .bottom-controls {
     bottom: 14px;
     border-radius: 18px;
-    gap: 6px;
+    gap: 4px;
     padding: 8px;
   }
 
   .control-btn {
-    flex: 1 1 calc(50% - 6px);
+    flex: 0 1 96px;
     border-radius: 12px;
     padding: 7px 6px;
   }
@@ -133,10 +133,11 @@
   .bottom-controls {
     width: 98vw;
     padding: 6px;
-    gap: 4px;
+    gap: 3px;
   }
 
   .control-btn {
+    flex-basis: 88px;
     padding: 6px 4px;
   }
 
