@@ -37,6 +37,7 @@ describe('SearchBar', () => {
       />
     );
     expect(screen.getByPlaceholderText('Where from?')).toBeInTheDocument();
+    expect(screen.getByLabelText('Where from?')).toBeInTheDocument();
   });
 
   it('renders input with correct initial value', () => {
@@ -150,5 +151,28 @@ describe('SearchBar', () => {
       fireEvent.click(clearBtn);
       expect(mockChange).toHaveBeenCalledWith(null);
     }
+  });
+
+  it('announces no-results text as status update', async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ stops: [], places: [] }),
+      })
+    );
+
+    render(
+      <SearchBar
+        placeholder="Where from?"
+        type="start"
+        value={null}
+        onChange={() => {}}
+      />
+    );
+    const input = screen.getByLabelText('Where from?');
+    fireEvent.change(input, { target: { value: 'zz' } });
+
+    const statusNode = await screen.findByRole('status');
+    expect(statusNode).toHaveTextContent('No results found for "zz"');
   });
 });

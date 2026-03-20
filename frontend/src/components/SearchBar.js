@@ -174,8 +174,10 @@ function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUse
 
   return (
     <div className="search-bar-wrapper" ref={wrapperRef}>
+      <label className="sr-only" htmlFor={`search-input-${type}`}>{placeholder}</label>
       <div className="search-bar">
         <input
+          id={`search-input-${type}`}
           type="text"
           value={inputText}
           onChange={handleInputChange}
@@ -270,7 +272,7 @@ function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUse
           </div>
         )}
         {showDropdown && !hasResults && !(onUseMyLocation && hasUserLocation) && inputText.length >= 2 && !loading && (
-          <div className="search-dropdown" role="listbox" id={`search-listbox-${type}`}>
+          <div className="search-dropdown" role="status" aria-live="polite" id={`search-listbox-${type}`}>
             <div className="dropdown-empty">
               No results found for "{inputText}"
             </div>
@@ -282,4 +284,3 @@ function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUse
 }
 
 export default SearchBar;
-

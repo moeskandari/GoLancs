@@ -1,4 +1,4 @@
-
+import { useEffect } from 'react';
 import './WeatherSidebar.css';
 
 const weatherEmojis = {
@@ -175,6 +175,14 @@ const modeLabels = {
 
 function WeatherSidebar({ isOpen, onClose, currentWeather, destWeather, loadingCurrent, loadingDest, hasDestination }) {
   const recommendation = getWeatherRecommendation(currentWeather, destWeather);
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   return (
     <>
