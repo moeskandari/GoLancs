@@ -261,6 +261,7 @@ function App() {
                   id="journey-time"
                   type="time"
                   className="time-input"
+                  title="Click to select a time"
                   value={
                     timeMode === 'depart'
                       ? (departureTime ? departureTime.substring(0, 5) : '')

@@ -93,7 +93,7 @@
 }
 
 .time-mode-toggle {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #fff;
   background: #2196F3;
@@ -116,7 +116,7 @@
 }
 
 .time-label {
-  font-size: clamp(9px, 1.8vw, 11px);
+  font-size: clamp(0.5625rem, 1.8vw, 0.6875rem);
   font-weight: 600;
   color: #555;
   min-width: clamp(34px, 7vw, 52px);
@@ -132,20 +132,27 @@
 }
 
 .time-input {
-  width: clamp(64px, 16vw, 92px);
-  padding: clamp(5px, 1.2vw, 8px) clamp(6px, 1.5vw, 10px);
+  width: clamp(120px, 22vw, 170px);
+  min-width: 120px;
+  padding: clamp(6px, 1.2vw, 9px) clamp(10px, 1.8vw, 14px);
   border-radius: clamp(12px, 2.8vw, 18px);
-  border: none;
+  border: 1px solid #d4dbe5;
   background: #fff;
-  font-size: clamp(10px, 2.1vw, 13px);
+  font-size: clamp(0.75rem, 2vw, 0.9375rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-width: 0;
   color: #333;
   box-sizing: border-box;
+  line-height: 1.2;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .time-input::-webkit-calendar-picker-indicator {
-  opacity: 0;
+  opacity: 0.9;
+  cursor: pointer;
 }
 
 .time-input:focus {
@@ -168,7 +175,7 @@
   border: none;
   background: #2196F3;
   color: #fff;
-  font-size: clamp(11px, 2.2vw, 14px);
+  font-size: clamp(0.6875rem, 2.2vw, 0.875rem);
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
@@ -199,7 +206,7 @@
   border: 1px solid #f5b5b5;
   padding: clamp(7px, 1.5vw, 10px) clamp(9px, 2.4vw, 14px);
   border-radius: clamp(8px, 2.2vw, 12px);
-  font-size: clamp(11px, 2.2vw, 14px);
+  font-size: clamp(0.6875rem, 2.2vw, 0.875rem);
   display: flex;
   align-items: center;
   gap: clamp(4px, 1vw, 6px);
@@ -235,14 +242,11 @@
   }
 
   .time-input {
-    padding: 1.2vw 1.5vw;
-    font-size: 2.1vw;
+    width: clamp(116px, 26vw, 156px);
+    min-width: 116px;
+    padding: 1.6vw 2.2vw;
+    font-size: clamp(0.75rem, 2vw, 0.9rem);
     border-radius: 2.6vw;
-  }
-
-  .time-hint {
-    right: 1.4vw;
-    font-size: 1.8vw;
   }
 
   .route-btn {
@@ -277,9 +281,10 @@
   }
 
   .time-input {
-    width: 18vw;
-    padding: 1.4vw 1.8vw;
-    font-size: 2.4vw;
+    width: clamp(112px, 40vw, 152px);
+    min-width: 112px;
+    padding: 1.9vw 2.6vw;
+    font-size: clamp(0.75rem, 3.2vw, 0.95rem);
     border-radius: 3vw;
   }
 
@@ -290,9 +295,9 @@
   }
 
   .time-input {
-    min-width: 90px;
+    min-width: 112px;
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .route-btn {
@@ -325,9 +330,9 @@
   }
 
   .time-input {
-    min-width: 80px;
+    min-width: 110px;
     padding: 7px 8px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .route-btn {
@@ -356,7 +361,7 @@
 
 .collapsed-route-text {
   flex: 1;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #333;
   white-space: nowrap;
@@ -370,7 +375,7 @@
   border-radius: 50%;
   border: none;
   background: #e3f2fd;
-  font-size: 16px;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -390,7 +395,7 @@
   border: none;
   background: #f0f4ff;
   color: #2196F3;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   border-radius: 12px;
@@ -407,4 +412,3 @@
     display: block;
   }
 }
-

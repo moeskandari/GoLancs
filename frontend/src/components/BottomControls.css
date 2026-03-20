@@ -45,7 +45,7 @@
 }
 
 .control-btn span {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -100,7 +100,7 @@
   }
   
   .control-btn span {
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
   
   .control-btn svg {
@@ -124,7 +124,7 @@
   }
 
   .control-btn span {
-    font-size: 10px;
+    font-size: 0.625rem;
     white-space: normal;
     line-height: 1.1;
     text-align: center;
@@ -149,6 +149,6 @@
   }
 
   .control-btn span {
-    font-size: 9px;
+    font-size: 0.5625rem;
   }
 }
