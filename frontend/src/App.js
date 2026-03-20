@@ -279,7 +279,6 @@ function App() {
                   }}
                   aria-label={timeMode === 'depart' ? 'Departure time' : 'Arrival time'}
                 />
-                <span className="time-hint" aria-hidden="true">🕒</span>
               </div>
             </div>
           </div>

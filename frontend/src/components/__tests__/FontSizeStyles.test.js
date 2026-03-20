@@ -31,10 +31,9 @@ describe('font size styles', () => {
 
     expect(appCss).toContain('.time-input');
     expect(appCss).toContain('min-width: 120px;');
-    expect(appCss).toContain('padding: clamp(6px, 1.2vw, 9px) clamp(26px, 3vw, 34px) clamp(6px, 1.2vw, 9px) clamp(10px, 1.8vw, 14px);');
+    expect(appCss).toContain('padding: clamp(6px, 1.2vw, 9px) clamp(10px, 1.8vw, 14px);');
     expect(appCss).toContain('.time-input::-webkit-calendar-picker-indicator');
     expect(appCss).toContain('opacity: 0.9;');
-    expect(appCss).toContain('.time-hint');
-    expect(appCss).toContain('font-size: clamp(0.75rem, 1.8vw, 0.9rem);');
+    expect(appCss).not.toContain('.time-hint {');
   });
 });

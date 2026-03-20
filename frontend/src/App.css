@@ -134,7 +134,7 @@
 .time-input {
   width: clamp(120px, 22vw, 170px);
   min-width: 120px;
-  padding: clamp(6px, 1.2vw, 9px) clamp(26px, 3vw, 34px) clamp(6px, 1.2vw, 9px) clamp(10px, 1.8vw, 14px);
+  padding: clamp(6px, 1.2vw, 9px) clamp(10px, 1.8vw, 14px);
   border-radius: clamp(12px, 2.8vw, 18px);
   border: 1px solid #d4dbe5;
   background: #fff;
@@ -158,15 +158,6 @@
 .time-input:focus {
   outline: 2px solid #2196F3;
   border-color: #2196F3;
-}
-
-.time-hint {
-  position: absolute;
-  right: clamp(8px, 1.8vw, 12px);
-  font-size: clamp(0.75rem, 1.8vw, 0.9rem);
-  color: #5f6f82;
-  pointer-events: none;
-  font-weight: 500;
 }
 
 .route-btn {
@@ -245,14 +236,9 @@
   .time-input {
     width: clamp(116px, 26vw, 156px);
     min-width: 116px;
-    padding: 1.6vw 7.2vw 1.6vw 2.2vw;
+    padding: 1.6vw 2.2vw;
     font-size: clamp(0.75rem, 2vw, 0.9rem);
     border-radius: 2.6vw;
-  }
-
-  .time-hint {
-    right: 2vw;
-    font-size: 2.2vw;
   }
 
   .route-btn {
@@ -289,7 +275,7 @@
   .time-input {
     width: clamp(112px, 40vw, 152px);
     min-width: 112px;
-    padding: 1.9vw 8.8vw 1.9vw 2.6vw;
+    padding: 1.9vw 2.6vw;
     font-size: clamp(0.75rem, 3.2vw, 0.95rem);
     border-radius: 3vw;
   }
@@ -302,7 +288,7 @@
 
   .time-input {
     min-width: 112px;
-    padding: 8px 30px 8px 10px;
+    padding: 8px 10px;
     font-size: 0.8125rem;
   }
 
@@ -337,7 +323,7 @@
 
   .time-input {
     min-width: 110px;
-    padding: 7px 28px 7px 8px;
+    padding: 7px 8px;
     font-size: 0.75rem;
   }
 
