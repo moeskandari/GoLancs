@@ -5,14 +5,16 @@
   transform: translateX(-50%);
   z-index: 1100;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 15px;
+  align-items: center;
+  gap: 6px;
   background: white;
-  padding: 12px 14px;
+  padding: 8px 10px;
   border-radius: 30px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: min(95vw, 720px);
+  width: fit-content;
+  max-width: 95vw;
   box-sizing: border-box;
 }
 
@@ -21,12 +23,12 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  flex: 1 1 90px;
+  flex: 0 0 auto;
   min-width: 0;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 10px 15px;
+  padding: 8px 10px;
   border-radius: 15px;
   transition: all 0.3s ease;
   color: #333;
@@ -50,7 +52,7 @@
 
 .pin-btn {
   /* match other control buttons for alignment */
-  padding: 10px 15px;
+  padding: 8px 10px;
   border-radius: 15px;
   --pin-size: 24px; /* same icon size as other controls */
   display: flex;
@@ -87,13 +89,13 @@
 @media (max-width: 768px) {
   .bottom-controls {
     bottom: 20px;
-    padding: 10px;
-    gap: 8px;
-    width: min(96vw, 520px);
+    padding: 8px;
+    gap: 5px;
+    max-width: 96vw;
   }
   
   .control-btn {
-    flex: 1 1 78px;
+    flex: 0 0 auto;
     padding: 7px 8px;
   }
   
@@ -111,12 +113,12 @@
   .bottom-controls {
     bottom: 14px;
     border-radius: 18px;
-    gap: 4px;
+    gap: 3px;
     padding: 8px;
   }
 
   .control-btn {
-    flex: 0 1 96px;
+    flex: 0 0 auto;
     border-radius: 12px;
     padding: 7px 6px;
   }
@@ -133,11 +135,11 @@
   .bottom-controls {
     width: 98vw;
     padding: 6px;
-    gap: 3px;
+    gap: 2px;
   }
 
   .control-btn {
-    flex-basis: 88px;
+    flex: 0 0 auto;
     padding: 6px 4px;
   }
 
