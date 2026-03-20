@@ -261,6 +261,7 @@ function App() {
                   id="journey-time"
                   type="time"
                   className="time-input"
+                  title="Click to select a time"
                   value={
                     timeMode === 'depart'
                       ? (departureTime ? departureTime.substring(0, 5) : '')
@@ -278,6 +279,7 @@ function App() {
                   }}
                   aria-label={timeMode === 'depart' ? 'Departure time' : 'Arrival time'}
                 />
+                <span className="time-hint" aria-hidden="true">🕒</span>
               </div>
             </div>
           </div>

@@ -132,31 +132,39 @@
 }
 
 .time-input {
-  width: clamp(64px, 16vw, 92px);
-  padding: clamp(5px, 1.2vw, 8px) clamp(6px, 1.5vw, 10px);
+  width: clamp(120px, 22vw, 170px);
+  min-width: 120px;
+  padding: clamp(6px, 1.2vw, 9px) clamp(26px, 3vw, 34px) clamp(6px, 1.2vw, 9px) clamp(10px, 1.8vw, 14px);
   border-radius: clamp(12px, 2.8vw, 18px);
-  border: none;
+  border: 1px solid #d4dbe5;
   background: #fff;
-  font-size: clamp(0.625rem, 2.1vw, 0.8125rem);
+  font-size: clamp(0.75rem, 2vw, 0.9375rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-width: 0;
   color: #333;
   box-sizing: border-box;
+  line-height: 1.2;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .time-input::-webkit-calendar-picker-indicator {
-  opacity: 0;
+  opacity: 0.9;
+  cursor: pointer;
 }
 
 .time-input:focus {
   outline: 2px solid #2196F3;
+  border-color: #2196F3;
 }
 
 .time-hint {
   position: absolute;
-  right: clamp(5px, 1.2vw, 10px);
-  font-size: clamp(0.5625rem, 1.8vw, 0.75rem);
-  color: #999;
+  right: clamp(8px, 1.8vw, 12px);
+  font-size: clamp(0.75rem, 1.8vw, 0.9rem);
+  color: #5f6f82;
   pointer-events: none;
   font-weight: 500;
 }
@@ -235,14 +243,16 @@
   }
 
   .time-input {
-    padding: 1.2vw 1.5vw;
-    font-size: 2.1vw;
+    width: clamp(116px, 26vw, 156px);
+    min-width: 116px;
+    padding: 1.6vw 7.2vw 1.6vw 2.2vw;
+    font-size: clamp(0.75rem, 2vw, 0.9rem);
     border-radius: 2.6vw;
   }
 
   .time-hint {
-    right: 1.4vw;
-    font-size: 1.8vw;
+    right: 2vw;
+    font-size: 2.2vw;
   }
 
   .route-btn {
@@ -277,9 +287,10 @@
   }
 
   .time-input {
-    width: 18vw;
-    padding: 1.4vw 1.8vw;
-    font-size: 2.4vw;
+    width: clamp(112px, 40vw, 152px);
+    min-width: 112px;
+    padding: 1.9vw 8.8vw 1.9vw 2.6vw;
+    font-size: clamp(0.75rem, 3.2vw, 0.95rem);
     border-radius: 3vw;
   }
 
@@ -290,9 +301,9 @@
   }
 
   .time-input {
-    min-width: 90px;
-    padding: 8px 10px;
-    font-size: 13px;
+    min-width: 112px;
+    padding: 8px 30px 8px 10px;
+    font-size: 0.8125rem;
   }
 
   .route-btn {
@@ -325,9 +336,9 @@
   }
 
   .time-input {
-    min-width: 80px;
-    padding: 7px 8px;
-    font-size: 12px;
+    min-width: 110px;
+    padding: 7px 28px 7px 8px;
+    font-size: 0.75rem;
   }
 
   .route-btn {
@@ -407,4 +418,3 @@
     display: block;
   }
 }
-
