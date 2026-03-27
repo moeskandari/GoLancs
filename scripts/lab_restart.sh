@@ -65,8 +65,12 @@ echo "Step 4: Rebuilding images (parallel) + preparing DB files..."
 # --- Background job: prepare database restore files ---
 (
   if [ -f "$BACKUP_FILE" ]; then
-    awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
-      "$BACKUP_FILE" > /tmp/group1db_backup.sql 2>/dev/null || true
+    if grep -q '^\\connect group1db' "$BACKUP_FILE"; then
+      awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
+        "$BACKUP_FILE" > /tmp/group1db_backup.sql 2>/dev/null || true
+    else
+      cp "$BACKUP_FILE" /tmp/group1db_backup.sql 2>/dev/null || true
+    fi
     chmod 644 /tmp/group1db_backup.sql 2>/dev/null || true
   else
     touch /tmp/group1db_backup.sql
