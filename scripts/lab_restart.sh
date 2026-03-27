@@ -153,11 +153,14 @@ echo "  Applying auth schema..."
 podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < "${REPO_ROOT}/postgres/auth_schema.sql" > /dev/null 2>&1
 echo "  ✓ Auth schema applied"
 
-# Safety check: if transport data is missing (common on reused empty volumes), auto-restore backup
+# Safety check: if core transport data is missing (common on reused/partially initialised volumes), auto-restore backup
 TRANSPORT_STOPS_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c "SELECT count(*) FROM stops;" 2>/dev/null | xargs || echo "0")
-if [ "${TRANSPORT_STOPS_COUNT}" = "0" ] && [ -s "${BACKUP_FILE}" ]; then
-  echo "  ⚠ Transport data missing (stops=0) - restoring backup..."
-  if podman exec -i ${PROJECT_NAME}db psql -U postgres < "${BACKUP_FILE}" > /tmp/db_restore_autofix.log 2>&1; then
+TRANSPORT_JOURNEYS_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c "SELECT count(*) FROM bus_journeys;" 2>/dev/null | xargs || echo "0")
+TRANSPORT_JOURNEY_STOPS_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c "SELECT count(*) FROM bus_journey_stops;" 2>/dev/null | xargs || echo "0")
+
+if { [ "${TRANSPORT_STOPS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEYS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEY_STOPS_COUNT}" = "0" ]; } && [ -s "/tmp/group1db_backup.sql" ]; then
+  echo "  ⚠ Transport data incomplete (stops=${TRANSPORT_STOPS_COUNT}, journeys=${TRANSPORT_JOURNEYS_COUNT}, journey_stops=${TRANSPORT_JOURNEY_STOPS_COUNT}) - restoring backup..."
+  if podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < /tmp/group1db_backup.sql > /tmp/db_restore_autofix.log 2>&1; then
     echo "  ✓ Backup restored"
   else
     echo "  ✗ Auto-restore failed - check /tmp/db_restore_autofix.log"
