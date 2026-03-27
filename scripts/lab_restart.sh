@@ -23,8 +23,16 @@ set -e
 PROJECT_NAME="group1"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_FILE="${REPO_ROOT}/postgres/group1db_backup.sql"
+RUNTIME_BACKUP_FILE="/tmp/group1db_runtime_backup.sql"
 NETWORK_NAME="scc200_${PROJECT_NAME}-net"
 START_TIME=$(date +%s)
+
+normalise_count() {
+  case "$1" in
+    ''|*[!0-9]*) echo "0" ;;
+    *) echo "$1" ;;
+  esac
+}
 
 echo "================================"
 echo "Lab Machine Restart (Optimised)"
@@ -34,9 +42,22 @@ echo ""
 # Step 1: Backup existing database (if container running)
 echo "Step 1: Backing up current database..."
 if podman ps --format '{{.Names}}' 2>/dev/null | grep -q "^${PROJECT_NAME}db$"; then
-  echo "  Database running - creating backup..."
-  podman exec -t ${PROJECT_NAME}db pg_dumpall -c -U postgres > "${BACKUP_FILE}" 2>/dev/null || true
-  echo "  ✓ Database backed up"
+  TRANSPORT_COUNTS=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -A -F, -c "SELECT (SELECT count(*) FROM stops), (SELECT count(*) FROM bus_journeys), (SELECT count(*) FROM bus_journey_stops);" 2>/dev/null || echo "0,0,0")
+  OLD_IFS="$IFS"
+  IFS=',' read -r RUN_STOPS_COUNT RUN_JOURNEYS_COUNT RUN_JOURNEY_STOPS_COUNT <<< "${TRANSPORT_COUNTS}"
+  IFS="$OLD_IFS"
+  RUN_STOPS_COUNT=$(normalise_count "${RUN_STOPS_COUNT}")
+  RUN_JOURNEYS_COUNT=$(normalise_count "${RUN_JOURNEYS_COUNT}")
+  RUN_JOURNEY_STOPS_COUNT=$(normalise_count "${RUN_JOURNEY_STOPS_COUNT}")
+
+  if [ "${RUN_STOPS_COUNT}" = "0" ] || [ "${RUN_JOURNEYS_COUNT}" = "0" ] || [ "${RUN_JOURNEY_STOPS_COUNT}" = "0" ]; then
+    echo "  ⚠ Running DB looks incomplete (stops=${RUN_STOPS_COUNT}, journeys=${RUN_JOURNEYS_COUNT}, journey_stops=${RUN_JOURNEY_STOPS_COUNT}) - skipping runtime backup to avoid overwriting canonical backup"
+    rm -f "${RUNTIME_BACKUP_FILE}" 2>/dev/null || true
+  else
+    echo "  Database running - creating runtime backup..."
+    podman exec -t ${PROJECT_NAME}db pg_dumpall -c -U postgres > "${RUNTIME_BACKUP_FILE}" 2>/dev/null || true
+    echo "  ✓ Runtime backup created"
+  fi
 else
   echo "  No running database container found - skipping backup"
 fi
@@ -64,12 +85,22 @@ echo "Step 4: Rebuilding images (parallel) + preparing DB files..."
 
 # --- Background job: prepare database restore files ---
 (
-  if [ -f "$BACKUP_FILE" ]; then
-    if grep -q '^\\connect group1db' "$BACKUP_FILE"; then
+  BACKUP_SOURCE_FILE="$BACKUP_FILE"
+  if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    if git -C "${REPO_ROOT}" show HEAD:postgres/group1db_backup.sql > /tmp/group1db_backup_repo.sql 2>/dev/null && [ -s /tmp/group1db_backup_repo.sql ]; then
+      BACKUP_SOURCE_FILE="/tmp/group1db_backup_repo.sql"
+    fi
+  fi
+  if [ -s "${RUNTIME_BACKUP_FILE}" ]; then
+    BACKUP_SOURCE_FILE="${RUNTIME_BACKUP_FILE}"
+  fi
+
+  if [ -f "${BACKUP_SOURCE_FILE}" ]; then
+    if grep -m 1 -q '^\\connect group1db' "${BACKUP_SOURCE_FILE}"; then
       awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
-        "$BACKUP_FILE" > /tmp/group1db_backup.sql 2>/dev/null || true
+        "${BACKUP_SOURCE_FILE}" > /tmp/group1db_backup.sql 2>/dev/null || true
     else
-      cp "$BACKUP_FILE" /tmp/group1db_backup.sql 2>/dev/null || true
+      cp "${BACKUP_SOURCE_FILE}" /tmp/group1db_backup.sql 2>/dev/null || true
     fi
     chmod 644 /tmp/group1db_backup.sql 2>/dev/null || true
   else
@@ -158,6 +189,9 @@ TRANSPORT_COUNTS=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db
 OLD_IFS="$IFS"
 IFS=',' read -r TRANSPORT_STOPS_COUNT TRANSPORT_JOURNEYS_COUNT TRANSPORT_JOURNEY_STOPS_COUNT <<< "${TRANSPORT_COUNTS}"
 IFS="$OLD_IFS"
+TRANSPORT_STOPS_COUNT=$(normalise_count "${TRANSPORT_STOPS_COUNT}")
+TRANSPORT_JOURNEYS_COUNT=$(normalise_count "${TRANSPORT_JOURNEYS_COUNT}")
+TRANSPORT_JOURNEY_STOPS_COUNT=$(normalise_count "${TRANSPORT_JOURNEY_STOPS_COUNT}")
 
 if { [ "${TRANSPORT_STOPS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEYS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEY_STOPS_COUNT}" = "0" ]; } && [ -s "/tmp/group1db_backup.sql" ]; then
   echo "  ⚠ Transport data incomplete (stops=${TRANSPORT_STOPS_COUNT}, journeys=${TRANSPORT_JOURNEYS_COUNT}, journey_stops=${TRANSPORT_JOURNEY_STOPS_COUNT}) - restoring backup..."
