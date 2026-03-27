@@ -154,9 +154,10 @@ podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < "${REPO_ROOT}/po
 echo "  ✓ Auth schema applied"
 
 # Safety check: if core transport data is missing (common on reused/partially initialised volumes), auto-restore backup
-TRANSPORT_STOPS_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c "SELECT count(*) FROM stops;" 2>/dev/null | xargs || echo "0")
-TRANSPORT_JOURNEYS_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c "SELECT count(*) FROM bus_journeys;" 2>/dev/null | xargs || echo "0")
-TRANSPORT_JOURNEY_STOPS_COUNT=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -c "SELECT count(*) FROM bus_journey_stops;" 2>/dev/null | xargs || echo "0")
+TRANSPORT_COUNTS=$(podman exec -t ${PROJECT_NAME}db psql -U postgres -d group1db -t -A -F, -c "SELECT (SELECT count(*) FROM stops), (SELECT count(*) FROM bus_journeys), (SELECT count(*) FROM bus_journey_stops);" 2>/dev/null || echo "0,0,0")
+OLD_IFS="$IFS"
+IFS=',' read -r TRANSPORT_STOPS_COUNT TRANSPORT_JOURNEYS_COUNT TRANSPORT_JOURNEY_STOPS_COUNT <<< "${TRANSPORT_COUNTS}"
+IFS="$OLD_IFS"
 
 if { [ "${TRANSPORT_STOPS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEYS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEY_STOPS_COUNT}" = "0" ]; } && [ -s "/tmp/group1db_backup.sql" ]; then
   echo "  ⚠ Transport data incomplete (stops=${TRANSPORT_STOPS_COUNT}, journeys=${TRANSPORT_JOURNEYS_COUNT}, journey_stops=${TRANSPORT_JOURNEY_STOPS_COUNT}) - restoring backup..."
