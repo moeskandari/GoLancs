@@ -23,7 +23,12 @@ set -e
 PROJECT_NAME="group1"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_FILE="${REPO_ROOT}/postgres/group1db_backup.sql"
-RUNTIME_BACKUP_FILE="/tmp/group1db_runtime_backup.sql"
+RUNTIME_BACKUP_FILE="/tmp/group1db_runtime_backup_$$.sql"
+TMP_REPO_BACKUP_FILE="/tmp/group1db_backup_repo_$$.sql"
+TMP_RESTORE_BACKUP_FILE="/tmp/group1db_backup_$$.sql"
+TMP_POST_RESTORE_FILE="/tmp/post_restore_$$.sql"
+TMP_RESTORE_LOG_FILE="/tmp/db_restore_autofix_$$.log"
+RUNTIME_BACKUP_READY="false"
 NETWORK_NAME="scc200_${PROJECT_NAME}-net"
 START_TIME=$(date +%s)
 
@@ -56,10 +61,17 @@ if podman ps --format '{{.Names}}' 2>/dev/null | grep -q "^${PROJECT_NAME}db$"; 
   else
     echo "  Database running - creating runtime backup..."
     podman exec -t ${PROJECT_NAME}db pg_dumpall -c -U postgres > "${RUNTIME_BACKUP_FILE}" 2>/dev/null || true
-    echo "  ✓ Runtime backup created"
+    if [ -s "${RUNTIME_BACKUP_FILE}" ]; then
+      RUNTIME_BACKUP_READY="true"
+      echo "  ✓ Runtime backup created"
+    else
+      rm -f "${RUNTIME_BACKUP_FILE}" 2>/dev/null || true
+      echo "  ⚠ Runtime backup creation returned no data - ignoring"
+    fi
   fi
 else
   echo "  No running database container found - skipping backup"
+  rm -f "${RUNTIME_BACKUP_FILE}" 2>/dev/null || true
 fi
 echo ""
 
@@ -87,27 +99,27 @@ echo "Step 4: Rebuilding images (parallel) + preparing DB files..."
 (
   BACKUP_SOURCE_FILE="$BACKUP_FILE"
   if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    if git -C "${REPO_ROOT}" show HEAD:postgres/group1db_backup.sql > /tmp/group1db_backup_repo.sql 2>/dev/null && [ -s /tmp/group1db_backup_repo.sql ]; then
-      BACKUP_SOURCE_FILE="/tmp/group1db_backup_repo.sql"
+    if git -C "${REPO_ROOT}" show HEAD:postgres/group1db_backup.sql > "${TMP_REPO_BACKUP_FILE}" 2>/dev/null && [ -s "${TMP_REPO_BACKUP_FILE}" ]; then
+      BACKUP_SOURCE_FILE="${TMP_REPO_BACKUP_FILE}"
     fi
   fi
-  if [ -s "${RUNTIME_BACKUP_FILE}" ]; then
+  if [ "${RUNTIME_BACKUP_READY}" = "true" ] && [ -s "${RUNTIME_BACKUP_FILE}" ]; then
     BACKUP_SOURCE_FILE="${RUNTIME_BACKUP_FILE}"
   fi
 
   if [ -f "${BACKUP_SOURCE_FILE}" ]; then
     if grep -m 1 -q '^\\connect group1db' "${BACKUP_SOURCE_FILE}"; then
       awk '/^\\connect group1db/{found=1; next} found && /^\\connect postgres/{exit} found && /^\\restrict/{next} found && /^\\unrestrict/{next} found{print}' \
-        "${BACKUP_SOURCE_FILE}" > /tmp/group1db_backup.sql 2>/dev/null || true
+        "${BACKUP_SOURCE_FILE}" > "${TMP_RESTORE_BACKUP_FILE}" 2>/dev/null || true
     else
-      cp "${BACKUP_SOURCE_FILE}" /tmp/group1db_backup.sql 2>/dev/null || true
+      cp "${BACKUP_SOURCE_FILE}" "${TMP_RESTORE_BACKUP_FILE}" 2>/dev/null || true
     fi
-    chmod 644 /tmp/group1db_backup.sql 2>/dev/null || true
+    chmod 644 "${TMP_RESTORE_BACKUP_FILE}" 2>/dev/null || true
   else
-    touch /tmp/group1db_backup.sql
+    touch "${TMP_RESTORE_BACKUP_FILE}"
   fi
-  cp "${REPO_ROOT}/postgres/post_restore.sql" /tmp/post_restore.sql 2>/dev/null || true
-  chmod 644 /tmp/post_restore.sql 2>/dev/null || true
+  cp "${REPO_ROOT}/postgres/post_restore.sql" "${TMP_POST_RESTORE_FILE}" 2>/dev/null || true
+  chmod 644 "${TMP_POST_RESTORE_FILE}" 2>/dev/null || true
 ) &
 DB_PREP_PID=$!
 
@@ -157,8 +169,8 @@ podman run -d --name ${PROJECT_NAME}db \
   -e POSTGRES_DB=group1db \
   -p 5050:5432 \
   -v postgres_data:/var/lib/postgresql/data \
-  -v /tmp/group1db_backup.sql:/docker-entrypoint-initdb.d/01_restore.sql:ro \
-  -v /tmp/post_restore.sql:/docker-entrypoint-initdb.d/02_post_restore.sql:ro \
+  -v "${TMP_RESTORE_BACKUP_FILE}":/docker-entrypoint-initdb.d/01_restore.sql:ro \
+  -v "${TMP_POST_RESTORE_FILE}":/docker-entrypoint-initdb.d/02_post_restore.sql:ro \
   --health-cmd "pg_isready -U postgres" \
   --health-interval 5s \
   --health-timeout 3s \
@@ -193,12 +205,12 @@ TRANSPORT_STOPS_COUNT=$(normalise_count "${TRANSPORT_STOPS_COUNT}")
 TRANSPORT_JOURNEYS_COUNT=$(normalise_count "${TRANSPORT_JOURNEYS_COUNT}")
 TRANSPORT_JOURNEY_STOPS_COUNT=$(normalise_count "${TRANSPORT_JOURNEY_STOPS_COUNT}")
 
-if { [ "${TRANSPORT_STOPS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEYS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEY_STOPS_COUNT}" = "0" ]; } && [ -s "/tmp/group1db_backup.sql" ]; then
+if { [ "${TRANSPORT_STOPS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEYS_COUNT}" = "0" ] || [ "${TRANSPORT_JOURNEY_STOPS_COUNT}" = "0" ]; } && [ -s "${TMP_RESTORE_BACKUP_FILE}" ]; then
   echo "  ⚠ Transport data incomplete (stops=${TRANSPORT_STOPS_COUNT}, journeys=${TRANSPORT_JOURNEYS_COUNT}, journey_stops=${TRANSPORT_JOURNEY_STOPS_COUNT}) - restoring backup..."
-  if podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < /tmp/group1db_backup.sql > /tmp/db_restore_autofix.log 2>&1; then
+  if podman exec -i ${PROJECT_NAME}db psql -U postgres -d group1db < "${TMP_RESTORE_BACKUP_FILE}" > "${TMP_RESTORE_LOG_FILE}" 2>&1; then
     echo "  ✓ Backup restored"
   else
-    echo "  ✗ Auto-restore failed - check /tmp/db_restore_autofix.log"
+    echo "  ✗ Auto-restore failed - check ${TMP_RESTORE_LOG_FILE}"
   fi
 fi
 echo ""
