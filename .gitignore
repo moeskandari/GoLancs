@@ -34,6 +34,13 @@ Thumbs.db
 *.sql.backup
 db_backup.sql
 
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
 # Temporary files
 *.log
 *.tmp

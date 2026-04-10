@@ -98,14 +98,17 @@ echo "Step 4: Rebuilding images (parallel) + preparing DB files..."
 # --- Background job: prepare database restore files ---
 (
   BACKUP_SOURCE_FILE="$BACKUP_FILE"
-  if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    if git -C "${REPO_ROOT}" show HEAD:postgres/group1db_backup.sql > "${TMP_REPO_BACKUP_FILE}" 2>/dev/null && [ -s "${TMP_REPO_BACKUP_FILE}" ]; then
-      BACKUP_SOURCE_FILE="${TMP_REPO_BACKUP_FILE}"
-    fi
-  fi
-  if [ "${RUNTIME_BACKUP_READY}" = "true" ] && [ -s "${RUNTIME_BACKUP_FILE}" ]; then
-    BACKUP_SOURCE_FILE="${RUNTIME_BACKUP_FILE}"
-  fi
+  cp "${BACKUP_SOURCE_FILE}" "${TMP_RESTORE_BACKUP_FILE}"
+  
+
+#   if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+#     if git -C "${REPO_ROOT}" show HEAD:postgres/group1db_backup.sql > "${TMP_REPO_BACKUP_FILE}" 2>/dev/null && [ -s "${TMP_REPO_BACKUP_FILE}" ]; then
+#       BACKUP_SOURCE_FILE="${TMP_REPO_BACKUP_FILE}"
+#     fi
+#   fi
+#   if [ "${RUNTIME_BACKUP_READY}" = "true" ] && [ -s "${RUNTIME_BACKUP_FILE}" ]; then
+#     BACKUP_SOURCE_FILE="${RUNTIME_BACKUP_FILE}"
+#   fi
 
   if [ -f "${BACKUP_SOURCE_FILE}" ]; then
     if grep -m 1 -q '^\\connect group1db' "${BACKUP_SOURCE_FILE}"; then
