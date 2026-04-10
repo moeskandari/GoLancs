@@ -83,6 +83,25 @@ cd frontend && npm install && npm start
 
 Requires a running PostgreSQL instance on port 5050.
 
+### Python Data Import Scripts
+
+The scripts in `postgres/` require a Python virtual environment. The `.venv` folder is excluded from the repository — recreate it locally:
+
+```bash
+cd postgres
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Once activated, you can run any of the import scripts:
+
+```bash
+python3 import_bus_routes.py
+python3 import_bus_timetables.py
+python3 import_rail_data.py
+```
+
 ---
 
 ## Command Cheat Sheet
