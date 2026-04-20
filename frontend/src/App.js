@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import './App.css';
+import './components/Overlay.css';
+import './components/Auth.css';
 import MapView from './components/MapView';
 import BottomControls from './components/BottomControls';
 import SearchBar from './components/SearchBar';
@@ -68,6 +70,11 @@ function App() {
   // ── Filter page UI state (front-end only) ──────────────────
   const [showFilterPage, setShowFilterPage] = useState(false);
   const [activeFilters, setActiveFilters] = useState(DEFAULT_FILTERS);
+  const [filterAlertAck, setFilterAlertAck] = useState(false);
+
+  useEffect(() => {
+    setFilterAlertAck(false);
+  }, [routes, activeFilters]);
 
   // Derived display routes based on activeFilters
   let displayRoutes = routes;
@@ -330,9 +337,20 @@ function App() {
 
       {routes && (
         <>
-          {filterFallbackMessage && (
-            <div className="filter-fallback-msg" role="status" aria-live="polite" style={{padding: '8px', background: '#fff5cc', borderRadius: 6, margin: '8px 16px'}}>
-              {filterFallbackMessage}
+          {filterFallbackMessage && !filterAlertAck && (
+            <div className="overlay-backdrop">
+              <div className="overlay-card" style={{textAlign: 'center', maxWidth: '300px'}}>
+                <h3 className="overlay-title" style={{color: '#d9534f', marginTop: 0}}>Notice</h3>
+                <p style={{marginBottom: '20px', lineHeight: 1.4}}>{filterFallbackMessage}</p>
+                <button
+                  type="button"
+                  className="auth-button"
+                  onClick={() => setFilterAlertAck(true)}
+                  style={{width: '100%'}}
+                >
+                  Okay
+                </button>
+              </div>
             </div>
           )}
           <RouteResults
