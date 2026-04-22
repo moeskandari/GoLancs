@@ -1021,3 +1021,100 @@
   border-left: 3px solid #e65100;
   padding-left: 8px;
 }
+
+/* ===== Dark mode ===== */
+html[data-theme="dark"] .route-results {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .toggle-handle {
+  background: #64748b;
+}
+
+html[data-theme="dark"] .route-results-toggle:hover .toggle-handle {
+  background: #94a3b8;
+}
+
+html[data-theme="dark"] .results-header {
+  border-bottom-color: #334155;
+}
+
+html[data-theme="dark"] .results-title,
+html[data-theme="dark"] .departure,
+html[data-theme="dark"] .arrival,
+html[data-theme="dark"] .stop-time,
+html[data-theme="dark"] .changeover-time-value,
+html[data-theme="dark"] .changeover-station,
+html[data-theme="dark"] .calling-point,
+html[data-theme="dark"] .cp-name {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .results-meta,
+html[data-theme="dark"] .results-meta .distance,
+html[data-theme="dark"] .route-arrow,
+html[data-theme="dark"] .stop-name,
+html[data-theme="dark"] .crs-code,
+html[data-theme="dark"] .leg-arrow,
+html[data-theme="dark"] .leg-extra,
+html[data-theme="dark"] .changeover-tip,
+html[data-theme="dark"] .no-routes,
+html[data-theme="dark"] .live-updated {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .sort-select {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .route-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .route-card:hover {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+html[data-theme="dark"] .route-card:active {
+  background: #1e293b;
+  border-color: #64748b;
+}
+
+html[data-theme="dark"] .route-card.selected {
+  background: #1e293b;
+  border-color: #60a5fa;
+}
+
+html[data-theme="dark"] .route-expanded {
+  border-top-color: #334155;
+}
+
+html[data-theme="dark"] .leg-operator,
+html[data-theme="dark"] .arrive-label,
+html[data-theme="dark"] .changeover-time-label,
+html[data-theme="dark"] .changeover-time-sep,
+html[data-theme="dark"] .mode-separator {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .changeover-times,
+html[data-theme="dark"] .calling-points {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .calling-point {
+  border-bottom-color: #334155;
+}
+
+html[data-theme="dark"] .next-available-msg {
+  background: #1e293b;
+  color: #dbeafe;
+  border: 1px solid #334155;
+}

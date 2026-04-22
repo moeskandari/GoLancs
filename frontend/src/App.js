@@ -11,6 +11,7 @@ import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import EmailVerification from './components/EmailVerification';
 import FilterPage from './components/FilterPage';
+import Settings from './components/Settings';
 import WeatherSidebar from './components/WeatherSidebar';
 import { useAuth } from './context/AuthContext';
 import WeatherIcon from './components/WeatherIcon';
@@ -126,6 +127,9 @@ function App() {
   const [prevAuthView, setPrevAuthView] = useState(null);
   const { isLoggedIn } = useAuth();
 
+  // ── Settings UI state (front-end only) ────────────────────────
+  const [showSettings, setShowSettings] = useState(false);
+
   // Check URL for verification or reset tokens on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -150,12 +154,13 @@ function App() {
 
   // ── Pin-drop mode (tap on map to place a pin — for touch devices) ──
   const [pinMode, setPinMode] = useState(false);
+  const [pinTarget, setPinTarget] = useState('end'); // 'start' | 'end'
 
   const handlePinToggle = () => setPinMode(prev => !prev);
 
   // When pin is dropped (via drag or tap), exit pin mode
   const handlePinDropAndReset = (latlng) => {
-    handlePinDrop(latlng);
+    handlePinDrop(latlng, pinTarget);
     setPinMode(false);
   };
 
@@ -172,6 +177,8 @@ function App() {
   }, [routes, isMobile]);
 
   const handleAccountClick = () => setAuthView(isLoggedIn ? 'profile' : 'signin');
+  const handleSettingsClick = () => setShowSettings(true);
+  const handleSettingsClose = () => setShowSettings(false);
   const handleSignIn = () => setAuthView('profile');
   const handleCreateAccount = () => setAuthView('profile');
   const handleAuthClose = () => setAuthView(null);
@@ -213,12 +220,14 @@ function App() {
               onChange={setStartStop}
               onUseMyLocation={useMyLocation}
               hasUserLocation={!!userLocation}
+              onActivate={setPinTarget}
             />
             <SearchBar
               placeholder="Where are you going?"
               type="end"
               value={endStop}
               onChange={setEndStop}
+              onActivate={setPinTarget}
             />
           </div>
           <button
@@ -355,6 +364,7 @@ function App() {
       <BottomControls
         onFilterClick={handleFilterClick}
         onAccountClick={handleAccountClick}
+        onSettingsClick={handleSettingsClick}
         pinMode={pinMode}
         onPinToggle={handlePinToggle}
       />
@@ -427,6 +437,11 @@ function App() {
       {authView === 'terms' && (
         // Show Terms modal; on close return to previous auth view or null
         <Terms onClose={() => setAuthView(prevAuthView || null)} />
+      )}
+
+      {/* ----- Settings overlay (front-end only, no auth required) ----- */}
+      {showSettings && (
+        <Settings onBack={handleSettingsClose} />
       )}
     </div>
   );

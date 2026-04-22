@@ -498,7 +498,7 @@ html[data-theme="dark"] .settings-toggle-label {
 }
 
 html[data-theme="dark"] .settings-radio-label {
-  background: #0f172a;
+  background: #1e293b;
   border-color: #334155;
   color: #cbd5e1;
 }
@@ -555,4 +555,62 @@ html[data-theme="dark"] .points-summary {
 
 html[data-theme="dark"] .points-total-label {
   color: #94a3b8;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   OVERLAY & SETTINGS (Overlay.css / Settings.js classes)
+   ───────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .overlay-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .settings-section {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .settings-section-title {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .settings-toggle-row {
+  background: #1e293b;
+  border: none;
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .settings-toggle-label {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .settings-description {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .settings-radio-group {
+  background: #1e293b;
+}
+
+html[data-theme="dark"] .settings-radio-option {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .settings-info {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+/* Ensure profile header text remains highly readable in dark mode */
+html[data-theme="dark"] .profile-title,
+html[data-theme="dark"] .profile-email,
+html[data-theme="dark"] .profile-info-value {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .profile-info-item {
+  background: #1e293b !important;
+  border-color: #334155 !important;
 }

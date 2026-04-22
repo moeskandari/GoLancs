@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Overlay.css';
 
 function SignUpOverlay({ onClose, onSwitchToSignIn }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRetypePassword, setShowRetypePassword] = useState(false);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     // Frontend-only: no backend action yet
@@ -29,11 +32,21 @@ function SignUpOverlay({ onClose, onSwitchToSignIn }) {
           </label>
           <label>
             Password
-            <input type="password" name="password" required />
+            <div className="password-field-group">
+              <input type={showPassword ? 'text' : 'password'} name="password" className="password-input" required />
+              <button type="button" className="password-visibility-btn" onClick={() => setShowPassword(prev => !prev)}>
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </label>
           <label>
             Retype Password
-            <input type="password" name="password2" required />
+            <div className="password-field-group">
+              <input type={showRetypePassword ? 'text' : 'password'} name="password2" className="password-input" required />
+              <button type="button" className="password-visibility-btn" onClick={() => setShowRetypePassword(prev => !prev)}>
+                {showRetypePassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </label>
           <button type="submit" className="primary-btn">Create Your Account</button>
         </form>

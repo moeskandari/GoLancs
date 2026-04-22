@@ -105,32 +105,58 @@
 
 @media (max-width: 768px) {
   .compass-container {
-    top: 10px;
-    right: 10px;
+    /* Position just above the Find Routes area on mobile */
+    top: clamp(102px, 20vw, 142px);
+    right: 12px;
+    z-index: 1114;
   }
   
   .compass {
-    width: 60px;
-    height: 60px;
+    width: 46px;
+    height: 46px;
   }
   
   .compass-needle {
-    height: 40px;
+    height: 30px;
   }
   
   .needle-north {
-    border-bottom: 20px solid #e53935;
+    border-bottom: 15px solid #e53935;
   }
   
   .needle-south {
-    border-top: 20px solid #666;
+    border-top: 15px solid #666;
   }
   
   .compass-labels span {
-    font-size: 0.75rem;
+    font-size: 0.625rem;
   }
 
   .compass-enable-label {
-    font-size: 1.5rem;
+    font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .compass-container {
+    top: clamp(96px, 22vw, 136px);
+    right: 10px;
+  }
+
+  .compass {
+    width: 42px;
+    height: 42px;
+  }
+
+  .compass-needle {
+    height: 27px;
+  }
+
+  .needle-north {
+    border-bottom: 13px solid #e53935;
+  }
+
+  .needle-south {
+    border-top: 13px solid #666;
   }
 }

@@ -88,6 +88,14 @@ function DragDropHandler({ onDrop, onDrag }) {
     if (!map) return;
     const container = map.getContainer();
 
+    const toLatLngFromClient = (clientX, clientY) => {
+      try {
+        return map.mouseEventToLatLng({ clientX, clientY });
+      } catch {
+        return null;
+      }
+    };
+
     const handleDragOver = (ev) => {
       ev.preventDefault();
       try {
@@ -113,14 +121,56 @@ function DragDropHandler({ onDrop, onDrag }) {
       if (onDrag) onDrag(null);
     };
 
+    // Mobile touch drag support for pin button
+    const handleTouchMove = (ev) => {
+      if (!window.__pinTouchDragActive) return;
+      const t = ev.touches && ev.touches[0];
+      if (!t) return;
+      const rect = container.getBoundingClientRect();
+      const withinMap = t.clientX >= rect.left && t.clientX <= rect.right && t.clientY >= rect.top && t.clientY <= rect.bottom;
+      if (!withinMap) {
+        if (onDrag) onDrag(null);
+        return;
+      }
+      const latlng = toLatLngFromClient(t.clientX, t.clientY);
+      if (latlng && onDrag) onDrag(latlng);
+      // Prevent map pan while dragging a pin on touch
+      ev.preventDefault();
+    };
+
+    const handleTouchEnd = (ev) => {
+      if (!window.__pinTouchDragActive) return;
+      const t = ev.changedTouches && ev.changedTouches[0];
+      const moved = !!window.__pinTouchDragMoved;
+      if (t && moved) {
+        const rect = container.getBoundingClientRect();
+        const withinMap = t.clientX >= rect.left && t.clientX <= rect.right && t.clientY >= rect.top && t.clientY <= rect.bottom;
+        if (!withinMap) {
+          if (onDrag) onDrag(null);
+          window.__pinTouchDragActive = false;
+          window.__pinTouchDragMoved = false;
+          return;
+        }
+        const latlng = toLatLngFromClient(t.clientX, t.clientY);
+        if (latlng && onDrop) onDrop(latlng);
+      }
+      if (onDrag) onDrag(null);
+      window.__pinTouchDragActive = false;
+      window.__pinTouchDragMoved = false;
+    };
+
     container.addEventListener('dragover', handleDragOver);
     container.addEventListener('drop', handleDrop);
     container.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
       container.removeEventListener('dragover', handleDragOver);
       container.removeEventListener('drop', handleDrop);
       container.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [map, onDrop, onDrag]);
 

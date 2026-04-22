@@ -99,6 +99,101 @@
   max-width: 640px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE STYLES  –  html[data-theme="dark"]
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html[data-theme="dark"] .overlay-backdrop {
+  background: rgba(0,0,0,0.7);
+}
+
+html[data-theme="dark"] .overlay-card {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .overlay-title {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .overlay-back {
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] .overlay-back:hover {
+  color: #bfdbfe;
+}
+
+html[data-theme="dark"] .overlay-close {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .overlay-close:hover {
+  color: #cbd5e1;
+  background: #334155;
+  border-radius: 50%;
+}
+
+html[data-theme="dark"] .overlay-form label {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .overlay-form input {
+  background: #0f172a;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .overlay-form input::placeholder {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .primary-btn {
+  background: #2196F3;
+  border-color: #1976d2;
+}
+
+html[data-theme="dark"] .primary-btn:hover {
+  background: #1976d2;
+}
+
+html[data-theme="dark"] .link-btn {
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] .link-btn:hover {
+  color: #bfdbfe;
+}
+
+html[data-theme="dark"] .overlay-footer,
+html[data-theme="dark"] .overlay-terms {
+  color: #cbd5e1;
+}
+
+/* Settings-specific dark mode */
+html[data-theme="dark"] .settings-card {
+  max-width: 500px;
+}
+
+html[data-theme="dark"] .settings-content {
+  background: transparent;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .settings-description {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .settings-info {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
 .profile-content {
   margin-top: 28px;
 }

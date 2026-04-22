@@ -60,8 +60,10 @@
 
 @media (max-width: 768px) {
   .weather-icon-container {
-    top: 80px;
-    right: 10px;
+    /* Place below the Find Routes control area on mobile */
+    top: clamp(190px, 36vw, 245px);
+    right: 12px;
+    z-index: 1115;
   }
 
   .weather-icon-btn {
@@ -80,8 +82,8 @@
 
 @media (max-width: 480px) {
   .weather-icon-container {
-    top: 70px;
-    right: 8px;
+    top: clamp(205px, 50vw, 275px);
+    right: 10px;
   }
 
   .weather-icon-btn {

@@ -12,13 +12,13 @@ import './Auth.css';
  */
 function Profile({ onBack, onLogout, onShowTerms }) {
   const {
-    user, points, transactions, rewards, settings,
+    user, points, transactions, rewards,
     signOut, updateProfile, deleteAccount,
     loadPoints, loadRewards, redeemReward, resendVerification,
-    updateSettings, changePassword
+    changePassword
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'points', 'rewards', 'settings'
+  const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'points', 'rewards'
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '' });
   const [editError, setEditError] = useState('');
@@ -33,6 +33,9 @@ function Profile({ onBack, onLogout, onShowTerms }) {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Load points and rewards data when those tabs are shown
   useEffect(() => {
@@ -122,14 +125,8 @@ function Profile({ onBack, onLogout, onShowTerms }) {
     }
   };
 
-  // Settings handlers – apply immediately, no save button needed
-  const handleThemeChange = (theme) => {
-    updateSettings({ theme }).catch(() => {});
-  };
-
-  const handleFontSizeChange = (fontSize) => {
-    updateSettings({ fontSize }).catch(() => {});
-  };
+  // Settings handlers removed – moved to Settings component
+  // Theme and font size can now only be changed from main settings page
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -256,14 +253,6 @@ function Profile({ onBack, onLogout, onShowTerms }) {
           >
             🎁 Rewards
           </button>
-          <button
-            className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-            role="tab"
-            aria-selected={activeTab === 'settings'}
-          >
-            ⚙️ Settings
-          </button>
         </div>
 
         {/* Tab content */}
@@ -358,6 +347,131 @@ function Profile({ onBack, onLogout, onShowTerms }) {
                   </button>
                 </div>
               )}
+
+              {/* Account actions moved into Profile page */}
+              <div className="settings-section">
+                <h4 className="settings-section-title">🔑 Change Password</h4>
+                {passwordMessage && (
+                  <div className="auth-success-inline" role="status">{passwordMessage}</div>
+                )}
+                {passwordError && (
+                  <div className="auth-error" role="alert">
+                    <span className="auth-error-icon">⚠️</span> {passwordError}
+                  </div>
+                )}
+                <form className="auth-form" onSubmit={handlePasswordChange}>
+                  <label className="auth-label" htmlFor="current-password">Current password</label>
+                  <div className="password-field-group">
+                    <input
+                      id="current-password"
+                      className="auth-input password-input"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      required
+                      disabled={passwordSaving}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      className="password-visibility-btn"
+                      onClick={() => setShowCurrentPassword(prev => !prev)}
+                      aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                    >
+                      {showCurrentPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+
+                  <label className="auth-label" htmlFor="new-password">New password</label>
+                  <div className="password-field-group">
+                    <input
+                      id="new-password"
+                      className="auth-input password-input"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      required
+                      disabled={passwordSaving}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="password-visibility-btn"
+                      onClick={() => setShowNewPassword(prev => !prev)}
+                      aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                    >
+                      {showNewPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+
+                  <label className="auth-label" htmlFor="confirm-password">Confirm new password</label>
+                  <div className="password-field-group">
+                    <input
+                      id="confirm-password"
+                      className="auth-input password-input"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      required
+                      disabled={passwordSaving}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="password-visibility-btn"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                    >
+                      {showConfirmPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+
+                  <button type="submit" className="auth-submit-btn" disabled={passwordSaving}>
+                    {passwordSaving ? '⏳ Changing...' : 'Change Password'}
+                  </button>
+                </form>
+              </div>
+
+              <div className="settings-danger-zone">
+                <h4 className="danger-title">⚠️ Danger Zone</h4>
+                <p className="danger-desc">
+                  Deleting your account is permanent. All your data, points, and activity history will be removed.
+                </p>
+
+                {deleteConfirm ? (
+                  <div className="delete-confirm">
+                    <p className="delete-confirm-text">
+                      Are you sure? This action <strong>cannot be undone</strong>.
+                    </p>
+                    <div className="delete-confirm-actions">
+                      <button
+                        className="delete-confirm-btn"
+                        onClick={handleDeleteAccount}
+                        disabled={deleting}
+                      >
+                        {deleting ? '⏳ Deleting...' : 'Yes, delete my account'}
+                      </button>
+                      <button
+                        className="auth-link-btn"
+                        onClick={() => setDeleteConfirm(false)}
+                        disabled={deleting}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="delete-account-btn"
+                    onClick={() => setDeleteConfirm(true)}
+                  >
+                    Delete Account
+                  </button>
+                )}
+                <div style={{ marginTop: 12 }}>
+                  <button className="auth-link-btn" onClick={() => onShowTerms?.()}>View Terms and Conditions</button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -440,149 +554,6 @@ function Profile({ onBack, onLogout, onShowTerms }) {
             </div>
           )}
 
-          {/* ─── Settings tab ─── */}
-          {activeTab === 'settings' && (
-            <div className="profile-section">
-
-              {/* Appearance */}
-              <div className="settings-section">
-                <h4 className="settings-section-title">🌗 Appearance</h4>
-                <div className="settings-toggle-row">
-                  <span className="settings-toggle-label">
-                    {settings.theme === 'dark' ? '🌙 Dark mode' : '☀️ Light mode'}
-                  </span>
-                  <label className="toggle-switch" aria-label="Toggle dark mode">
-                    <input
-                      type="checkbox"
-                      checked={settings.theme === 'dark'}
-                      onChange={(e) => handleThemeChange(e.target.checked ? 'dark' : 'light')}
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-              </div>
-
-              {/* Text size */}
-              <div className="settings-section">
-                <h4 className="settings-section-title">🔤 Text Size</h4>
-                <div className="settings-radio-group" role="radiogroup" aria-label="Font size">
-                  {[['small', 'A', 'Small'], ['medium', 'Aa', 'Medium'], ['large', 'AA', 'Large']].map(
-                    ([value, preview, label]) => (
-                      <label key={value} className="settings-radio-option">
-                        <input
-                          type="radio"
-                          name="fontSize"
-                          value={value}
-                          checked={settings.fontSize === value}
-                          onChange={() => handleFontSizeChange(value)}
-                        />
-                        <span className="settings-radio-label">
-                          <span className={`font-preview font-preview-${value}`}>{preview}</span>
-                          <span className="font-label">{label}</span>
-                        </span>
-                      </label>
-                    )
-                  )}
-                </div>
-              </div>
-
-              {/* Change password */}
-              <div className="settings-section">
-                <h4 className="settings-section-title">🔑 Change Password</h4>
-                {passwordMessage && (
-                  <div className="auth-success-inline" role="status">{passwordMessage}</div>
-                )}
-                {passwordError && (
-                  <div className="auth-error" role="alert">
-                    <span className="auth-error-icon">⚠️</span> {passwordError}
-                  </div>
-                )}
-                <form className="auth-form" onSubmit={handlePasswordChange}>
-                  <label className="auth-label" htmlFor="current-password">Current password</label>
-                  <input
-                    id="current-password"
-                    className="auth-input"
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    required
-                    disabled={passwordSaving}
-                    autoComplete="current-password"
-                  />
-
-                  <label className="auth-label" htmlFor="new-password">New password</label>
-                  <input
-                    id="new-password"
-                    className="auth-input"
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    required
-                    disabled={passwordSaving}
-                    autoComplete="new-password"
-                  />
-
-                  <label className="auth-label" htmlFor="confirm-password">Confirm new password</label>
-                  <input
-                    id="confirm-password"
-                    className="auth-input"
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    required
-                    disabled={passwordSaving}
-                    autoComplete="new-password"
-                  />
-
-                  <button type="submit" className="auth-submit-btn" disabled={passwordSaving}>
-                    {passwordSaving ? '⏳ Changing...' : 'Change Password'}
-                  </button>
-                </form>
-              </div>
-
-              {/* Danger zone */}
-              <div className="settings-danger-zone">
-                <h4 className="danger-title">⚠️ Danger Zone</h4>
-                <p className="danger-desc">
-                  Deleting your account is permanent. All your data, points, and activity history will be removed.
-                </p>
-
-                {deleteConfirm ? (
-                  <div className="delete-confirm">
-                    <p className="delete-confirm-text">
-                      Are you sure? This action <strong>cannot be undone</strong>.
-                    </p>
-                    <div className="delete-confirm-actions">
-                      <button
-                        className="delete-confirm-btn"
-                        onClick={handleDeleteAccount}
-                        disabled={deleting}
-                      >
-                        {deleting ? '⏳ Deleting...' : 'Yes, delete my account'}
-                      </button>
-                      <button
-                        className="auth-link-btn"
-                        onClick={() => setDeleteConfirm(false)}
-                        disabled={deleting}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    className="delete-account-btn"
-                    onClick={() => setDeleteConfirm(true)}
-                  >
-                    Delete Account
-                  </button>
-                )}
-                <div style={{marginTop: 12}}>
-                  <button className="auth-link-btn" onClick={() => onShowTerms?.()}>View Terms and Conditions</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

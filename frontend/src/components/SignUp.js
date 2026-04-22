@@ -17,6 +17,8 @@ function SignUp({ onClose, onCreateAccount, onSwitchToSignIn, onShowTerms }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [retypePassword, setRetypePassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRetypePassword, setShowRetypePassword] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -141,17 +143,27 @@ function SignUp({ onClose, onCreateAccount, onSwitchToSignIn, onShowTerms }) {
           />
 
           <label className="auth-label" htmlFor="signup-password">Password</label>
-          <input
-            id="signup-password"
-            className="auth-input"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-            disabled={submitting}
-          />
+          <div className="password-field-group">
+            <input
+              id="signup-password"
+              className="auth-input password-input"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+              disabled={submitting}
+            />
+            <button
+              type="button"
+              className="password-visibility-btn"
+              onClick={() => setShowPassword(prev => !prev)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
           {/* Password strength indicator */}
           {password.length > 0 && (
@@ -175,17 +187,27 @@ function SignUp({ onClose, onCreateAccount, onSwitchToSignIn, onShowTerms }) {
           )}
 
           <label className="auth-label" htmlFor="signup-retype-password">Retype Password</label>
-          <input
-            id="signup-retype-password"
-            className="auth-input"
-            type="password"
-            placeholder="Retype Password"
-            value={retypePassword}
-            onChange={(e) => setRetypePassword(e.target.value)}
-            autoComplete="new-password"
-            required
-            disabled={submitting}
-          />
+          <div className="password-field-group">
+            <input
+              id="signup-retype-password"
+              className="auth-input password-input"
+              type={showRetypePassword ? 'text' : 'password'}
+              placeholder="Retype Password"
+              value={retypePassword}
+              onChange={(e) => setRetypePassword(e.target.value)}
+              autoComplete="new-password"
+              required
+              disabled={submitting}
+            />
+            <button
+              type="button"
+              className="password-visibility-btn"
+              onClick={() => setShowRetypePassword(prev => !prev)}
+              aria-label={showRetypePassword ? 'Hide password' : 'Show password'}
+            >
+              {showRetypePassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
           {retypePassword.length > 0 && (
             <div className={`pw-check ${passwordsMatch ? 'pass' : 'fail'}`}>
