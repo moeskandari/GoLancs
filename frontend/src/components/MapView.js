@@ -301,6 +301,26 @@ function MapInteractionHandler({ onInteraction }) {
   return null;
 }
 
+// Dev-only: attach the Leaflet map instance to window._leaflet_map when ?mapdebug=1
+function DebugAttach() {
+  const map = useMap();
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined' || !window.location) return;
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('mapdebug') || params.has('geodebug')) {
+        // eslint-disable-next-line no-console
+        console.log('Map debug: attaching map to window._leaflet_map (DebugAttach)');
+        Object.defineProperty(window, '_leaflet_map', { value: map, configurable: true, writable: true });
+      }
+    } catch (e) {
+      // ignore
+    }
+    return () => {};
+  }, [map]);
+  return null;
+}
+
 // Component that smoothly pans to user's location when activated
 function PanToUser({ userLocation, active }) {
   const map = useMap();
@@ -322,12 +342,17 @@ function PanToUser({ userLocation, active }) {
   useEffect(() => {
     if (!active || !userLocation) return;
 
+    // Validate numeric coordinates
+    const latNum = Number(userLocation.lat);
+    const lonNum = Number(userLocation.lon);
+    if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) return;
+
     const alpha = 0.25; // smoothing factor (0..1) lower = smoother
     const minDistanceMeters = 20; // only recenter if moved more than this
 
-    const newLoc = { lat: userLocation.lat, lon: userLocation.lon };
+    const newLoc = { lat: latNum, lon: lonNum };
 
-    if (!lastSmoothed.current) {
+    if (!lastSmoothed.current || !Number.isFinite(lastSmoothed.current.lat) || !Number.isFinite(lastSmoothed.current.lon)) {
       lastSmoothed.current = newLoc;
     } else {
       // exponential moving average
@@ -337,15 +362,24 @@ function PanToUser({ userLocation, active }) {
       };
     }
 
-    const centre = map.getCenter();
-    const centreLat = centre.lat;
-    const centreLon = centre.lng;
+    const centre = map && map.getCenter && map.getCenter();
+    if (!centre || !Number.isFinite(centre.lat) || !Number.isFinite(centre.lng)) return;
+
+    const centreLat = Number(centre.lat);
+    const centreLon = Number(centre.lng);
     const distKm = haversine(centreLat, centreLon, lastSmoothed.current.lat, lastSmoothed.current.lon);
     const distMeters = distKm * 1000;
 
     if (distMeters >= minDistanceMeters) {
-      // gentle fly; keep current zoom or use 15 minimum
-      map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], Math.max(map.getZoom(), 15), { duration: 0.6 });
+      try {
+        // gentle fly; keep current zoom or use 15 minimum
+        const targetZoom = Math.max((map && map.getZoom && map.getZoom()) || 15, 15);
+        // Use a slightly shorter duration to reduce overshoot on low-end devices
+        map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom, { duration: 0.4 });
+      } catch (err) {
+        // Fallback to panTo if flyTo fails for any reason
+        try { map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]); } catch (e) { console.warn('PanToUser: failed to pan map', e); }
+      }
     }
   }, [active, userLocation, map]);
 
@@ -1091,12 +1125,30 @@ function MapView({ userLocation, startLocation, endLocation, selectedTime = null
         zoomControl={false}
         minZoom={9}
         maxZoom={16}
+        whenCreated={(m) => {
+          try {
+            if (typeof window !== 'undefined' && window.location && window.location.search) {
+              const params = new URLSearchParams(window.location.search);
+              if (params.has('mapdebug') || params.has('geodebug')) {
+                // Attach for temporary debugging only; activated via ?mapdebug=1 or ?geodebug=1
+                // Avoid exposing in normal usage.
+                // eslint-disable-next-line no-console
+                console.log('Map debug: attaching Leaflet map to window._leaflet_map');
+                // Non-enumerable assignment to avoid accidental leaks in serialization
+                Object.defineProperty(window, '_leaflet_map', { value: m, configurable: true, writable: true });
+              }
+            }
+          } catch (e) {
+            // ignore failures in older browsers/environments
+          }
+        }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapBounds />
+        <DebugAttach />
         <FitToRoute
           startLocation={startLocation}
           endLocation={endLocation}
