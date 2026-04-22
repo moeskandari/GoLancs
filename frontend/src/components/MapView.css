@@ -106,6 +106,33 @@
   z-index: 1000;
 }
 
+.follow-toggle-wrapper {
+  position: absolute;
+  bottom: 150px;
+  right: 16px;
+  z-index: 1000;
+}
+
+.follow-toggle-btn {
+  width: 84px;
+  height: 36px;
+  border-radius: 18px;
+  border: none;
+  background: #fff;
+  color: #007AFF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-weight: 700;
+}
+
+.follow-toggle-btn.active {
+  background: #007AFF;
+  color: #fff;
+}
+
 .locate-me-btn {
   width: 44px;
   height: 44px;

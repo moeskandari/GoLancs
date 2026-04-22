@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
-import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
+import { useState, useEffect, useMemo, Fragment, useRef } from 'react';
+import { MapContainer, TileLayer, useMap, useMapEvents, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
@@ -273,14 +273,82 @@ function LocateMeButton({ onLocate }) {
   );
 }
 
+// Toggle button to enable continuous follow of user's location
+function FollowToggleButton({ active, onToggle }) {
+  const map = useMap();
+  return (
+    <div className="follow-toggle-wrapper">
+      <button
+        className={`follow-toggle-btn ${active ? 'active' : ''}`}
+        onClick={(e) => { e.stopPropagation(); onToggle(!active); if (!active) map.setZoom(Math.max(map.getZoom(), 15)); }}
+        title={active ? 'Disable follow' : 'Follow my location'}
+        aria-pressed={active}
+        aria-label={active ? 'Disable follow' : 'Follow my location'}
+      >
+        {active ? 'Following' : 'Follow'}
+      </button>
+    </div>
+  );
+}
+
+// Handler to disable follow mode on user interactions (drag/zoom)
+function MapInteractionHandler({ onInteraction }) {
+  useMapEvents({
+    dragstart: () => onInteraction && onInteraction(),
+    zoomstart: () => onInteraction && onInteraction(),
+    movestart: () => onInteraction && onInteraction()
+  });
+  return null;
+}
+
 // Component that smoothly pans to user's location when activated
 function PanToUser({ userLocation, active }) {
   const map = useMap();
+  const lastSmoothed = useRef(null);
+
+  // Haversine distance (km)
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const toRad = (v) => (v * Math.PI) / 180;
+    const R = 6371; // km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+      * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   useEffect(() => {
-    if (active && userLocation) {
-      map.flyTo([userLocation.lat, userLocation.lon], Math.max(map.getZoom(), 15), { duration: 0.8 });
+    if (!active || !userLocation) return;
+
+    const alpha = 0.25; // smoothing factor (0..1) lower = smoother
+    const minDistanceMeters = 20; // only recenter if moved more than this
+
+    const newLoc = { lat: userLocation.lat, lon: userLocation.lon };
+
+    if (!lastSmoothed.current) {
+      lastSmoothed.current = newLoc;
+    } else {
+      // exponential moving average
+      lastSmoothed.current = {
+        lat: lastSmoothed.current.lat * (1 - alpha) + newLoc.lat * alpha,
+        lon: lastSmoothed.current.lon * (1 - alpha) + newLoc.lon * alpha
+      };
+    }
+
+    const centre = map.getCenter();
+    const centreLat = centre.lat;
+    const centreLon = centre.lng;
+    const distKm = haversine(centreLat, centreLon, lastSmoothed.current.lat, lastSmoothed.current.lon);
+    const distMeters = distKm * 1000;
+
+    if (distMeters >= minDistanceMeters) {
+      // gentle fly; keep current zoom or use 15 minimum
+      map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], Math.max(map.getZoom(), 15), { duration: 0.6 });
     }
   }, [active, userLocation, map]);
+
   return null;
 }
 
@@ -873,6 +941,7 @@ function TrafficZones({ show, selectedTime, selectedDay }) {
 
 function MapView({ userLocation, startLocation, endLocation, selectedTime = null, selectedDay = null, showBusStops = true, showTrainStations = false, showTrafficConditions = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService, pinMode = false }) {
   const [panToUser, setPanToUser] = useState(false);
+  const [followUser, setFollowUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
   const defaultCenter = [53.96, -2.8];
@@ -1095,8 +1164,11 @@ function MapView({ userLocation, startLocation, endLocation, selectedTime = null
           />
         )}
 
-        <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
-        <PanToUser userLocation={userLocation} active={panToUser} />
+        <LocateMeButton onLocate={() => { setPanToUser(true); setFollowUser(false); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
+        <FollowToggleButton active={followUser} onToggle={(v) => { setFollowUser(!!v); if (v) setPanToUser(false); }} />
+        <PanToUser userLocation={userLocation} active={panToUser || followUser} />
+        {/* Map interaction handler will disable follow when the user manually drags/zooms */}
+        <MapInteractionHandler onInteraction={() => { setFollowUser(false); }} />
 
         {/* Nearby transport stop markers */}
         {(showBusStops || showTrainStations) && (
