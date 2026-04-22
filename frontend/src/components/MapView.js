@@ -378,8 +378,8 @@ function PanToUser({ userLocation, active }) {
     const lonNum = Number(userLocation.lon);
     if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) return;
 
-    const alpha = 0.25; // smoothing factor (0..1) lower = smoother
-    const minDistanceMeters = 20; // only recenter if moved more than this
+    const alpha = 0.6; // smoothing factor (0..1) higher = more responsive to new fixes
+    const minDistanceMeters = 5; // only recenter if moved more than this
 
     const newLoc = { lat: latNum, lon: lonNum };
 
@@ -404,27 +404,30 @@ function PanToUser({ userLocation, active }) {
     if (distMeters >= minDistanceMeters) {
       try {
         const now = Date.now();
-        // Rate-limit moves to avoid spamming flyTo on noisy updates (min 350ms)
-        if (now - lastMoveAt.current < 350) return;
+        // Rate-limit moves to avoid spamming flyTo on noisy updates (min 200ms)
+        if (now - lastMoveAt.current < 200) return;
         lastMoveAt.current = now;
+
+        // Stop any ongoing animation so new locations apply immediately
+        try { if (map && map.stop) map.stop(); } catch (e) { /* ignore */ }
 
         // gentle fly/pan behaviour heuristics
         const targetZoom = Math.max((map && map.getZoom && map.getZoom()) || 15, 15);
 
-        // Very large jumps (e.g., >10km) should centre instantly to avoid dramatic long-distance flight
-        if (distMeters > 10000) {
+        // Moderate to large jumps should snap immediately to avoid long flights that fall behind
+        if (distMeters > 150) {
           map.setView([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom);
           return;
         }
 
-        // Very small moves: use panTo for smoother subtle motion
+        // Very small moves: use panTo for subtle motion
         if (distMeters < 50) {
           map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]);
           return;
         }
 
-        // Scale fly duration with distance (clamped) so longer moves feel natural but not excessive
-        const duration = Math.min(1.5, Math.max(0.25, distMeters / 4000));
+        // Scale fly duration with distance (clamped, shorter than before) so follow feels snappy
+        const duration = Math.min(0.8, Math.max(0.12, distMeters / 4000));
         map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom, { duration });
       } catch (err) {
         try { map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]); } catch (e) { console.warn('PanToUser: failed to pan map', e); }
