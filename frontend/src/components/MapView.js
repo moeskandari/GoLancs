@@ -325,6 +325,7 @@ function DebugAttach() {
 function PanToUser({ userLocation, active }) {
   const map = useMap();
   const lastSmoothed = useRef(null);
+  const lastMoveAt = useRef(0);
 
   // Haversine distance (km)
   const haversine = (lat1, lon1, lat2, lon2) => {
@@ -372,12 +373,30 @@ function PanToUser({ userLocation, active }) {
 
     if (distMeters >= minDistanceMeters) {
       try {
-        // gentle fly; keep current zoom or use 15 minimum
+        const now = Date.now();
+        // Rate-limit moves to avoid spamming flyTo on noisy updates (min 350ms)
+        if (now - lastMoveAt.current < 350) return;
+        lastMoveAt.current = now;
+
+        // gentle fly/pan behaviour heuristics
         const targetZoom = Math.max((map && map.getZoom && map.getZoom()) || 15, 15);
-        // Use a slightly shorter duration to reduce overshoot on low-end devices
-        map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom, { duration: 0.4 });
+
+        // Very large jumps (e.g., >10km) should centre instantly to avoid dramatic long-distance flight
+        if (distMeters > 10000) {
+          map.setView([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom);
+          return;
+        }
+
+        // Very small moves: use panTo for smoother subtle motion
+        if (distMeters < 50) {
+          map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]);
+          return;
+        }
+
+        // Scale fly duration with distance (clamped) so longer moves feel natural but not excessive
+        const duration = Math.min(1.5, Math.max(0.25, distMeters / 4000));
+        map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom, { duration });
       } catch (err) {
-        // Fallback to panTo if flyTo fails for any reason
         try { map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]); } catch (e) { console.warn('PanToUser: failed to pan map', e); }
       }
     }
