@@ -286,18 +286,26 @@ function FollowToggleButton({ active, onToggle, userLocation }) {
           if (!active) {
             const lat = Number(userLocation?.lat);
             const lon = Number(userLocation?.lon);
-            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            const accuracy = Number(userLocation?.accuracy);
+            const ts = userLocation?.timestamp ? Number(userLocation.timestamp) : null;
+            const ageMs = ts ? (Date.now() - ts) : Infinity;
+
+            // Only snap immediately if we have a reasonably recent, accurate fix
+            const MAX_ACCURACY = 1000; // meters
+            const MAX_AGE_MS = 30 * 1000; // 30 seconds
+
+            if (Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(accuracy) && accuracy <= MAX_ACCURACY && ageMs <= MAX_AGE_MS) {
               const targetZoom = Math.max((map && map.getZoom && map.getZoom()) || 15, 15);
               try {
                 map.setView([lat, lon], targetZoom);
               } catch (e) {
-                // fallback: just set zoom
                 try { map.setZoom(targetZoom); } catch (ee) {}
               }
             } else {
-              // no user location yet — at least ensure zoom is reasonable
+              // Poor/old fix: enable follow but do not snap; this avoids centring to an inaccurate location
               try { map.setZoom(Math.max(map.getZoom(), 15)); } catch (e) {}
             }
+
             onToggle(true);
             return;
           }
