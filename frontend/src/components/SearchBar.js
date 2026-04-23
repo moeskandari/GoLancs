@@ -3,7 +3,7 @@ import './SearchBar.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUserLocation }) {
+function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUserLocation, onActivate }) {
   const [inputText, setInputText] = useState('');
   const [results, setResults] = useState({ stops: [], places: [] });
   const [showDropdown, setShowDropdown] = useState(false);
@@ -133,6 +133,7 @@ function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUse
   };
 
   const handleFocus = () => {
+    onActivate?.(type);
     // Show dropdown with "Use My Location" even when input is empty
     if (onUseMyLocation && hasUserLocation && !isSelected && inputText.length < 2) {
       setShowDropdown(true);
@@ -182,6 +183,7 @@ function SearchBar({ placeholder, type, value, onChange, onUseMyLocation, hasUse
           value={inputText}
           onChange={handleInputChange}
           onFocus={handleFocus}
+          onClick={() => onActivate?.(type)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`search-input ${isSelected ? 'selected' : ''}`}

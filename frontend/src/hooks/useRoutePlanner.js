@@ -158,19 +158,20 @@ export default function useRoutePlanner(userLocation) {
 
   const handleSortChange = (newSort) => setSortBy(newSort);
 
-  // Handle pin-drop from map
-  const handlePinDrop = useCallback(async (latlng) => {
+  // Handle pin-drop from map (target can be 'start' or 'end')
+  const handlePinDrop = useCallback(async (latlng, target = 'end') => {
     if (!latlng) return;
+    const setTargetStop = target === 'start' ? setStartStop : setEndStop;
     try {
       const data = await reverseGeocodeFull(latlng.lat, latlng.lng);
       const name = (data && data.name) ? data.name : 'Pinned location';
-      setEndStop({
+      setTargetStop({
         type: 'place', name, common_name: name,
         lat: latlng.lat, lon: latlng.lng,
         fullName: data?.display_name
       });
     } catch {
-      setEndStop({
+      setTargetStop({
         type: 'place', name: 'Pinned location', common_name: 'Pinned location',
         lat: latlng.lat, lon: latlng.lng
       });

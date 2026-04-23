@@ -14,6 +14,8 @@ function ResetPassword({ token, onClose, onSwitchToSignIn }) {
   const { resetPassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState([]);
@@ -106,17 +108,27 @@ function ResetPassword({ token, onClose, onSwitchToSignIn }) {
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <label className="auth-label" htmlFor="reset-password">New Password</label>
-              <input
-                id="reset-password"
-                className="auth-input"
-                type="password"
-                placeholder="New password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                disabled={submitting}
-              />
+              <div className="password-field-group">
+                <input
+                  id="reset-password"
+                  className="auth-input password-input"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="New password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  disabled={submitting}
+                />
+                <button
+                  type="button"
+                  className="password-visibility-btn"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  aria-label={showPassword ? 'Hide new password' : 'Show new password'}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
 
               {password.length > 0 && (
                 <div className="password-requirements" aria-live="polite">
@@ -139,17 +151,27 @@ function ResetPassword({ token, onClose, onSwitchToSignIn }) {
               )}
 
               <label className="auth-label" htmlFor="reset-confirm-password">Confirm Password</label>
-              <input
-                id="reset-confirm-password"
-                className="auth-input"
-                type="password"
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                disabled={submitting}
-              />
+              <div className="password-field-group">
+                <input
+                  id="reset-confirm-password"
+                  className="auth-input password-input"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  disabled={submitting}
+                />
+                <button
+                  type="button"
+                  className="password-visibility-btn"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
 
               {confirmPassword.length > 0 && (
                 <div className={`pw-check ${passwordsMatch ? 'pass' : 'fail'}`}>

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Overlay.css';
 
 function SignInOverlay({ onClose, onSwitchToSignUp, onSignIn }) {
+  const [showPassword, setShowPassword] = useState(false);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     // Frontend-only: do nothing here; call onSignIn to progress to profile placeholder
@@ -20,7 +22,12 @@ function SignInOverlay({ onClose, onSwitchToSignUp, onSignIn }) {
           </label>
           <label>
             Password
-            <input type="password" name="password" required />
+            <div className="password-field-group">
+              <input type={showPassword ? 'text' : 'password'} name="password" className="password-input" required />
+              <button type="button" className="password-visibility-btn" onClick={() => setShowPassword(prev => !prev)}>
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </label>
           <button type="submit" className="primary-btn">Sign In</button>
           <button type="button" className="link-btn">Forgot Password?</button>

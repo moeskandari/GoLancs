@@ -15,6 +15,7 @@ function SignIn({ onClose, onSignIn, onSwitchToSignUp, onForgotPassword, onShowT
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -84,17 +85,27 @@ function SignIn({ onClose, onSignIn, onSwitchToSignUp, onForgotPassword, onShowT
           />
 
           <label className="auth-label" htmlFor="signin-password">Password</label>
-          <input
-            id="signin-password"
-            className="auth-input"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-            disabled={submitting}
-          />
+          <div className="password-field-group">
+            <input
+              id="signin-password"
+              className="auth-input password-input"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+              disabled={submitting}
+            />
+            <button
+              type="button"
+              className="password-visibility-btn"
+              onClick={() => setShowPassword(prev => !prev)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
           <button type="submit" className="auth-submit-btn" disabled={submitting}>
             {submitting ? '⏳ Signing in...' : 'Sign in'}
