@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
-import { MapContainer, TileLayer, useMap, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
+import { useState, useEffect, useMemo, Fragment, useRef } from 'react';
+import { MapContainer, TileLayer, useMap, useMapEvents, Marker, Polyline, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
@@ -323,14 +323,168 @@ function LocateMeButton({ onLocate }) {
   );
 }
 
+// Toggle button to enable continuous follow of user's location
+function FollowToggleButton({ active, onToggle, userLocation }) {
+  const map = useMap();
+  return (
+    <div className="follow-toggle-wrapper">
+      <button
+        className={`follow-toggle-btn ${active ? 'active' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          // Enabling follow: if we have a valid userLocation, centre immediately with setView
+          if (!active) {
+            const lat = Number(userLocation?.lat);
+            const lon = Number(userLocation?.lon);
+            const accuracy = Number(userLocation?.accuracy);
+            const ts = userLocation?.timestamp ? Number(userLocation.timestamp) : null;
+            const ageMs = ts ? (Date.now() - ts) : Infinity;
+
+            // Only snap immediately if we have a reasonably recent, accurate fix
+            const MAX_ACCURACY = 1000; // meters
+            const MAX_AGE_MS = 30 * 1000; // 30 seconds
+
+            if (Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(accuracy) && accuracy <= MAX_ACCURACY && ageMs <= MAX_AGE_MS) {
+              const targetZoom = Math.max((map && map.getZoom && map.getZoom()) || 15, 15);
+              try {
+                map.setView([lat, lon], targetZoom);
+              } catch (e) {
+                try { map.setZoom(targetZoom); } catch (ee) {}
+              }
+            } else {
+              // Poor/old fix: enable follow but do not snap; this avoids centring to an inaccurate location
+              try { map.setZoom(Math.max(map.getZoom(), 15)); } catch (e) {}
+            }
+
+            onToggle(true);
+            return;
+          }
+          onToggle(false);
+        }}
+        title={active ? 'Disable follow' : 'Follow my location'}
+        aria-pressed={active}
+        aria-label={active ? 'Disable follow' : 'Follow my location'}
+      >
+        {active ? 'Following' : 'Follow'}
+      </button>
+    </div>
+  );
+}
+
+// Handler to disable follow mode on user interactions (drag/zoom)
+function MapInteractionHandler({ onInteraction }) {
+  useMapEvents({
+    dragstart: () => onInteraction && onInteraction(),
+    zoomstart: () => onInteraction && onInteraction(),
+    movestart: () => onInteraction && onInteraction()
+  });
+  return null;
+}
+
+// Dev-only: attach the Leaflet map instance to window._leaflet_map when ?mapdebug=1
+function DebugAttach() {
+  const map = useMap();
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined' || !window.location) return;
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('mapdebug') || params.has('geodebug')) {
+        // eslint-disable-next-line no-console
+        console.log('Map debug: attaching map to window._leaflet_map (DebugAttach)');
+        Object.defineProperty(window, '_leaflet_map', { value: map, configurable: true, writable: true });
+      }
+    } catch (e) {
+      // ignore
+    }
+    return () => {};
+  }, [map]);
+  return null;
+}
+
 // Component that smoothly pans to user's location when activated
 function PanToUser({ userLocation, active }) {
   const map = useMap();
+  const lastSmoothed = useRef(null);
+  const lastMoveAt = useRef(0);
+
+  // Haversine distance (km)
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const toRad = (v) => (v * Math.PI) / 180;
+    const R = 6371; // km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+      * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   useEffect(() => {
-    if (active && userLocation) {
-      map.flyTo([userLocation.lat, userLocation.lon], Math.max(map.getZoom(), 15), { duration: 0.8 });
+    if (!active || !userLocation) return;
+
+    // Validate numeric coordinates
+    const latNum = Number(userLocation.lat);
+    const lonNum = Number(userLocation.lon);
+    if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) return;
+
+    const alpha = 0.6; // smoothing factor (0..1) higher = more responsive to new fixes
+    const minDistanceMeters = 5; // only recenter if moved more than this
+
+    const newLoc = { lat: latNum, lon: lonNum };
+
+    if (!lastSmoothed.current || !Number.isFinite(lastSmoothed.current.lat) || !Number.isFinite(lastSmoothed.current.lon)) {
+      lastSmoothed.current = newLoc;
+    } else {
+      // exponential moving average
+      lastSmoothed.current = {
+        lat: lastSmoothed.current.lat * (1 - alpha) + newLoc.lat * alpha,
+        lon: lastSmoothed.current.lon * (1 - alpha) + newLoc.lon * alpha
+      };
+    }
+
+    const centre = map && map.getCenter && map.getCenter();
+    if (!centre || !Number.isFinite(centre.lat) || !Number.isFinite(centre.lng)) return;
+
+    const centreLat = Number(centre.lat);
+    const centreLon = Number(centre.lng);
+    const distKm = haversine(centreLat, centreLon, lastSmoothed.current.lat, lastSmoothed.current.lon);
+    const distMeters = distKm * 1000;
+
+    if (distMeters >= minDistanceMeters) {
+      try {
+        const now = Date.now();
+        // Rate-limit moves to avoid spamming flyTo on noisy updates (min 200ms)
+        if (now - lastMoveAt.current < 200) return;
+        lastMoveAt.current = now;
+
+        // Stop any ongoing animation so new locations apply immediately
+        try { if (map && map.stop) map.stop(); } catch (e) { /* ignore */ }
+
+        // gentle fly/pan behaviour heuristics
+        const targetZoom = Math.max((map && map.getZoom && map.getZoom()) || 15, 15);
+
+        // Moderate to large jumps should snap immediately to avoid long flights that fall behind
+        if (distMeters > 150) {
+          map.setView([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom);
+          return;
+        }
+
+        // Very small moves: use panTo for subtle motion
+        if (distMeters < 50) {
+          map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]);
+          return;
+        }
+
+        // Scale fly duration with distance (clamped, shorter than before) so follow feels snappy
+        const duration = Math.min(0.8, Math.max(0.12, distMeters / 4000));
+        map.flyTo([lastSmoothed.current.lat, lastSmoothed.current.lon], targetZoom, { duration });
+      } catch (err) {
+        try { map.panTo([lastSmoothed.current.lat, lastSmoothed.current.lon]); } catch (e) { console.warn('PanToUser: failed to pan map', e); }
+      }
     }
   }, [active, userLocation, map]);
+
   return null;
 }
 
@@ -923,6 +1077,7 @@ function TrafficZones({ show, selectedTime, selectedDay }) {
 
 function MapView({ userLocation, startLocation, endLocation, selectedTime = null, selectedDay = null, showBusStops = true, showTrainStations = false, showTrafficConditions = false, routes, selectedRoute, onLocateMe, onPinDrop, currentWeather, weatherLoading, onWeatherClick, liveVehicles, liveTrackingActive, trackedLeg, trackedTrainService, pinMode = false }) {
   const [panToUser, setPanToUser] = useState(false);
+  const [followUser, setFollowUser] = useState(false);
   const [dragLatLng, setDragLatLng] = useState(null);
 
   const defaultCenter = [53.96, -2.8];
@@ -1072,12 +1227,30 @@ function MapView({ userLocation, startLocation, endLocation, selectedTime = null
         zoomControl={false}
         minZoom={9}
         maxZoom={16}
+        whenCreated={(m) => {
+          try {
+            if (typeof window !== 'undefined' && window.location && window.location.search) {
+              const params = new URLSearchParams(window.location.search);
+              if (params.has('mapdebug') || params.has('geodebug')) {
+                // Attach for temporary debugging only; activated via ?mapdebug=1 or ?geodebug=1
+                // Avoid exposing in normal usage.
+                // eslint-disable-next-line no-console
+                console.log('Map debug: attaching Leaflet map to window._leaflet_map');
+                // Non-enumerable assignment to avoid accidental leaks in serialization
+                Object.defineProperty(window, '_leaflet_map', { value: m, configurable: true, writable: true });
+              }
+            }
+          } catch (e) {
+            // ignore failures in older browsers/environments
+          }
+        }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapBounds />
+        <DebugAttach />
         <FitToRoute
           startLocation={startLocation}
           endLocation={endLocation}
@@ -1145,8 +1318,11 @@ function MapView({ userLocation, startLocation, endLocation, selectedTime = null
           />
         )}
 
-        <LocateMeButton onLocate={() => { setPanToUser(true); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
-        <PanToUser userLocation={userLocation} active={panToUser} />
+        <LocateMeButton onLocate={() => { setPanToUser(true); setFollowUser(false); onLocateMe?.(); setTimeout(() => setPanToUser(false), 1000); }} />
+        <FollowToggleButton active={followUser} onToggle={(v) => { setFollowUser(!!v); if (v) setPanToUser(false); }} userLocation={userLocation} />
+        <PanToUser userLocation={userLocation} active={panToUser || followUser} />
+        {/* Map interaction handler will disable follow when the user manually drags/zooms */}
+        <MapInteractionHandler onInteraction={() => { setFollowUser(false); }} />
 
         {/* Nearby transport stop markers */}
         {(showBusStops || showTrainStations) && (
