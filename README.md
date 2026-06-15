@@ -4,18 +4,150 @@ SCC200 Group 1 — A multi-modal transport route planner for Lancaster, Preston,
 
 ---
 
+## Personal Computer Quick Start
+
+> Follow these steps if you received the project as a zip file and want to run it on your own Mac, Windows, or Linux machine. You can use either **Docker** or **Podman** — both work.
+
+### Step 1 — Install a container runtime
+
+Pick one. Docker Desktop is easier to set up; Podman Desktop is open-source and what the lab machines use.
+
+**Option A — Docker Desktop (recommended for personal machines)**
+
+| OS | Link |
+|----|------|
+| Mac (Apple Silicon or Intel) | https://docs.docker.com/desktop/install/mac-install/ |
+| Windows 10/11 | https://docs.docker.com/desktop/install/windows-install/ |
+| Linux | https://docs.docker.com/desktop/install/linux-install/ |
+
+After installing, open Docker Desktop and wait until the status bar shows **"Docker Desktop is running"** (green icon in the system tray / menu bar).
+
+**Option B — Podman Desktop**
+
+| OS | Link |
+|----|------|
+| Mac (Apple Silicon or Intel) | https://podman-desktop.io/downloads/macos |
+| Windows 10/11 | https://podman-desktop.io/downloads/windows |
+| Linux | https://podman-desktop.io/downloads/linux |
+
+After installing, open Podman Desktop and initialise the Podman machine when prompted (one-time setup). You also need `podman-compose`:
+```bash
+pip3 install podman-compose
+```
+
+### Step 2 — Open a terminal in the project folder
+
+**Mac / Linux:**
+```bash
+cd path/to/Group1-200-Project
+```
+
+**Windows (PowerShell):**
+```powershell
+cd C:\path\to\Group1-200-Project
+```
+
+### Step 3 — Start everything
+
+**If you installed Docker:**
+```bash
+docker compose up -d
+```
+
+**If you installed Podman:**
+```bash
+podman-compose up -d
+```
+
+This builds the frontend and backend images, seeds the database from the included backup, and starts all three services. **The first run takes 2–5 minutes** while images are downloaded and built. Subsequent starts take about 10 seconds.
+
+Watch progress with:
+```bash
+# Docker
+docker compose logs -f
+
+# Podman
+podman-compose logs -f
+```
+
+Press `Ctrl+C` to stop watching logs (the app keeps running).
+
+### Step 4 — Open the app
+
+Once all three containers are running, open your browser to:
+
+**http://localhost:5101**
+
+To confirm everything is healthy:
+```bash
+# Docker
+docker compose ps
+
+# Podman
+podman ps
+```
+
+All three services (`group1db`, `group1-backend`, `group1-frontend`) should show **"Up"** or **"healthy"**.
+
+### Step 5 — Stop the app
+
+```bash
+# Docker
+docker compose down
+
+# Podman
+podman-compose down
+```
+
+Your database data is preserved in a Docker/Podman volume and will be there next time you start the app.
+
+To delete all saved data and start completely fresh:
+```bash
+# Docker
+docker compose down -v
+
+# Podman
+podman-compose down -v
+```
+
+### Troubleshooting
+
+**Port already in use** — another app is using port 5100, 5101, or 5050. Find and stop it:
+```bash
+# Mac / Linux
+lsof -i :5101
+
+# Windows PowerShell
+netstat -ano | findstr :5101
+```
+
+**Containers crash on first start** — the database may need a moment to initialise before the backend connects. Restart the backend:
+```bash
+# Docker
+docker compose restart group1-backend
+
+# Podman
+podman restart group1-backend
+```
+
+**"Cannot connect to the Docker daemon"** — Docker Desktop (or Podman Desktop) is not running. Open the app first.
+
+**Windows line-ending errors in scripts** — run `git config core.autocrlf false`, delete the folder, and re-unzip.
+
+---
+
 ## Architecture
 
 ```
-Browser → http://localhost:5001
+Browser → http://localhost:5101
            │
     ┌──────┴──────────────────┐
-    │   Frontend (React)      │  Port 5001
+    │   Frontend (React)      │  Port 5101
     │   group1-frontend       │
     └──────┬──────────────────┘
            │ HTTP
     ┌──────┴──────────────────┐
-    │   Backend (Node/Express)│  Port 5000
+    │   Backend (Node/Express)│  Port 5100
     │   group1-backend        │
     └──────┬──────────────────┘
            │ SQL
@@ -33,7 +165,7 @@ Browser → http://localhost:5001
 - **Podman** (1.9+) and **podman-compose**
 - **Node.js 18+** (for local dev without containers)
 - **Python 3** (for data import scripts)
-- Ports **5000**, **5001**, **5050** available
+- Ports **5100**, **5101**, **5050** available
 
 ---
 
@@ -48,7 +180,7 @@ cd "/home/bylesl/h-drive/Year 2/SCC200"
 
 This automatically: backs up the DB → stops old containers → pulls base images → rebuilds → restores DB → starts everything. Takes ~30–45 seconds.
 
-Then open **http://localhost:5001**.
+Then open **http://localhost:5101**.
 
 ### Alternative: Podman Compose Only
 
@@ -151,10 +283,10 @@ python3 import_rail_data.py
 
 ### Persistence on Lab Machines
 
-The database is backed up to `postgres/group1db_backup.sql` on the h-drive. On restart, `lab_restart.sh` copies it to `/tmp` where `docker-compose.yml` mounts it into PostgreSQL's init directory for automatic restoration.
+The database is backed up to `postgres/group1db_backup.sql`. On restart, `lab_restart.sh` runs a full rebuild and restores from that file. `docker-compose.yml` mounts it directly from `./postgres/` into PostgreSQL's init directory for automatic restoration.
 
 ```
-h-drive backup → /tmp/group1db_backup.sql → docker-entrypoint-initdb.d/ → auto-restore
+postgres/group1db_backup.sql → docker-entrypoint-initdb.d/ → auto-restore
 ```
 
 Always run `./scripts/backup_db.sh` after important data changes.
@@ -191,7 +323,7 @@ Always run `./scripts/backup_db.sh` after important data changes.
 ### Route Finding Example
 
 ```bash
-curl "http://localhost:5000/api/routes?start=250012161&end=250010001"
+curl "http://localhost:5100/api/routes?start=250012161&end=250010001"
 ```
 
 Returns direct routes and transfer options with estimated travel times. Travel times are estimated using haversine distance at ~20 km/h average bus speed.
@@ -307,7 +439,7 @@ server.js (entry)
 ### Port already in use
 
 ```bash
-lsof -i :5001              # Find what's using the port
+lsof -i :5101              # Find what's using the port
 kill -9 <PID>              # Kill it
 ```
 
@@ -362,4 +494,4 @@ podman-compose up -d
 
 | Variable | Description |
 |----------|-------------|
-| `REACT_APP_API_URL` | Backend API URL (default: `http://localhost:5000`) |
+| `REACT_APP_API_URL` | Backend API URL (default: `http://localhost:5100`) |

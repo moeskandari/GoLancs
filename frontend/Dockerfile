@@ -11,6 +11,10 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Accept API URL at build time so React can embed it in the JS bundle
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 # Build React app
 RUN npm run build
 
