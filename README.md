@@ -4,6 +4,21 @@ SCC200 Group 1 — A multi-modal transport route planner for Lancaster, Preston,
 
 ---
 
+## Documentation
+
+This repository includes the supporting documents produced alongside the codebase.
+
+| Document | Purpose |
+|----------|---------|
+| `Participant Information Sheet.docx` | Given to each participant before user testing; explains consent, data handling and what testing involved. The app was tested with real users following this process. |
+| `Software-Security-Code-of-Practice-Self-Assessment-Template.docx` | Our completed code of conduct and security self-assessment against the department's software security code of practice. |
+| `Group 2-1 Design Report.pdf` | Full design report covering requirements, architecture and system design decisions. |
+| `Presentation slides.pptx` | Slides from our project presentation, delivered to potential buyers alongside a breakdown of development and running costs. |
+
+We presented the finished product to potential buyers, covering both the system itself and the costs involved in building and running it.
+
+---
+
 ## Personal Computer Quick Start
 
 > Follow these steps if you received the project as a zip file and want to run it on your own Mac, Windows, or Linux machine. You can use either **Docker** or **Podman** — both work.
